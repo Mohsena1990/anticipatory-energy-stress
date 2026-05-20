@@ -1,0 +1,31 @@
+construct,variable,theoretical_role,scoring_direction,zero_variance,included
+Insecurity,S8,income difficulty,higher = more insecure,False,True
+Insecurity,E2A,perceived energy cost,higher = more insecure,False,True
+Insecurity,E2B,perceived energy cost,higher = more insecure,False,True
+Insecurity,E7A,energy worry -- bills,higher = more insecure,False,True
+Insecurity,E7B,energy worry -- supply,higher = more insecure,False,True
+Insecurity,E7C,energy worry -- environment,higher = more insecure,False,True
+Insecurity,E7D,energy worry -- dependence,higher = more insecure,False,True
+Insecurity,E7E,energy worry -- access,higher = more insecure,False,True
+Resource Preservation,H9,thermostat control,higher = more adaptive,False,True
+Resource Preservation,E5A1,energy saving: switched off lights,"1 = yes, 0 = no",False,True
+Resource Preservation,E5A2,energy saving: reduced heating,"1 = yes, 0 = no",False,True
+Resource Preservation,E5A3,energy saving: used less hot water,"1 = yes, 0 = no",False,True
+Resource Preservation,E5A4,energy saving: wore more clothes,"1 = yes, 0 = no",False,True
+Resource Preservation,E5A5,energy saving: heat only some rooms,"1 = yes, 0 = no",False,True
+Resource Preservation,E5A9,energy saving: other,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A1,behaviour: checked meter,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A2,behaviour: compared tariffs,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A3,behaviour: changed supplier,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A4,behaviour: sought advice,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A5,behaviour: reduced overall usage,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A6,behaviour: installed smart meter,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A7,behaviour: improved insulation,"1 = yes, 0 = no",False,True
+Resource Preservation,E6A8,behaviour: other,"1 = yes, 0 = no",False,True
+Thermal Discomfort,H12A,satisfaction with heating (winter),higher = less satisfied,False,True
+Thermal Discomfort,H12B,satisfaction with heating (summer),higher = less satisfied,False,True
+Thermal Discomfort,H15A,renovation barrier / comfort issue,higher = more constrained,False,True
+Thermal Discomfort,H15B,renovation barrier / comfort issue,higher = more constrained,False,True
+Thermal Discomfort,H15C,renovation barrier / comfort issue,higher = more constrained,False,True
+Thermal Discomfort,H15D,renovation barrier / comfort issue,higher = more constrained,False,True
+Thermal Discomfort,H15E,renovation barrier / comfort issue,higher = more constrained,False,True

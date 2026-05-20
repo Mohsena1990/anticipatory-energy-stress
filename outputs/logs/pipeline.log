@@ -1,0 +1,519 @@
+2026-05-19 03:03:05 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:05 | INFO     | energy_stress.pipeline | STAGE 0: Loading raw UK data
+2026-05-19 03:03:05 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (source) | mean=8.129, range=[-13.200, 51.900]
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (pct_change 12) from CPI index | mean=7.211, range=[-8.108, 31.327]
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | YoY % from EUA price | mean=1744.766, range=[-99.878, 155100.000]
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) → YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | Core dataset saved → data/raw/core_energy_carbon.csv
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
+2026-05-19 03:03:06 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 03:03:08 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=2.5025%, range=[-1.1074, 6.6272]
+2026-05-19 03:03:08 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader | [weather_volatility] 168 obs (UK-filtered) | mean=1.0819, range=[0.6241, 1.9903]
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader | Macro dataset: 168 rows, 2005-01-01 to 2018-12-01
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=2.5025%
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0819
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1339%
+2026-05-19 03:03:09 | INFO     | energy_stress.data_loader | Macro dataset saved → data/raw/macro_controls.csv
+2026-05-19 03:03:09 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:09 | INFO     | energy_stress.pipeline | STAGE 1: Preprocessing
+2026-05-19 03:03:09 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:11 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
+2026-05-19 03:03:11 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-19 03:03:11 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.9671, p=0.3012 → NON-STATIONARY
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0707, p=0.2565 → NON-STATIONARY
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-5.2484, p=0.0000 → STATIONARY
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
+2026-05-19 03:03:13 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/macro_controls.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | [macro] No missing values detected
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/macro_processed.csv
+2026-05-19 03:03:13 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | STAGE 2: Model training & evaluation (core + macro modes)
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | Series: GAS
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 03:03:13 | INFO     | energy_stress.pipeline | [gas] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 03:03:13 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on gas (train=144 obs)
+2026-05-19 03:04:58 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (2, 1, 0, 12)
+2026-05-19 03:04:59 | INFO     | energy_stress.sarima | [SARIMA-CORE gas] 2017 eval: MAE=2.1222, RMSE=2.4007, MAPE=1040.88%
+2026-05-19 03:05:00 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_sarima_core.csv
+2026-05-19 03:05:00 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on gas (train=144 obs)
+2026-05-19 03:06:41 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (2, 1, 0, 12)
+2026-05-19 03:06:41 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 03:06:44 | INFO     | energy_stress.sarima | [SARIMA-MACRO gas] 2017 eval: MAE=2.1040, RMSE=2.5449, MAPE=1331.25%
+2026-05-19 03:06:49 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 03:06:50 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on gas (train=144 obs, regressors=False)
+2026-05-19 03:06:51 | INFO     | energy_stress.prophet | [Prophet-CORE gas] 2017 eval: MAE=3.6937, RMSE=3.9932
+2026-05-19 03:06:52 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_prophet_core.csv
+2026-05-19 03:06:52 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on gas (train=144 obs, regressors=True)
+2026-05-19 03:06:53 | INFO     | energy_stress.prophet | [Prophet-MACRO gas] 2017 eval: MAE=3.7089, RMSE=4.0604
+2026-05-19 03:06:53 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 03:07:14 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on gas (train=144, use_macro=False)
+2026-05-19 03:08:05 | INFO     | energy_stress.lstm | [LSTM-CORE gas] 2017 eval: MAE=1.0544, RMSE=1.2499
+2026-05-19 03:14:39 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_lstm_core.csv
+2026-05-19 03:14:39 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on gas (train=144, use_macro=True)
+2026-05-19 03:15:25 | INFO     | energy_stress.lstm | [LSTM-MACRO gas] 2017 eval: MAE=5.2033, RMSE=5.3687
+2026-05-19 03:21:46 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 03:22:06 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting gas (core)
+2026-05-19 03:22:10 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 03:22:10 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on gas (train=144, use_macro=False)
+2026-05-19 03:22:14 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.49007
+2026-05-19 03:22:18 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.20229
+2026-05-19 03:22:22 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.17592
+2026-05-19 03:22:26 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14271
+2026-05-19 03:22:26 | INFO     | energy_stress.tft | [TFT-Fallback-CORE gas] 2017 eval: MAE=4.3439, RMSE=4.6993
+2026-05-19 03:22:30 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.47517
+2026-05-19 03:22:34 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.22448
+2026-05-19 03:22:37 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.15614
+2026-05-19 03:22:41 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14481
+2026-05-19 03:22:41 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_tft_core.csv
+2026-05-19 03:22:41 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting gas (macro)
+2026-05-19 03:22:42 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 03:22:42 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on gas (train=144, use_macro=True)
+2026-05-19 03:22:45 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.35486
+2026-05-19 03:22:49 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16273
+2026-05-19 03:22:53 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.11270
+2026-05-19 03:22:56 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.08666
+2026-05-19 03:22:56 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO gas] 2017 eval: MAE=7.4614, RMSE=8.1786
+2026-05-19 03:23:00 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.35711
+2026-05-19 03:23:04 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.15475
+2026-05-19 03:23:08 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.11151
+2026-05-19 03:23:11 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.09454
+2026-05-19 03:23:11 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_tft_macro.csv
+2026-05-19 03:23:11 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 03:23:11 | INFO     | energy_stress.pipeline | Series: ELECTRICITY
+2026-05-19 03:23:11 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 03:23:11 | INFO     | energy_stress.pipeline | [electricity] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 03:23:11 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on electricity (train=144 obs)
+2026-05-19 03:25:33 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 1) × (2, 1, 0, 12)
+2026-05-19 03:25:34 | INFO     | energy_stress.sarima | [SARIMA-CORE electricity] 2017 eval: MAE=5.8835, RMSE=7.0630, MAPE=117.84%
+2026-05-19 03:25:35 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_sarima_core.csv
+2026-05-19 03:25:35 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on electricity (train=144 obs)
+2026-05-19 03:27:58 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 1) × (2, 1, 0, 12)
+2026-05-19 03:27:58 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 03:28:04 | INFO     | energy_stress.sarima | [SARIMA-MACRO electricity] 2017 eval: MAE=5.6502, RMSE=6.9434, MAPE=84.27%
+2026-05-19 03:28:09 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 03:28:09 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on electricity (train=144 obs, regressors=False)
+2026-05-19 03:28:11 | INFO     | energy_stress.prophet | [Prophet-CORE electricity] 2017 eval: MAE=7.9299, RMSE=9.1160
+2026-05-19 03:28:11 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_prophet_core.csv
+2026-05-19 03:28:11 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on electricity (train=144 obs, regressors=True)
+2026-05-19 03:28:12 | INFO     | energy_stress.prophet | [Prophet-MACRO electricity] 2017 eval: MAE=4.8129, RMSE=5.3890
+2026-05-19 03:28:12 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 03:28:12 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on electricity (train=144, use_macro=False)
+2026-05-19 03:28:58 | INFO     | energy_stress.lstm | [LSTM-CORE electricity] 2017 eval: MAE=5.1159, RMSE=5.8758
+2026-05-19 03:36:02 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_lstm_core.csv
+2026-05-19 03:36:02 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on electricity (train=144, use_macro=True)
+2026-05-19 03:36:48 | INFO     | energy_stress.lstm | [LSTM-MACRO electricity] 2017 eval: MAE=4.6291, RMSE=5.0136
+2026-05-19 03:43:28 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 03:43:28 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting electricity (core)
+2026-05-19 03:43:30 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 03:43:30 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on electricity (train=144, use_macro=False)
+2026-05-19 03:43:34 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.50365
+2026-05-19 03:43:40 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.25961
+2026-05-19 03:43:45 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.17466
+2026-05-19 03:43:50 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14683
+2026-05-19 03:43:51 | INFO     | energy_stress.tft | [TFT-Fallback-CORE electricity] 2017 eval: MAE=6.3667, RMSE=7.5073
+2026-05-19 03:43:56 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.49615
+2026-05-19 03:44:00 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.27337
+2026-05-19 03:44:05 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.18770
+2026-05-19 03:44:10 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.16020
+2026-05-19 03:44:10 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_tft_core.csv
+2026-05-19 03:44:10 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting electricity (macro)
+2026-05-19 03:44:10 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 03:44:10 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on electricity (train=144, use_macro=True)
+2026-05-19 03:44:15 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.37535
+2026-05-19 03:44:19 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16455
+2026-05-19 03:44:23 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.14395
+2026-05-19 03:44:27 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.10371
+2026-05-19 03:44:27 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO electricity] 2017 eval: MAE=2.4111, RMSE=2.8980
+2026-05-19 03:44:32 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.39072
+2026-05-19 03:44:37 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16546
+2026-05-19 03:44:42 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.13992
+2026-05-19 03:44:46 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.13311
+2026-05-19 03:44:46 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_tft_macro.csv
+2026-05-19 03:44:46 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 03:44:46 | INFO     | energy_stress.pipeline | Series: CARBON
+2026-05-19 03:44:46 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 03:44:46 | INFO     | energy_stress.pipeline | [carbon] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 03:44:46 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on carbon (train=144 obs)
+2026-05-19 03:46:11 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (0, 1, 1, 12)
+2026-05-19 03:46:11 | INFO     | energy_stress.sarima | [SARIMA-CORE carbon] 2017 eval: MAE=104.8485, RMSE=221.0264, MAPE=528.44%
+2026-05-19 03:46:12 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_sarima_core.csv
+2026-05-19 03:46:12 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on carbon (train=144 obs)
+2026-05-19 03:47:37 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (0, 1, 1, 12)
+2026-05-19 03:47:37 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 03:47:38 | INFO     | energy_stress.sarima | [SARIMA-MACRO carbon] 2017 eval: MAE=2102.3309, RMSE=2218.1007, MAPE=15718.74%
+2026-05-19 03:47:39 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 03:47:39 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on carbon (train=144 obs, regressors=False)
+2026-05-19 03:47:40 | INFO     | energy_stress.prophet | [Prophet-CORE carbon] 2017 eval: MAE=4682.7372, RMSE=5750.1079
+2026-05-19 03:47:41 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_prophet_core.csv
+2026-05-19 03:47:41 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on carbon (train=144 obs, regressors=True)
+2026-05-19 03:47:42 | INFO     | energy_stress.prophet | [Prophet-MACRO carbon] 2017 eval: MAE=2955.9768, RMSE=5549.9520
+2026-05-19 03:47:42 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 03:47:42 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on carbon (train=144, use_macro=False)
+2026-05-19 03:48:44 | INFO     | energy_stress.lstm | [LSTM-CORE carbon] 2017 eval: MAE=562.0983, RMSE=582.7298
+2026-05-19 03:55:21 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_lstm_core.csv
+2026-05-19 03:55:21 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on carbon (train=144, use_macro=True)
+2026-05-19 03:56:11 | INFO     | energy_stress.lstm | [LSTM-MACRO carbon] 2017 eval: MAE=844.9916, RMSE=970.9848
+2026-05-19 04:03:16 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 04:03:16 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting carbon (core)
+2026-05-19 04:03:17 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 04:03:17 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on carbon (train=144, use_macro=False)
+2026-05-19 04:03:22 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.19264
+2026-05-19 04:03:26 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.17838
+2026-05-19 04:03:31 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.08861
+2026-05-19 04:03:36 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.06181
+2026-05-19 04:03:36 | INFO     | energy_stress.tft | [TFT-Fallback-CORE carbon] 2017 eval: MAE=69.2839, RMSE=74.4630
+2026-05-19 04:03:40 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.20251
+2026-05-19 04:03:45 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16952
+2026-05-19 04:03:49 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.07763
+2026-05-19 04:03:54 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.06616
+2026-05-19 04:03:54 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_tft_core.csv
+2026-05-19 04:03:54 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting carbon (macro)
+2026-05-19 04:03:54 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 04:03:54 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on carbon (train=144, use_macro=True)
+2026-05-19 04:03:59 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.19416
+2026-05-19 04:04:03 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.19060
+2026-05-19 04:04:08 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.08017
+2026-05-19 04:04:12 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.05732
+2026-05-19 04:04:12 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO carbon] 2017 eval: MAE=99.2729, RMSE=119.9223
+2026-05-19 04:04:17 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.20209
+2026-05-19 04:04:21 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16213
+2026-05-19 04:04:26 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.10747
+2026-05-19 04:04:31 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.05878
+2026-05-19 04:04:31 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_tft_macro.csv
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/gas_growth_pct_forecasts_all.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/gas_growth_pct_forecasts_core.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/gas_growth_pct_forecasts_macro.csv
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/electricity_growth_pct_forecasts_all.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/electricity_growth_pct_forecasts_core.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/electricity_growth_pct_forecasts_macro.csv
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 04:04:31 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/carbon_growth_pct_forecasts_all.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/carbon_growth_pct_forecasts_core.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/carbon_growth_pct_forecasts_macro.csv
+2026-05-19 04:04:31 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 04:04:31 | INFO     | energy_stress.pipeline | STAGE 3: Metrics & ranking
+2026-05-19 04:04:31 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 04:04:31 | INFO     | energy_stress.model_evaluation | Evaluating 24 model results across all series and modes
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [carbon][core]: TFT (score=11.5)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [carbon][macro]: TFT (score=10.5)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [electricity][core]: SARIMA (score=14.5)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [electricity][macro]: TFT (score=13.0)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [gas][core]: LSTM (score=12.0)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Best model [gas][macro]: SARIMA (score=10.5)
+2026-05-19 04:04:32 | INFO     | energy_stress.model_evaluation | Metrics table saved → outputs/tables/model_metrics_comparison.csv
+2026-05-19 05:13:41 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:41 | INFO     | energy_stress.pipeline | STAGE 0: Loading raw UK data
+2026-05-19 05:13:41 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (source) | mean=8.129, range=[-13.200, 51.900]
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (pct_change 12) from CPI index | mean=7.211, range=[-8.108, 31.327]
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | YoY % from EUA price | mean=1744.766, range=[-99.878, 155100.000]
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) → YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | Core dataset saved → data/raw/core_energy_carbon.csv
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
+2026-05-19 05:13:43 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-19 05:13:44 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=2.5025%, range=[-1.1074, 6.6272]
+2026-05-19 05:13:44 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
+2026-05-19 05:13:45 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader | [weather_volatility] 168 obs (UK-filtered) | mean=1.0819, range=[0.6241, 1.9903]
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader | Macro dataset: 168 rows, 2005-01-01 to 2018-12-01
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=2.5025%
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0819
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1339%
+2026-05-19 05:13:46 | INFO     | energy_stress.data_loader | Macro dataset saved → data/raw/macro_controls.csv
+2026-05-19 05:13:46 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:46 | INFO     | energy_stress.pipeline | STAGE 1: Preprocessing
+2026-05-19 05:13:46 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:47 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
+2026-05-19 05:13:47 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-19 05:13:47 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.9671, p=0.3012 → NON-STATIONARY
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0707, p=0.2565 → NON-STATIONARY
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-5.2484, p=0.0000 → STATIONARY
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
+2026-05-19 05:13:50 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/macro_controls.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | [macro] No missing values detected
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/macro_processed.csv
+2026-05-19 05:13:50 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | STAGE 2: Model training & evaluation (core + macro modes)
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | Series: GAS
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 05:13:50 | INFO     | energy_stress.pipeline | [gas] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 05:13:50 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on gas (train=144 obs)
+2026-05-19 05:15:29 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (2, 1, 0, 12)
+2026-05-19 05:15:30 | INFO     | energy_stress.sarima | [SARIMA-CORE gas] 2017 eval: MAE=2.1222, RMSE=2.4007, MAPE=1040.88%
+2026-05-19 05:15:31 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_sarima_core.csv
+2026-05-19 05:15:31 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on gas (train=144 obs)
+2026-05-19 05:17:04 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (2, 1, 0, 12)
+2026-05-19 05:17:04 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 05:17:08 | INFO     | energy_stress.sarima | [SARIMA-MACRO gas] 2017 eval: MAE=2.1040, RMSE=2.5449, MAPE=1331.25%
+2026-05-19 05:17:12 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 05:17:13 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on gas (train=144 obs, regressors=False)
+2026-05-19 05:17:15 | INFO     | energy_stress.prophet | [Prophet-CORE gas] 2017 eval: MAE=3.6937, RMSE=3.9932
+2026-05-19 05:17:15 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_prophet_core.csv
+2026-05-19 05:17:15 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on gas (train=144 obs, regressors=True)
+2026-05-19 05:17:16 | INFO     | energy_stress.prophet | [Prophet-MACRO gas] 2017 eval: MAE=3.7089, RMSE=4.0604
+2026-05-19 05:17:16 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 05:17:28 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on gas (train=144, use_macro=False)
+2026-05-19 05:18:15 | INFO     | energy_stress.lstm | [LSTM-CORE gas] 2017 eval: MAE=0.8044, RMSE=1.3474
+2026-05-19 05:24:40 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_lstm_core.csv
+2026-05-19 05:24:40 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on gas (train=144, use_macro=True)
+2026-05-19 05:25:25 | INFO     | energy_stress.lstm | [LSTM-MACRO gas] 2017 eval: MAE=4.2277, RMSE=4.4909
+2026-05-19 05:31:49 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 05:32:06 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting gas (core)
+2026-05-19 05:32:11 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 05:32:11 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on gas (train=144, use_macro=False)
+2026-05-19 05:32:15 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.49007
+2026-05-19 05:32:20 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.20229
+2026-05-19 05:32:25 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.17592
+2026-05-19 05:32:29 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14271
+2026-05-19 05:32:29 | INFO     | energy_stress.tft | [TFT-Fallback-CORE gas] 2017 eval: MAE=4.3439, RMSE=4.6993
+2026-05-19 05:32:34 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.47517
+2026-05-19 05:32:38 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.22448
+2026-05-19 05:32:42 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.15614
+2026-05-19 05:32:47 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14481
+2026-05-19 05:32:47 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_tft_core.csv
+2026-05-19 05:32:47 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting gas (macro)
+2026-05-19 05:32:47 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 05:32:47 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on gas (train=144, use_macro=True)
+2026-05-19 05:32:52 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.35486
+2026-05-19 05:32:56 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16273
+2026-05-19 05:33:01 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.11270
+2026-05-19 05:33:05 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.08666
+2026-05-19 05:33:05 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO gas] 2017 eval: MAE=7.4614, RMSE=8.1786
+2026-05-19 05:33:10 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.35711
+2026-05-19 05:33:14 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.15475
+2026-05-19 05:33:19 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.11151
+2026-05-19 05:33:23 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.09454
+2026-05-19 05:33:23 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/gas_growth_pct_forecasts_tft_macro.csv
+2026-05-19 05:33:23 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 05:33:23 | INFO     | energy_stress.pipeline | Series: ELECTRICITY
+2026-05-19 05:33:23 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 05:33:23 | INFO     | energy_stress.pipeline | [electricity] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 05:33:23 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on electricity (train=144 obs)
+2026-05-19 05:35:56 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 1) × (2, 1, 0, 12)
+2026-05-19 05:35:58 | INFO     | energy_stress.sarima | [SARIMA-CORE electricity] 2017 eval: MAE=5.8835, RMSE=7.0630, MAPE=117.84%
+2026-05-19 05:35:59 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_sarima_core.csv
+2026-05-19 05:35:59 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on electricity (train=144 obs)
+2026-05-19 05:38:23 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 1) × (2, 1, 0, 12)
+2026-05-19 05:38:23 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 05:38:28 | INFO     | energy_stress.sarima | [SARIMA-MACRO electricity] 2017 eval: MAE=5.6502, RMSE=6.9434, MAPE=84.27%
+2026-05-19 05:38:34 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 05:38:34 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on electricity (train=144 obs, regressors=False)
+2026-05-19 05:38:35 | INFO     | energy_stress.prophet | [Prophet-CORE electricity] 2017 eval: MAE=7.9299, RMSE=9.1160
+2026-05-19 05:38:36 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_prophet_core.csv
+2026-05-19 05:38:36 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on electricity (train=144 obs, regressors=True)
+2026-05-19 05:38:37 | INFO     | energy_stress.prophet | [Prophet-MACRO electricity] 2017 eval: MAE=4.8129, RMSE=5.3890
+2026-05-19 05:38:37 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 05:38:37 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on electricity (train=144, use_macro=False)
+2026-05-19 05:39:23 | INFO     | energy_stress.lstm | [LSTM-CORE electricity] 2017 eval: MAE=5.2869, RMSE=6.1012
+2026-05-19 05:46:12 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_lstm_core.csv
+2026-05-19 05:46:12 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on electricity (train=144, use_macro=True)
+2026-05-19 05:46:58 | INFO     | energy_stress.lstm | [LSTM-MACRO electricity] 2017 eval: MAE=4.3782, RMSE=4.6925
+2026-05-19 05:53:32 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 05:53:32 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting electricity (core)
+2026-05-19 05:53:35 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 05:53:35 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on electricity (train=144, use_macro=False)
+2026-05-19 05:53:40 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.50365
+2026-05-19 05:53:45 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.25961
+2026-05-19 05:53:49 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.17466
+2026-05-19 05:53:54 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.14683
+2026-05-19 05:53:54 | INFO     | energy_stress.tft | [TFT-Fallback-CORE electricity] 2017 eval: MAE=6.3667, RMSE=7.5073
+2026-05-19 05:53:58 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.49615
+2026-05-19 05:54:03 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.27337
+2026-05-19 05:54:07 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.18770
+2026-05-19 05:54:11 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.16020
+2026-05-19 05:54:11 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_tft_core.csv
+2026-05-19 05:54:11 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting electricity (macro)
+2026-05-19 05:54:12 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 05:54:12 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on electricity (train=144, use_macro=True)
+2026-05-19 05:54:17 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.37535
+2026-05-19 05:54:21 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16455
+2026-05-19 05:54:25 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.14395
+2026-05-19 05:54:29 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.10371
+2026-05-19 05:54:29 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO electricity] 2017 eval: MAE=2.4111, RMSE=2.8980
+2026-05-19 05:54:34 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.39072
+2026-05-19 05:54:38 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16546
+2026-05-19 05:54:43 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.13992
+2026-05-19 05:54:47 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.13311
+2026-05-19 05:54:47 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/electricity_growth_pct_forecasts_tft_macro.csv
+2026-05-19 05:54:47 | INFO     | energy_stress.pipeline | 
+──────────────────────────────────────────────────
+2026-05-19 05:54:47 | INFO     | energy_stress.pipeline | Series: CARBON
+2026-05-19 05:54:47 | INFO     | energy_stress.pipeline | ──────────────────────────────────────────────────
+2026-05-19 05:54:47 | INFO     | energy_stress.pipeline | [carbon] train=144, test=12, full=156, actual_2018=12 non-null
+2026-05-19 05:54:47 | INFO     | energy_stress.sarima | [SARIMA-CORE] Fitting on carbon (train=144 obs)
+2026-05-19 05:56:14 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (0, 1, 1, 12)
+2026-05-19 05:56:14 | INFO     | energy_stress.sarima | [SARIMA-CORE carbon] 2017 eval: MAE=104.8485, RMSE=221.0264, MAPE=528.44%
+2026-05-19 05:56:15 | INFO     | energy_stress.sarima | [SARIMA-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_sarima_core.csv
+2026-05-19 05:56:15 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Fitting on carbon (train=144 obs)
+2026-05-19 05:57:39 | INFO     | energy_stress.sarima | SARIMA best order: (2, 0, 0) × (0, 1, 1, 12)
+2026-05-19 05:57:39 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Using exogenous: ['inflation_growth', 'weather_volatility', 'gdp_growth']
+2026-05-19 05:57:40 | INFO     | energy_stress.sarima | [SARIMA-MACRO carbon] 2017 eval: MAE=2102.3309, RMSE=2218.1007, MAPE=15718.74%
+2026-05-19 05:57:40 | INFO     | energy_stress.sarima | [SARIMA-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_sarima_macro.csv
+2026-05-19 05:57:40 | INFO     | energy_stress.prophet | [Prophet-CORE] Fitting on carbon (train=144 obs, regressors=False)
+2026-05-19 05:57:42 | INFO     | energy_stress.prophet | [Prophet-CORE carbon] 2017 eval: MAE=4682.7372, RMSE=5750.1079
+2026-05-19 05:57:43 | INFO     | energy_stress.prophet | [Prophet-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_prophet_core.csv
+2026-05-19 05:57:43 | INFO     | energy_stress.prophet | [Prophet-MACRO] Fitting on carbon (train=144 obs, regressors=True)
+2026-05-19 05:57:43 | INFO     | energy_stress.prophet | [Prophet-MACRO carbon] 2017 eval: MAE=2955.9768, RMSE=5549.9520
+2026-05-19 05:57:44 | INFO     | energy_stress.prophet | [Prophet-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_prophet_macro.csv
+2026-05-19 05:57:44 | INFO     | energy_stress.lstm | [LSTM-CORE] Training on carbon (train=144, use_macro=False)
+2026-05-19 05:58:31 | INFO     | energy_stress.lstm | [LSTM-CORE carbon] 2017 eval: MAE=88.9786, RMSE=99.4463
+2026-05-19 06:05:05 | INFO     | energy_stress.lstm | [LSTM-CORE] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_lstm_core.csv
+2026-05-19 06:05:05 | INFO     | energy_stress.lstm | [LSTM-MACRO] Training on carbon (train=144, use_macro=True)
+2026-05-19 06:05:52 | INFO     | energy_stress.lstm | [LSTM-MACRO carbon] 2017 eval: MAE=459.8215, RMSE=579.9933
+2026-05-19 06:12:34 | INFO     | energy_stress.lstm | [LSTM-MACRO] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_lstm_macro.csv
+2026-05-19 06:12:34 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting carbon (core)
+2026-05-19 06:12:34 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 06:12:34 | INFO     | energy_stress.tft | [TFT-Fallback-CORE] Training on carbon (train=144, use_macro=False)
+2026-05-19 06:12:39 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.19264
+2026-05-19 06:12:43 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.17838
+2026-05-19 06:12:47 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.08861
+2026-05-19 06:12:52 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.06181
+2026-05-19 06:12:52 | INFO     | energy_stress.tft | [TFT-Fallback-CORE carbon] 2017 eval: MAE=69.2839, RMSE=74.4630
+2026-05-19 06:12:56 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.20251
+2026-05-19 06:13:01 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16952
+2026-05-19 06:13:05 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.07763
+2026-05-19 06:13:10 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.06616
+2026-05-19 06:13:10 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_tft_core.csv
+2026-05-19 06:13:10 | INFO     | energy_stress.tft | [TFT/pytorch-forecasting] Fitting carbon (macro)
+2026-05-19 06:13:10 | WARNING  | energy_stress.tft | pytorch-forecasting TFT failed (`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TemporalFusionTransformer`); falling back to Attention-LSTM
+2026-05-19 06:13:10 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO] Training on carbon (train=144, use_macro=True)
+2026-05-19 06:13:15 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.19416
+2026-05-19 06:13:20 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.19060
+2026-05-19 06:13:24 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.08017
+2026-05-19 06:13:29 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.05732
+2026-05-19 06:13:29 | INFO     | energy_stress.tft | [TFT-Fallback-MACRO carbon] 2017 eval: MAE=99.2729, RMSE=119.9223
+2026-05-19 06:13:33 | DEBUG    | energy_stress.tft | Epoch 20/80  loss=0.20209
+2026-05-19 06:13:38 | DEBUG    | energy_stress.tft | Epoch 40/80  loss=0.16213
+2026-05-19 06:13:42 | DEBUG    | energy_stress.tft | Epoch 60/80  loss=0.10747
+2026-05-19 06:13:48 | DEBUG    | energy_stress.tft | Epoch 80/80  loss=0.05878
+2026-05-19 06:13:48 | INFO     | energy_stress.tft | [TFT-Fallback] Forecast saved → outputs/forecasts/carbon_growth_pct_forecasts_tft_macro.csv
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/gas_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/gas_growth_pct_forecasts_all.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/gas_growth_pct_forecasts_core.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/gas_growth_pct_forecasts_macro.csv
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/electricity_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/electricity_growth_pct_forecasts_all.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/electricity_growth_pct_forecasts_core.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/electricity_growth_pct_forecasts_macro.csv
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_sarima_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_sarima_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_prophet_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_prophet_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_lstm_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_lstm_macro.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_tft_core.csv (12 rows)
+2026-05-19 06:13:48 | DEBUG    | energy_stress.model_evaluation | Loaded outputs/forecasts/carbon_growth_pct_forecasts_tft_macro.csv (12 rows)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Combined forecasts (96 rows) → outputs/forecasts/carbon_growth_pct_forecasts_all.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   core combined → outputs/forecasts/carbon_growth_pct_forecasts_core.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation |   macro combined → outputs/forecasts/carbon_growth_pct_forecasts_macro.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | STAGE 3: Metrics & ranking
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Evaluating 24 model results across all series and modes
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [carbon][core]: TFT (score=11.5)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [carbon][macro]: TFT (score=9.5)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [electricity][core]: SARIMA (score=13.5)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [electricity][macro]: TFT (score=9.0)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [gas][core]: LSTM (score=11.0)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Best model [gas][macro]: SARIMA (score=10.5)
+2026-05-19 06:13:48 | INFO     | energy_stress.model_evaluation | Metrics table saved → outputs/tables/model_metrics_comparison.csv
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | STAGE 4: FES computation (core / macro / actual)
+2026-05-19 06:13:48 | INFO     | energy_stress.pipeline | ========================================
+2026-05-19 06:13:48 | INFO     | energy_stress.fes | Best models selected:
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [carbon][core] → TFT
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [carbon][macro] → TFT
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [electricity][core] → SARIMA
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [electricity][macro] → TFT
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [gas][core] → LSTM
+2026-05-19 06:13:48 | INFO     | energy_stress.fes |   [gas][macro] → SARIMA
+2026-05-19 06:13:48 | INFO     | energy_stress.fes | [gas] train μ=8.4724, σ=15.2261 | unc_ref μ=6.8620, σ=6.3934
+2026-05-19 06:13:48 | INFO     | energy_stress.fes | [electricity] train μ=7.0964, σ=8.9345 | unc_ref μ=4.3958, σ=3.6200
+2026-05-19 06:13:48 | INFO     | energy_stress.fes | [carbon] train μ=1819.8198, σ=13016.9639 | unc_ref μ=3811.0131, σ=11817.2351
+2026-05-19 06:13:49 | INFO     | energy_stress.fes | Monthly FES saved → outputs/fes/fes_monthly_2018.csv
+2026-05-19 06:13:49 | INFO     | energy_stress.fes | FES summary saved → outputs/fes/fes_summary_2018.csv
+2026-05-19 06:13:49 | INFO     | energy_stress.fes | FES components table saved → outputs/fes/fes_components_table.csv
+2026-05-19 06:13:50 | INFO     | energy_stress.fes | Figure saved → outputs/figures/fes_monthly_2018.png
+2026-05-19 06:13:51 | INFO     | energy_stress.fes | Figure saved → outputs/figures/fes_components_2018.png
+2026-05-19 06:13:53 | INFO     | energy_stress.fes | Figure saved → outputs/figures/forecast_vs_actual_all_series.png
+2026-05-19 06:13:54 | INFO     | energy_stress.fes | Figure saved → outputs/figures/forecast_vs_actual_gas.png
+2026-05-19 06:13:55 | INFO     | energy_stress.fes | Figure saved → outputs/figures/forecast_vs_actual_electricity.png
+2026-05-19 06:13:55 | INFO     | energy_stress.fes | Figure saved → outputs/figures/forecast_vs_actual_carbon.png
+2026-05-19 06:13:56 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_gas_core.png
+2026-05-19 06:13:57 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_gas_macro.png
+2026-05-19 06:13:59 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_electricity_core.png
+2026-05-19 06:14:00 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_electricity_macro.png
+2026-05-19 06:14:00 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_carbon_core.png
+2026-05-19 06:14:01 | INFO     | energy_stress.plotting | Figure saved → outputs/figures/model_ranking_polar_carbon_macro.png
+2026-05-19 06:14:01 | WARNING  | energy_stress.fes | PI figure failed: cannot reindex on an axis with duplicate labels

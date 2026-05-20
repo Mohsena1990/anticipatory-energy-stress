@@ -1,0 +1,4 @@
+variant,annual_fes,interpretation,role_in_analysis
+fes_core,0.22278,"Main anticipatory stress: core-only model (gas, electricity, carbon growth)",Primary FES scenario; core energy-price forecasts only
+fes_macro,-1.2925,"Robustness 1: macro-augmented model (inflation, weather, GDP as exogenous inputs)",Alternative scenario; tests if macro context alters stress signal
+fes_actual,-0.04364,Robustness 2: realised 2018 energy prices (benchmark comparison),Ground-truth benchmark; verifies forecast direction and magnitude

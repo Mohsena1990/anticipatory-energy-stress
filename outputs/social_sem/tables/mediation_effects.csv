@@ -1,0 +1,2 @@
+pathway,a_path,b_path,direct_effect,indirect_effect,total_effect,proportion_mediated,ci_lower,ci_upper,significant
+Insecurity -> Preservation -> Discomfort,-0.08234,-0.23888,0.09104,0.01967,0.11049,0.178,0.00819,0.03156,yes

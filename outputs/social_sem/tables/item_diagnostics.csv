@@ -1,0 +1,31 @@
+construct,variable,n_valid,missing_rate,min,max,mean,std,zero_variance,used_in_score
+Insecurity,S8,1001,0.0138,1.0,4.0,2.1548,0.8685,False,True
+Insecurity,E2A,720,0.2906,1.0,6.0,1.8986,1.2279,False,True
+Insecurity,E2B,722,0.2887,1.0,6.0,2.9474,1.4103,False,True
+Insecurity,E7A,1015,0.0,1.0,5.0,3.1182,1.6127,False,True
+Insecurity,E7B,1015,0.0,1.0,5.0,2.6424,1.3217,False,True
+Insecurity,E7C,1015,0.0,1.0,5.0,2.7547,1.4322,False,True
+Insecurity,E7D,1015,0.0,1.0,5.0,2.3084,1.289,False,True
+Insecurity,E7E,1015,0.0,1.0,5.0,2.5438,1.3938,False,True
+Resource Preservation,H9,1015,0.0,1.0,4.0,2.402,0.6509,False,True
+Resource Preservation,E5A1,1015,0.0,0.0,1.0,0.8837,0.3205,False,True
+Resource Preservation,E5A2,1015,0.0,0.0,1.0,0.0424,0.2014,False,True
+Resource Preservation,E5A3,1015,0.0,0.0,1.0,0.0305,0.1721,False,True
+Resource Preservation,E5A4,1015,0.0,0.0,1.0,0.0512,0.2205,False,True
+Resource Preservation,E5A5,1015,0.0,0.0,1.0,0.0118,0.1081,False,True
+Resource Preservation,E5A9,1015,0.0,0.0,1.0,0.0059,0.0767,False,True
+Resource Preservation,E6A1,1015,0.0,0.0,1.0,0.1005,0.3007,False,True
+Resource Preservation,E6A2,1015,0.0,0.0,1.0,0.4818,0.4997,False,True
+Resource Preservation,E6A3,1015,0.0,0.0,1.0,0.8118,0.3909,False,True
+Resource Preservation,E6A4,1015,0.0,0.0,1.0,0.4601,0.4984,False,True
+Resource Preservation,E6A5,1015,0.0,0.0,1.0,0.0453,0.208,False,True
+Resource Preservation,E6A6,1015,0.0,0.0,1.0,0.001,0.0314,False,True
+Resource Preservation,E6A7,1015,0.0,0.0,1.0,0.0039,0.0627,False,True
+Resource Preservation,E6A8,1015,0.0,0.0,1.0,0.0059,0.0767,False,True
+Thermal Discomfort,H12A,932,0.0818,1.0,5.0,4.0215,1.0862,False,True
+Thermal Discomfort,H12B,932,0.0818,1.0,5.0,1.9785,1.0862,False,True
+Thermal Discomfort,H15A,929,0.0847,1.0,4.0,1.9559,0.8217,False,True
+Thermal Discomfort,H15B,866,0.1468,1.0,4.0,2.2309,0.928,False,True
+Thermal Discomfort,H15C,905,0.1084,1.0,4.0,1.9602,0.8836,False,True
+Thermal Discomfort,H15D,903,0.1103,1.0,4.0,3.0986,0.6757,False,True
+Thermal Discomfort,H15E,891,0.1222,1.0,4.0,3.0348,0.7856,False,True
