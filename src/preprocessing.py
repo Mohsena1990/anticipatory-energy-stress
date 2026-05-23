@@ -4,8 +4,8 @@ preprocessing.py
 Data preprocessing pipeline for both Dataset A (core) and Dataset B (macro).
 
 Input: cleaned CSVs produced by src/data_loader.py
-         data/raw/core_energy_carbon.csv
-         data/raw/macro_controls.csv
+         data/processed/core_energy_carbon.csv
+         data/processed/macro_controls.csv
 
 Steps
 ─────
@@ -16,7 +16,7 @@ Steps
   5. Stationarity check (ADF test)
   6. Log-return transformation (optional)
   7. Feature engineering: lags, rolling mean/std
-  8. Train / test split  (2005-2016 train | 2017 test | 2018 forecast)
+  8. Train / test split  (2005-2015 train | 2016 test | 2017 forecast)
   9. Save processed datasets to data/processed/
 """
 
@@ -28,14 +28,15 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from sympy import series
+from statsmodels.tsa.seasonal import STL
 
 from src.logging_utils import get_logger
 
 log = get_logger("preprocessing")
 
-TRAIN_END = "2016-12-01"
-TEST_START = "2017-01-01"
-TEST_END   = "2017-12-01"
+TRAIN_END = "2015-12-01"
+TEST_START = "2016-01-01"
+TEST_END   = "2016-12-01"
 
 
 # ── Step 1-2: Load & parse ────────────────────────────────────────────────────
@@ -58,6 +59,23 @@ def audit_missing(df: pd.DataFrame, label: str) -> pd.DataFrame:
         log.warning(f"[{label}] Missing values found:\n{missing[missing > 0]}")
         df = df.ffill().bfill()
         log.info(f"[{label}] Missing values filled via forward-fill + back-fill")
+    else:
+        log.info(f"[{label}] No missing values detected")
+    return df
+
+
+def audit_missing_no_future_fill(df: pd.DataFrame, label: str) -> pd.DataFrame:
+    """Forward-fill only, then use neutral zeros for remaining macro gaps."""
+    missing = df.isnull().sum()
+    if missing.any():
+        log.warning(f"[{label}] Missing values found:\n{missing[missing > 0]}")
+        df = df.ffill()
+        remaining = df.isnull().sum()
+        if remaining.any():
+            fill_cols = remaining[remaining > 0].index.tolist()
+            df[fill_cols] = df[fill_cols].fillna(0.0)
+            log.info(f"[{label}] Remaining leading gaps filled with neutral 0.0: {fill_cols}")
+        log.info(f"[{label}] Missing values filled without backward-fill")
     else:
         log.info(f"[{label}] No missing values detected")
     return df
@@ -143,7 +161,7 @@ def add_features(
 # ── Step 8: Train / test split ────────────────────────────────────────────────
 
 def split(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Return (train 2005-2016, test 2017)."""
+    """Return (train 2005-2015, test 2016)."""
     train = df.loc[:TRAIN_END].copy()
     test  = df.loc[TEST_START:TEST_END].copy()
     log.info(f"Train: {len(train)} rows | Test: {len(test)} rows")
@@ -160,8 +178,11 @@ def save_processed(df: pd.DataFrame, path: str) -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def signed_log1p(x):
+    return np.sign(x) * np.log1p(np.abs(x))
+
 def preprocess_core(
-    raw_path: str = "data/raw/core_energy_carbon.csv",
+    raw_path: str = "data/processed/core_energy_carbon.csv",
     out_path: str = "data/processed/core_processed.csv",
     add_feats: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -176,17 +197,27 @@ def preprocess_core(
 
     df = load_and_parse(raw_path)
     df = audit_missing(df, "core")
+    df = add_calendar_features(df) # Add calendar features before outlier detection and ADF check to test stationarity of the original series without calendar effects removed
+    df = add_stl_features(df, "gas_growth") # Add STL decomposition features to capture trend and seasonality, which can improve model performance and interpretability by separating underlying patterns from noise
+    df = add_stl_features(df, "electricity_growth") # Add STL decomposition features to capture trend and seasonality, which can improve model performance and interpretability by separating underlying patterns from noise
+    df["gas_growth_stable"] = signed_log1p(df["gas_growth"]) # Apply signed log transformation to stabilize variance and reduce skewness, improving stationarity for ADF test and model performance
+    df["electricity_growth_stable"] = signed_log1p(df["electricity_growth"]) # Apply signed log transformation to stabilize variance and reduce skewness, improving stationarity for ADF test and model performance
+    if "electricity_index" in df.columns:
+        df["electricity_index_mom"] = df["electricity_index"].pct_change(fill_method=None) * 100
+        df["electricity_index_trend_3"] = df["electricity_index"].rolling(3).mean()
+        df["electricity_index_trend_6"] = df["electricity_index"].rolling(6).mean()
+    df["post_2016_electricity_regime"] = (df.index >= "2016-01-01").astype(int)
+    df["post_2008_regime"] = (df.index >= "2009-01-01").astype(int) # Flag post-2008 regime to capture structural break after financial crisis, which may affect energy markets and model performance
+    df["low_price_regime"] = (
+        (df.index >= "2014-01-01") & 
+        (df.index <= "2016-12-01")
+    ).astype(int)
+
     df = flag_outliers(df)
 
     for col in TARGET_COLS:
         adf_check(df[col], col)
-
-    # df = add_log_returns(df, TARGET_COLS)
-    def signed_log1p(series):
-        return np.sign(series) * np.log1p(np.abs(series))
-    
-    
-    df[f"{col}_signed_log"] = signed_log1p(df[col])
+        df[f"{col}_signed_log"] = signed_log1p(df[col])
 
     if add_feats:
         df = add_features(df, TARGET_COLS)
@@ -198,7 +229,7 @@ def preprocess_core(
 
 
 def preprocess_macro(
-    raw_path: str = "data/raw/macro_controls.csv",
+    raw_path: str = "data/processed/macro_controls.csv",
     out_path: str = "data/processed/macro_processed.csv",
     add_feats: bool = True,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -209,10 +240,27 @@ def preprocess_macro(
     -------
     (full_df, train_df, test_df)
     """
-    MACRO_COLS = ["inflation_growth", "weather_volatility", "gdp_growth"]
+    MACRO_COLS = [
+        "inflation_growth_lag1",
+        "weather_volatility_lag1",
+        "gdp_growth_lag1",
+        "gas_futures_log_return_lag1",
+        "gas_futures_yoy_growth_lag1",
+        "electricity_demand_yoy_growth_lag1",
+        "electricity_peak_yoy_growth_lag1",
+        "embedded_wind_generation_mean_yoy_growth_lag1",
+        "embedded_solar_generation_mean_yoy_growth_lag1",
+        "embedded_wind_capacity_mean_yoy_growth_lag1",
+        "embedded_solar_capacity_mean_yoy_growth_lag1",
+        "pump_storage_pumping_mean_yoy_growth_lag1",
+        "interconnector_net_flow_mean_yoy_growth_lag1",
+        "holiday_share_lag1",
+        "post_2016_electricity_regime",
+    ]
 
     df = load_and_parse(raw_path)
-    df = audit_missing(df, "macro")
+    df = audit_missing_no_future_fill(df, "macro") 
+    df = add_calendar_features(df) # Add calendar features before outlier detection and ADF check to test stationarity of the original series without calendar effects removed
 
     if add_feats:
         df = add_features(df, MACRO_COLS, lags=[1, 3], windows=[3, 6])
@@ -221,6 +269,30 @@ def preprocess_macro(
 
     train, test = split(df)
     return df, train, test
+
+def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    df["month"] = df.index.month
+    df["sin_month"] = np.sin(2 * np.pi * df["month"] / 12)
+    df["cos_month"] = np.cos(2 * np.pi * df["month"] / 12)
+    df["winter_dummy"] = df["month"].isin([11, 12, 1, 2, 3]).astype(int)
+    df["time_index"] = np.arange(len(df))
+
+    return df
+
+
+def add_stl_features(df, col, period=12):
+    stl = STL(df[col].dropna(), period=period, robust=True)
+    res = stl.fit()
+
+    df[f"{col}_trend"] = res.trend
+    df[f"{col}_seasonal"] = res.seasonal
+    df[f"{col}_irregular"] = res.resid
+    return df
+
+
+
 
 
 if __name__ == "__main__":

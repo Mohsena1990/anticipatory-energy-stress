@@ -5,13 +5,13 @@ All figure-generation functions for the Anticipatory Energy Stress pipeline.
 
 Figures produced
 ────────────────
-  A. forecast_vs_actual_{series}.png        – historical + core/macro forecasts + actual 2018
+  A. forecast_vs_actual_{series}.png        – historical + core/macro forecasts + actual 2017
   B. growth_components_bar.png              – GasGrowth / ElecGrowth / CarbonGrowth bars
   C. uncertainty_components_bar.png         – per-series uncertainty + average
   D. step6_pipeline_diagram.png             – flowchart of Step 6 stages
   E. model_ranking_polar_{series}_{mode}.png – polar/radar chart of normalised model metrics
-  F. prediction_intervals_2018.png          – PI width comparison: core vs macro, all series
-  G. fes_monthly_2018.png                   – FES timeline: core vs macro vs actual (Jan-Dec)
+  F. prediction_intervals_2017.png          – PI width comparison: core vs macro, all series
+  G. fes_monthly_2017.png                   – FES timeline: core vs macro vs actual (Jan-Dec)
 """
 
 from __future__ import annotations
@@ -51,25 +51,39 @@ def _save(fig: plt.Figure, path: str) -> None:
     log.info(f"Figure saved → {path}")
 
 
+def _actual_values_by_date(df: pd.DataFrame, forecast_dates: pd.DatetimeIndex) -> np.ndarray:
+    """Return one actual value per forecast date, even when several models share dates."""
+    if "actual" not in df.columns or df.empty:
+        return np.full(len(forecast_dates), np.nan)
+
+    actual = (
+        df[["date", "actual"]]
+        .dropna(subset=["actual"])
+        .groupby("date", sort=True)["actual"]
+        .first()
+    )
+    return actual.reindex(forecast_dates).values
+
+
 # ── A. Forecast vs Actual ──────────────────────────────────────────────────────
 
 def plot_forecast_vs_actual(
     actual: pd.Series,
-    forecast_2018: np.ndarray,
-    lower_2018: Optional[np.ndarray],
-    upper_2018: Optional[np.ndarray],
+    forecast_2017: np.ndarray,
+    lower_2017: Optional[np.ndarray],
+    upper_2017: Optional[np.ndarray],
     series_name: str,
     model_name: str,
     out_path: str,
     units: str = "",
 ) -> None:
     """
-    Plot historical actuals plus 2018 forecast with prediction interval.
+    Plot historical actuals plus 2017 forecast with prediction interval.
 
     Parameters
     ----------
     actual        : full history (2005-2017)
-    forecast_2018 : 12-element array of 2018 point forecasts
+    forecast_2017 : 12-element array of 2017 point forecasts
     lower/upper   : 95 % PI bounds (may be None)
     series_name   : 'gas', 'electricity', or 'carbon'
     model_name    : name of selected model (for subtitle)
@@ -78,7 +92,7 @@ def plot_forecast_vs_actual(
     """
     colour  = PALETTE.get(series_name, "#555555")
     fct_col = PALETTE["forecast"]
-    dates_fc = pd.date_range("2018-01-01", periods=12, freq="MS")
+    dates_fc = pd.date_range("2017-01-01", periods=12, freq="MS")
 
     fig, ax = plt.subplots(figsize=FIGSIZE_WIDE)
     ax.set_facecolor("white")
@@ -89,18 +103,18 @@ def plot_forecast_vs_actual(
             label=f"Actual ({actual.index.min().year}–{actual.index.max().year})", zorder=3)
 
     # Forecast
-    ax.plot(dates_fc, forecast_2018, color=fct_col, linewidth=2.0,
-            linestyle="--", marker="o", markersize=4, label=f"Forecast 2018 ({model_name})", zorder=4)
+    ax.plot(dates_fc, forecast_2017, color=fct_col, linewidth=2.0,
+            linestyle="--", marker="o", markersize=4, label=f"Forecast 2017 ({model_name})", zorder=4)
 
     # Prediction interval
-    if lower_2018 is not None and upper_2018 is not None:
+    if lower_2017 is not None and upper_2017 is not None:
         ax.fill_between(
-            dates_fc, lower_2018, upper_2018,
+            dates_fc, lower_2017, upper_2017,
             alpha=0.25, color=fct_col, label="95 % Prediction Interval", zorder=2
         )
 
     # Vertical separator
-    ax.axvline(pd.Timestamp("2018-01-01"), color="#BDC3C7", linewidth=1.2, linestyle=":", zorder=1)
+    ax.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7", linewidth=1.2, linestyle=":", zorder=1)
 
     ax.set_title(
         f"{series_name.capitalize()} Price — Forecast vs Actual",
@@ -123,7 +137,7 @@ def plot_growth_components(
     carbon_growth: float,
     out_path: str,
 ) -> None:
-    """Bar chart of annualised 2018 growth rates for all three core series."""
+    """Bar chart of annualised 2017 growth rates for all three core series."""
     labels  = ["Gas", "Electricity", "Carbon"]
     values  = [gas_growth * 100, elec_growth * 100, carbon_growth * 100]
     colours = [PALETTE["gas"], PALETTE["electricity"], PALETTE["carbon"]]
@@ -141,7 +155,7 @@ def plot_growth_components(
         )
 
     ax.axhline(0, color="#555555", linewidth=0.8)
-    ax.set_title("FES Growth Components — 2018 Annual Forecast vs 2017 Actual",
+    ax.set_title("FES Growth Components — 2017 Annual Forecast vs 2017 Actual",
                  fontsize=13, fontweight="bold", pad=10)
     ax.set_ylabel("Growth Rate (%)", fontsize=11)
     ax.set_ylim(min(values) - 5, max(values) + 8)
@@ -176,7 +190,7 @@ def plot_uncertainty_components(
             ha="center", va="bottom", fontsize=11, fontweight="bold"
         )
 
-    ax.set_title("Forecast Uncertainty — (Upper − Lower) / Forecast  [2018 Annual]",
+    ax.set_title("Forecast Uncertainty — (Upper − Lower) / Forecast  [2017 Annual]",
                  fontsize=12, fontweight="bold", pad=10)
     ax.set_ylabel("Uncertainty Ratio", fontsize=11)
     ax.set_ylim(0, max(values) * 1.25)
@@ -191,7 +205,7 @@ def plot_uncertainty_components(
 def plot_pipeline_diagram(out_path: str) -> None:
     """
     Simple flowchart:
-      Selected best models → Forecast 2018 → Growth calculation
+      Selected best models → Forecast 2017 → Growth calculation
       → Uncertainty calculation → Final FES components
     """
     fig, ax = plt.subplots(figsize=(14, 4))
@@ -235,7 +249,7 @@ def plot_pipeline_diagram(out_path: str) -> None:
 
     # Labels underneath
     bottom_labels = [
-        (xs[0], "gas · electricity · carbon\n2005–2017 actual + forecasts"),
+        (xs[0], "gas · electricity · carbon\n2005–2016 actual + forecasts"),
         (xs[1], "Rank-aggregation\nScore_m = Σ Rank(Metric_k)"),
         (xs[2], "GrowthRate = (FC₂₀₁₈ − Act₂₀₁₇) / Act₂₀₁₇\nUncertainty = (UB − LB) / FC"),
         (xs[3], "Annual avg\nforecast & bounds"),
@@ -421,7 +435,7 @@ def plot_prediction_intervals(
     series_names: list = None,
 ) -> None:
     """
-    Two-row figure showing 2018 forecast + prediction intervals for all series.
+    Two-row figure showing 2017 forecast + prediction intervals for all series.
 
     Row 1 — core-only models
     Row 2 — macro-augmented models
@@ -429,7 +443,7 @@ def plot_prediction_intervals(
     For each series, plots:
       - Point forecast (solid line)
       - 95 % PI shaded band
-      - Actual 2018 values (diamonds, if available)
+      - Actual 2017 values (diamonds, if available)
 
     Parameters
     ----------
@@ -469,7 +483,7 @@ def plot_prediction_intervals(
                 axes[row_idx, col_idx].set_visible(False)
             continue
 
-        forecast_dates = pd.date_range("2018-01-01", periods=12, freq="MS")
+        forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
 
         for row_idx, mode in enumerate(["core", "macro"]):
             ax = axes[row_idx, col_idx]
@@ -496,16 +510,13 @@ def plot_prediction_intervals(
                 ax.fill_between(MONTHS[:12], lb, ub,
                                 alpha=alpha_fill, color=colour)
 
-            # Actual 2018
-            actual_col = "actual"
-            df_any = df_mode.set_index("date")
-            if actual_col in df_any.columns:
-                act = df_any[actual_col].reindex(forecast_dates).values
-                if not all(pd.isna(act)):
-                    ax.plot(MONTHS[:12], act,
-                            color=_PALETTE["actual"], marker="D",
-                            markersize=6, linestyle="none", zorder=5,
-                            label="Actual 2018")
+            # Actual 2017
+            act = _actual_values_by_date(df_mode, forecast_dates)
+            if not all(pd.isna(act)):
+                ax.plot(MONTHS[:12], act,
+                        color=_PALETTE["actual"], marker="D",
+                        markersize=6, linestyle="none", zorder=5,
+                        label="Actual 2017")
 
             ax.axhline(0, color="#BDC3C7", linewidth=0.8)
             ax.set_title(
@@ -524,14 +535,14 @@ def plot_prediction_intervals(
                                     fontsize=10, fontweight="bold")
 
     fig.suptitle(
-        "Prediction Intervals — 2018 Forecast (core vs macro)  |  95 % PI shaded",
+        "Prediction Intervals — 2017 Forecast (core vs macro)  |  95 % PI shaded",
         fontsize=14, fontweight="bold", y=1.01,
     )
     plt.tight_layout()
     _save(fig, out_path)
 
 
-# ── H. Static 2018 model-comparison figure (6 total: 3 series × 2 modes) ─────
+# ── H. Static 2017 model-comparison figure (6 total: 3 series × 2 modes) ─────
 
 _MODEL_STYLES: dict = {
     "SARIMA":  {"color": "#2980B9", "ls": "-",   "marker": "o",  "lw": 2.0},
@@ -543,16 +554,16 @@ _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def plot_2018_model_comparison(
+def plot_2017_model_comparison(
     forecast_dir: str,
     series_name: str,
     mode: str,
     out_path: str,
-    actual_2018: Optional["pd.Series"] = None,
+    actual_2017: Optional["pd.Series"] = None,
 ) -> None:
     """
-    Static 2018 monthly figure: all 4 models' point forecasts + 95 % PI,
-    plus actual 2018 values for one (series, mode) pair.
+    Static 2017 monthly figure: all 4 models' point forecasts + 95 % PI,
+    plus actual 2017 values for one (series, mode) pair.
 
     Parameters
     ----------
@@ -560,13 +571,13 @@ def plot_2018_model_comparison(
     series_name  : 'gas', 'electricity', or 'carbon'
     mode         : 'core' or 'macro'
     out_path     : PNG file path
-    actual_2018  : optional 12-element actual-value Series for 2018
+    actual_2017  : optional 12-element actual-value Series for 2017
     """
     all_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_all.csv"
     try:
         df_all = pd.read_csv(all_path, parse_dates=["date"])
     except FileNotFoundError:
-        log.warning(f"Not found for 2018 comparison: {all_path}")
+        log.warning(f"Not found for 2017 comparison: {all_path}")
         return
 
     df_mode = df_all[df_all["mode"] == mode].copy()
@@ -574,7 +585,7 @@ def plot_2018_model_comparison(
         log.warning(f"No data for mode={mode} in {all_path}")
         return
 
-    forecast_dates = pd.date_range("2018-01-01", periods=12, freq="MS")
+    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
 
     fig, ax = plt.subplots(figsize=(13, 5))
     ax.set_facecolor("white")
@@ -610,15 +621,12 @@ def plot_2018_model_comparison(
         plt.close(fig)
         return
 
-    # Actual 2018 values
+    # Actual 2017 values
     act_vals = None
-    if actual_2018 is not None and actual_2018.notna().any():
-        act_vals = actual_2018.reindex(forecast_dates).values
+    if actual_2017 is not None and actual_2017.notna().any():
+        act_vals = actual_2017.reindex(forecast_dates).values
     elif "actual" in df_mode.columns:
-        act_vals = (
-            df_mode.set_index("date")["actual"]
-            .reindex(forecast_dates).values
-        )
+        act_vals = _actual_values_by_date(df_mode, forecast_dates)
 
     if act_vals is not None and not all(pd.isna(act_vals)):
         ax.plot(
@@ -626,17 +634,17 @@ def plot_2018_model_comparison(
             color="#2C3E50", linestyle="none",
             marker="D", markersize=8, markeredgewidth=1.5,
             markeredgecolor="white", zorder=6,
-            label="Actual 2018",
+            label="Actual 2017",
         )
 
     ax.axhline(0, color="#BDC3C7", linewidth=0.8)
     mode_label = "Core-Only Models" if mode == "core" else "Macro-Augmented Models"
     ax.set_title(
-        f"UK {series_name.capitalize()} Growth (%) — 2018 Monthly Forecast\n"
+        f"UK {series_name.capitalize()} Growth (%) — 2017 Monthly Forecast\n"
         f"{mode_label}  |  95 % PI shaded  |  Actual values ◆",
         fontsize=13, fontweight="bold", pad=12,
     )
-    ax.set_xlabel("Month (2018)", fontsize=11)
+    ax.set_xlabel("Month (2017)", fontsize=11)
     ax.set_ylabel("Growth Rate (%)", fontsize=11)
     ax.legend(fontsize=10, framealpha=0.92, loc="best")
     ax.grid(True, color=PALETTE["grid"], linewidth=0.8)
@@ -645,13 +653,13 @@ def plot_2018_model_comparison(
     _save(fig, out_path)
 
 
-def plot_all_2018_comparisons(
+def plot_all_2017_comparisons(
     forecast_dir: str,
     figures_dir: str,
     series_names: list = None,
     modes: list = None,
 ) -> None:
-    """Generate all 6 static 2018 model-comparison figures."""
+    """Generate all 6 static 2017 model-comparison figures."""
     if series_names is None:
         series_names = ["gas", "electricity", "carbon"]
     if modes is None:
@@ -659,12 +667,11 @@ def plot_all_2018_comparisons(
 
     for series in series_names:
         for mode in modes:
-            out = f"{figures_dir}/forecast_2018_{series}_{mode}.png"
+            out = f"{figures_dir}/forecast_2017_{series}_{mode}.png"
             try:
-                plot_2018_model_comparison(forecast_dir, series, mode, out)
+                plot_2017_model_comparison(forecast_dir, series, mode, out)
             except Exception as e:
-                log.warning(f"2018 comparison figure failed ({series},{mode}): {e}")
-
+                log.warning(f"2017 comparison figure failed ({series},{mode}): {e}")
 
 # ── I. Interactive Plotly timeline (6 total: 3 series × 2 modes) ──────────────
 
@@ -676,12 +683,12 @@ def plot_interactive_forecast(
     out_path: str,
 ) -> None:
     """
-    Interactive Plotly HTML figure: full 2005–2018 timeline.
+    Interactive Plotly HTML figure: full 2005–2017 timeline.
 
     Layout
     ------
     - Solid grey area: historical 2005-2017 actual values
-    - Vertical dashed line at 2018-01-01 separating history from forecast
+    - Vertical dashed line at 2017-01-01 separating history from forecast
     - One coloured trace per model (point forecast + shaded PI band)
     - Models are toggleable via the legend (click to show/hide)
     - Hover tooltip shows date, model, forecast value, PI bounds
@@ -710,11 +717,11 @@ def plot_interactive_forecast(
         return
 
     df_mode = df_all[df_all["mode"] == mode].copy()
-    forecast_dates = pd.date_range("2018-01-01", periods=12, freq="MS")
+    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
 
     mode_label = "Core-Only" if mode == "core" else "Macro-Augmented"
     title = (
-        f"UK {series_name.capitalize()} Growth (%) — Full Timeline 2005–2018  "
+        f"UK {series_name.capitalize()} Growth (%) — Full Timeline 2005–2017  "
         f"[{mode_label} Models]"
     )
 
@@ -725,7 +732,7 @@ def plot_interactive_forecast(
         fig.add_trace(go.Scatter(
             x=historical.index,
             y=historical.values,
-            name="Historical 2005–2017",
+            name="Historical 2005–2016",
             mode="lines",
             line=dict(color="#7F8C8D", width=2),
             fill="tozeroy",
@@ -733,19 +740,16 @@ def plot_interactive_forecast(
             hovertemplate="<b>%{x|%b %Y}</b><br>Actual: %{y:.3f}%<extra></extra>",
         ))
 
-    # ── Actual 2018 ───────────────────────────────────────────────────────────
+    # ── Actual 2017 ───────────────────────────────────────────────────────────
     act_col = "actual"
     if act_col in df_mode.columns:
-        act_2018 = (
-            df_mode.set_index("date")[act_col]
-            .reindex(forecast_dates)
-            .dropna()
-        )
-        if not act_2018.empty:
+        act_values = _actual_values_by_date(df_mode, forecast_dates)
+        act_2017 = pd.Series(act_values, index=forecast_dates).dropna()
+        if not act_2017.empty:
             fig.add_trace(go.Scatter(
-                x=act_2018.index,
-                y=act_2018.values,
-                name="Actual 2018",
+                x=act_2017.index,
+                y=act_2017.values,
+                name="Actual 2017",
                 mode="markers",
                 marker=dict(symbol="diamond", size=10,
                             color="#2C3E50", line=dict(color="white", width=1.5)),
@@ -814,14 +818,28 @@ def plot_interactive_forecast(
             ),
         ))
 
-    # ── Vertical separator at 2018-01-01 ─────────────────────────────────────
-    fig.add_vline(
-        x="2018-01-01", line_width=1.5,
-        line_dash="dash", line_color="#BDC3C7",
-        annotation_text="  2018 forecast →",
-        annotation_position="top right",
-        annotation_font_size=11,
-        annotation_font_color="#7F8C8D",
+    # ── Vertical separator at 2017-01-01 ─────────────────────────────────────
+    split_date = pd.Timestamp("2017-01-01")
+    fig.add_shape(
+        type="line",
+        x0=split_date,
+        x1=split_date,
+        y0=0,
+        y1=1,
+        xref="x",
+        yref="paper",
+        line=dict(width=1.5, dash="dash", color="#BDC3C7"),
+    )
+    fig.add_annotation(
+        x=split_date,
+        y=1,
+        xref="x",
+        yref="paper",
+        text="  2017 forecast →",
+        showarrow=False,
+        xanchor="left",
+        yanchor="bottom",
+        font=dict(size=11, color="#7F8C8D"),
     )
 
     fig.add_hline(y=0, line_width=1, line_color="#BDC3C7", line_dash="dot")
@@ -884,7 +902,7 @@ def plot_all_interactive_forecasts(
         modes = ["core", "macro"]
 
     TRAIN_START = "2005-01-01"
-    TRAIN_END   = "2017-12-01"
+    TRAIN_END   = "2016-12-01"
 
     for series in series_names:
         col = f"{series}_growth"
@@ -912,7 +930,7 @@ def plot_fes_timeline(
     out_path: str,
 ) -> None:
     """
-    Line chart: FES_core vs FES_macro vs FES_actual over Jan–Dec 2018.
+    Line chart: FES_core vs FES_macro vs FES_actual over Jan–Dec 2017.
 
     Parameters
     ----------
@@ -943,11 +961,11 @@ def plot_fes_timeline(
 
     ax.axhline(0, color="#95A5A6", linewidth=0.9, linestyle="-")
     ax.set_title(
-        "UK Anticipatory Energy–Carbon Stress Index — Monthly 2018\n"
+        "UK Anticipatory Energy–Carbon Stress Index — Monthly 2017\n"
         "FES_core (main)  |  FES_macro (Robustness 1)  |  FES_actual (Robustness 2)",
         fontsize=13, fontweight="bold", pad=12,
     )
-    ax.set_xlabel("Month (2018)", fontsize=11)
+    ax.set_xlabel("Month (2017)", fontsize=11)
     ax.set_ylabel("FES  (sum of training-period z-scores)", fontsize=11)
     ax.legend(framealpha=0.92, fontsize=10, loc="upper left")
     ax.grid(True, color=PALETTE["grid"], linewidth=0.8)

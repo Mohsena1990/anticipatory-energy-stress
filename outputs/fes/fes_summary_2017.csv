@@ -1,0 +1,16 @@
+variant,component,z_mean
+core,gas_growth_pct,-0.80733
+core,electricity_growth_pct,-0.4641
+core,carbon_growth_pct,0.00979
+core,uncertainty,-0.43524
+core,FES_TOTAL,-1.69688
+macro,gas_growth_pct,-0.58455
+macro,electricity_growth_pct,-0.11128
+macro,carbon_growth_pct,0.12069
+macro,uncertainty,-0.11654
+macro,FES_TOTAL,-0.69168
+actual,gas_growth_pct,-0.59966
+actual,electricity_growth_pct,0.01151
+actual,carbon_growth_pct,0.15472
+actual,real_vol,-0.39388
+actual,FES_TOTAL,-0.82732

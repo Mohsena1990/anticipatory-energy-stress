@@ -5,17 +5,16 @@ import numpy as np
 # LOAD DATA
 # ============================================================
 
-dir_carbon = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\Carbon Emissions Futures Historical Data UK.csv'
+dir_carbon = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/Carbon Emissions Futures Historical Data UK.csv'
 
-dir_gas = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\gas.csv'
+dir_gas = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/gas.csv'
 
-dir_elec = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\electricity.csv'
+dir_elec = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/electricity.csv'
+dir_gdp = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/mgdp.csv'
 
-dir_gdp = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\mgdp.csv'
+dir_inflation = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/cpih08_188.xlsx'
 
-dir_inflation = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\cpih08_188.xlsx'
-
-dir_weather = r'C:\Users\Ilani\OneDrive\Desktop\TFT\COR\anticipatory-energy-stress\data\raw\monthly-temperature-anomalies.csv'
+dir_weather = r'/Users/mohsenasghariilani/Downloads/anticipatory-energy-stress/data/raw/monthly-temperature-anomalies.csv'
 
 
 carbon = pd.read_csv(dir_carbon)
@@ -317,7 +316,7 @@ merged = merged.sort_values('date')
 
 merged = merged[
     (merged['date'] >= '2005-01-01') &
-    (merged['date'] <= '2018-12-01')
+    (merged['date'] <= '2017-12-01')
 ]
 
 

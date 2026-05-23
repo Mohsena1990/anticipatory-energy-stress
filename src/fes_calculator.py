@@ -1,13 +1,13 @@
 """
 fes_calculator.py
 ─────────────────
-Compute three Forecasted Energy-Carbon Stress (FES) indices for 2018.
+Compute three Forecasted Energy-Carbon Stress (FES) indices for 2017.
 
 Three analytical baselines
 ──────────────────────────
   FES_core   — built from core-only model forecasts (target series only)
   FES_macro  — built from macro-augmented model forecasts (core + exogenous)
-  FES_actual — built from realised 2018 values (benchmark)
+  FES_actual — built from realised 2017 values (benchmark)
 
 Formula
 ───────
@@ -29,11 +29,11 @@ Z-score standardisation
 
 Outputs (CSV only)
 ──────────────────
-  outputs/fes/fes_monthly_2018.csv       — 12 rows × all z-components + FES
-  outputs/fes/fes_summary_2018.csv       — annual mean FES and components
+  outputs/fes/fes_monthly_2017.csv       — 12 rows × all z-components + FES
+  outputs/fes/fes_summary_2017.csv       — annual mean FES and components
   outputs/fes/fes_components_table.csv   — cross-baseline comparison table
-  outputs/figures/fes_monthly_2018.png   — FES time-series (3 variants)
-  outputs/figures/fes_components_2018.png — component breakdown bars
+  outputs/figures/fes_monthly_2017.png   — FES time-series (3 variants)
+  outputs/figures/fes_components_2017.png — component breakdown bars
   outputs/figures/forecast_vs_actual_{series}.png  — per-series forecast plot
 """
 
@@ -52,8 +52,8 @@ warnings.filterwarnings("ignore")
 SERIES         = ["gas", "electricity", "carbon"]
 MODES          = ["core", "macro"]
 TRAIN_START    = "2005-01-01"
-TRAIN_END      = "2017-12-01"
-FORECAST_DATES = pd.date_range("2018-01-01", periods=12, freq="MS")
+TRAIN_END      = "2016-12-01"
+FORECAST_DATES = pd.date_range("2017-01-01", periods=12, freq="MS")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -61,10 +61,11 @@ FORECAST_DATES = pd.date_range("2018-01-01", periods=12, freq="MS")
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _find_best_models(ranked_df: pd.DataFrame) -> dict:
-    """Return {(series, mode): model_name} — lowest rank_score per group."""
+    """Return {(series, mode): model_name} using the configured selection score."""
     best: dict = {}
+    score_col = "selection_score" if "selection_score" in ranked_df.columns else "rank_score"
     for (series, mode), grp in ranked_df.groupby(["series_name", "mode"]):
-        best[(series, mode)] = grp.loc[grp["rank_score"].idxmin(), "model"]
+        best[(series, mode)] = grp.loc[grp[score_col].idxmin(), "model"]
     log.info("Best models selected:")
     for (s, m), mdl in best.items():
         log.info(f"  [{s}][{m}] → {mdl}")
@@ -127,6 +128,24 @@ def _training_stats(core_df: pd.DataFrame) -> dict:
             f"[{s}] train μ={mean_s:.4f}, σ={std_s:.4f} | "
             f"unc_ref μ={unc_mean:.4f}, σ={unc_std:.4f}"
         )
+
+    z_train = pd.DataFrame(index=train.index)
+    for s in SERIES:
+        col = f"{s}_growth"
+        if col in train.columns and s in stats:
+            z_train[s] = _zscore_array(
+                train[col].astype(float).to_numpy(),
+                stats[s]["mean"],
+                stats[s]["std"],
+            )
+    real_vol_ref = z_train.dropna(how="all").std(axis=1, ddof=0).dropna()
+    if real_vol_ref.empty:
+        stats["_real_vol"] = {"mean": 0.0, "std": 1.0}
+    else:
+        rv_mean = float(real_vol_ref.mean())
+        rv_std = float(real_vol_ref.std()) or 1.0
+        stats["_real_vol"] = {"mean": rv_mean, "std": rv_std}
+        log.info(f"[actual real-vol] train μ={rv_mean:.4f}, σ={rv_std:.4f}")
     return stats
 
 
@@ -140,18 +159,18 @@ def _zscore_array(x: np.ndarray, mean: float, std: float) -> np.ndarray:
 
 def compute_fes(
     ranked_df: pd.DataFrame,
-    core_csv: str = "data/raw/core_energy_carbon.csv",
+    core_csv: str = "data/processed/core_energy_carbon.csv",
     forecast_dir: str = "outputs/forecasts",
     out_dir: str = "outputs/fes",
     figures_dir: str = "outputs/figures",
 ) -> pd.DataFrame:
     """
-    Compute FES_core, FES_macro, FES_actual for each month of 2018.
+    Compute FES_core, FES_macro, FES_actual for each month of 2017.
 
     Parameters
     ----------
     ranked_df    : model_evaluation output (used to pick best model per series/mode)
-    core_csv     : path to Dataset A (2005-2018 actual values)
+    core_csv     : path to Dataset A (2005-2017 actual values)
     forecast_dir : directory containing per-model-mode forecast CSVs
     out_dir      : where to save FES CSVs
     figures_dir  : where to save PNG figures
@@ -181,28 +200,28 @@ def compute_fes(
             if df is not None:
                 forecasts[(series, mode)] = df
 
-    # ── Extract actual 2018 values ────────────────────────────────────────────
-    actual_2018: dict = {}
+    # ── Extract actual 2017 values ────────────────────────────────────────────
+    actual_2017: dict = {}
     for series in SERIES:
         col = f"{series}_growth"
         sub = core_df[
-            (core_df["date"] >= "2018-01-01") & (core_df["date"] <= "2018-12-01")
+            (core_df["date"] >= "2017-01-01") & (core_df["date"] <= "2017-12-01")
         ].set_index("date")
         if col in sub.columns:
-            actual_2018[series] = sub[col].reindex(FORECAST_DATES).values
+            actual_2017[series] = sub[col].reindex(FORECAST_DATES).values
         else:
             # Try to get from forecast CSV actual column
             for mode in MODES:
                 key = (series, mode)
                 if key in forecasts and "actual" in forecasts[key].columns:
-                    actual_2018[series] = (
+                    actual_2017[series] = (
                         forecasts[key].set_index("date")["actual"]
                         .reindex(FORECAST_DATES).values
                     )
                     break
             else:
-                log.warning(f"No actual 2018 data for {series}; using NaN")
-                actual_2018[series] = np.full(12, np.nan)
+                log.warning(f"No actual 2017 data for {series}; using NaN")
+                actual_2017[series] = np.full(12, np.nan)
 
     # ── Compute z-scores for each component and variant ───────────────────────
     monthly_rows = []
@@ -260,7 +279,7 @@ def compute_fes(
         z_actual = []
         for series in SERIES:
             st = stats[series]
-            act_val = actual_2018[series][i] if i < len(actual_2018[series]) else np.nan
+            act_val = actual_2017[series][i] if i < len(actual_2017[series]) else np.nan
             z_a = _zscore_array(np.array([act_val]), st["mean"], st["std"])[0] \
                   if not np.isnan(act_val) else np.nan
             row[f"actual_{series}"]   = round(float(act_val), 5) if not np.isnan(act_val) else np.nan
@@ -271,11 +290,18 @@ def compute_fes(
         z_actual_arr = np.array([v for v in z_actual if not np.isnan(v)])
         real_vol = float(np.std(z_actual_arr)) if len(z_actual_arr) > 1 else np.nan
 
-        # Z-score the realized volatility using training cross-sectional dispersion
-        # Compute training-period RealVol as reference
         row["real_vol_actual"] = round(real_vol, 5) if not np.isnan(real_vol) else np.nan
+        rv_ref = stats.get("_real_vol", {"mean": 0.0, "std": 1.0})
+        z_real_vol = _zscore_array(
+            np.array([real_vol]), rv_ref["mean"], rv_ref["std"]
+        )[0] if not np.isnan(real_vol) else np.nan
+        row["z_real_vol_actual"] = (
+            round(float(z_real_vol), 5) if not np.isnan(z_real_vol) else np.nan
+        )
 
-        fes_actual = float(np.nansum(z_actual) + (real_vol if not np.isnan(real_vol) else 0))
+        fes_actual = float(np.nansum(z_actual) + (
+            z_real_vol if not np.isnan(z_real_vol) else 0
+        ))
         row["fes_actual"] = round(fes_actual, 5)
 
         monthly_rows.append(row)
@@ -283,7 +309,7 @@ def compute_fes(
     monthly_df = pd.DataFrame(monthly_rows)
 
     # ── Save monthly CSV ──────────────────────────────────────────────────────
-    monthly_path = f"{out_dir}/fes_monthly_2018.csv"
+    monthly_path = f"{out_dir}/fes_monthly_2017.csv"
     monthly_df.to_csv(monthly_path, index=False)
     log.info(f"Monthly FES saved → {monthly_path}")
 
@@ -294,7 +320,7 @@ def compute_fes(
     # ── Generate figures ──────────────────────────────────────────────────────
     _plot_fes_comparison(monthly_df, figures_dir)
     _plot_fes_components(monthly_df, figures_dir)
-    _plot_forecasts_vs_actual(forecasts, actual_2018, core_df, best, figures_dir)
+    _plot_forecasts_vs_actual(forecasts, actual_2017, core_df, best, figures_dir)
 
     # Polar model ranking charts
     try:
@@ -308,19 +334,18 @@ def compute_fes(
         from src.plotting_utils import plot_prediction_intervals
         plot_prediction_intervals(
             forecast_dir=forecast_dir,
-            out_path=f"{figures_dir}/prediction_intervals_2018.png",
+            out_path=f"{figures_dir}/prediction_intervals_2017.png",
         )
     except Exception as e:
         log.warning(f"PI figure failed: {e}")
 
-    # ── 6 static 2018 model-comparison figures (3 series × 2 modes) ──────────
+    # ── 6 static 2017 model-comparison figures (3 series × 2 modes) ──────────
     try:
-        from src.plotting_utils import plot_all_2018_comparisons
-        plot_all_2018_comparisons(forecast_dir, figures_dir)
-        log.info("Static 2018 comparison figures complete")
+        from src.plotting_utils import plot_all_2017_comparisons
+        plot_all_2017_comparisons(forecast_dir, figures_dir)
+        log.info("Static 2017 comparison figures complete")
     except Exception as e:
-        log.warning(f"Static 2018 comparison figures failed: {e}")
-
+        log.warning(f"Static 2017 comparison figures failed: {e}")
     # ── 6 interactive HTML timeline figures (3 series × 2 modes) ─────────────
     try:
         from src.plotting_utils import plot_all_interactive_forecasts
@@ -356,7 +381,7 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
                 "z_mean":    round(z_mean, 5),
             })
 
-        unc_col = f"z_unc_{mode}" if mode in ("core", "macro") else "real_vol_actual"
+        unc_col = f"z_unc_{mode}" if mode in ("core", "macro") else "z_real_vol_actual"
         if unc_col in monthly_df.columns:
             rows.append({
                 "variant":   mode,
@@ -371,7 +396,7 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
         })
 
     summary_df = pd.DataFrame(rows)
-    path = f"{out_dir}/fes_summary_2018.csv"
+    path = f"{out_dir}/fes_summary_2017.csv"
     summary_df.to_csv(path, index=False)
     log.info(f"FES summary saved → {path}")
 
@@ -388,7 +413,7 @@ def _save_component_table(
     ───────────────────────────────────────────────────────
     gas_growth_pct     |  z_mean  |  z_mean   |  z_mean
     electricity_growth |  z_mean  |  z_mean   |  z_mean
-    carbon_growth      |  z_mean  |  z_mean   |  z_mean
+    carbon_log_return      |  z_mean  |  z_mean   |  z_mean
     uncertainty        |  z_mean  |  z_mean   |  z_mean
     FES (annual mean)  |  mean    |  mean     |  mean
     """
@@ -409,7 +434,7 @@ def _save_component_table(
         unc_row[f"FES_{mode}"] = (
             round(float(monthly_df[col].mean()), 5) if col in monthly_df.columns else np.nan
         )
-    col_a = "real_vol_actual"
+    col_a = "z_real_vol_actual"
     unc_row["FES_actual"] = (
         round(float(monthly_df[col_a].mean()), 5) if col_a in monthly_df.columns else np.nan
     )
@@ -438,7 +463,7 @@ def _save_component_table(
     log.info(f"FES components table saved → {path}")
 
     # Print to console
-    print("\n── FES Component Table (z-score means, 2018) ──────────────────────────")
+    print("\n── FES Component Table (z-score means, 2017) ──────────────────────────")
     print(comp_df.to_string(index=False))
 
 
@@ -473,7 +498,7 @@ def _save_fig(fig: plt.Figure, path: str) -> None:
 
 
 def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
-    """Line chart: FES_core vs FES_macro vs FES_actual over 12 months of 2018."""
+    """Line chart: FES_core vs FES_macro vs FES_actual over 12 months of 2017."""
     fig, ax = plt.subplots(figsize=(13, 5))
     ax.set_facecolor("white")
     fig.patch.set_facecolor("white")
@@ -483,7 +508,7 @@ def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
     for col, label, colour, ls in [
         ("fes_core",   "FES Core (core-only models)",      _PALETTE["core"],   "-"),
         ("fes_macro",  "FES Macro (core + exogenous)",     _PALETTE["macro"],  "--"),
-        ("fes_actual", "FES Actual (realised 2018 values)",_PALETTE["actual"], ":"),
+        ("fes_actual", "FES Actual (realised 2017 values)",_PALETTE["actual"], ":"),
     ]:
         if col in monthly_df.columns:
             ax.plot(months, monthly_df[col].values, color=colour,
@@ -491,15 +516,15 @@ def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
                     label=label)
 
     ax.axhline(0, color="#95A5A6", linewidth=0.9, linestyle="-")
-    ax.set_title("UK Anticipatory Energy–Carbon Stress Index — 2018 Monthly",
+    ax.set_title("UK Anticipatory Energy–Carbon Stress Index — 2017 Monthly",
                  fontsize=14, fontweight="bold", pad=12)
-    ax.set_xlabel("Month (2018)", fontsize=11)
+    ax.set_xlabel("Month (2017)", fontsize=11)
     ax.set_ylabel("FES (sum of z-scores)", fontsize=11)
     ax.legend(framealpha=0.92, fontsize=10, loc="upper left")
     ax.grid(True, color=_PALETTE["grid"], linewidth=0.8)
     ax.tick_params(axis="both", labelsize=9)
 
-    _save_fig(fig, f"{figures_dir}/fes_monthly_2018.png")
+    _save_fig(fig, f"{figures_dir}/fes_monthly_2017.png")
 
 
 def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
@@ -519,7 +544,7 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
     z_cols = {
         "FES_core":   [f"z_{s}_core" for s in SERIES] + ["z_unc_core"],
         "FES_macro":  [f"z_{s}_macro" for s in SERIES] + ["z_unc_macro"],
-        "FES_actual": [f"z_{s}_actual" for s in SERIES] + ["real_vol_actual"],
+        "FES_actual": [f"z_{s}_actual" for s in SERIES] + ["z_real_vol_actual"],
     }
     colours_bar = {
         "FES_core":   _PALETTE["core"],
@@ -546,7 +571,7 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
     ax.set_xticklabels(["Gas\nGrowth", "Elec\nGrowth", "Carbon\nGrowth", "Unc /\nRealVol"],
                        fontsize=9)
     ax.axhline(0, color="#95A5A6", linewidth=0.8)
-    ax.set_title("FES Component Z-Scores (2018 annual mean)", fontsize=12, fontweight="bold")
+    ax.set_title("FES Component Z-Scores (2017 annual mean)", fontsize=12, fontweight="bold")
     ax.set_ylabel("Z-score", fontsize=10)
     ax.legend(fontsize=9, loc="upper right")
     ax.grid(axis="y", color=_PALETTE["grid"], linewidth=0.8)
@@ -571,26 +596,25 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
                  f"{v:+.3f}", ha="center", fontsize=11, fontweight="bold")
 
     ax2.axhline(0, color="#95A5A6", linewidth=0.8)
-    ax2.set_title("Total FES — Annual Mean 2018", fontsize=12, fontweight="bold")
+    ax2.set_title("Total FES — Annual Mean 2017", fontsize=12, fontweight="bold")
     ax2.set_ylabel("FES (sum of z-scores)", fontsize=10)
     ax2.grid(axis="y", color=_PALETTE["grid"], linewidth=0.8)
 
-    fig.suptitle("Anticipatory Energy–Carbon Stress Index — Component Analysis 2018",
+    fig.suptitle("Anticipatory Energy–Carbon Stress Index — Component Analysis 2017",
                  fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
-    _save_fig(fig, f"{figures_dir}/fes_components_2018.png")
-
+    _save_fig(fig, f"{figures_dir}/fes_components_2017.png")
 
 def _plot_forecasts_vs_actual(
     forecasts: dict,
-    actual_2018: dict,
+    actual_2017: dict,
     core_df: pd.DataFrame,
     best: dict,
     figures_dir: str,
 ) -> None:
     """
     One 3-panel figure showing all three series, core and macro forecasts,
-    actual 2018 values, plus the historical 2005-2017 baseline.
+    actual 2017 values, plus the historical 2005-2017 baseline.
     """
     fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=False)
     fig.patch.set_facecolor("white")
@@ -607,7 +631,7 @@ def _plot_forecasts_vs_actual(
         ].set_index("date")[col]
         if not hist.empty:
             ax.plot(hist.index, hist.values, color=_PALETTE[series],
-                    linewidth=1.5, alpha=0.6, label="Historical 2005–2017")
+                    linewidth=1.5, alpha=0.6, label="Historical 2005–2016")
 
         x = np.arange(12)
         fc_dates = FORECAST_DATES
@@ -626,14 +650,14 @@ def _plot_forecasts_vs_actual(
                         label=f"Forecast {mode} ({model})")
                 ax.fill_between(fc_dates, lb, ub, alpha=0.12, color=col_mode)
 
-        # Actual 2018
-        act = actual_2018.get(series, np.full(12, np.nan))
+        # Actual 2017
+        act = actual_2017.get(series, np.full(12, np.nan))
         if not np.all(np.isnan(act)):
             ax.plot(fc_dates, act, color="#2C3E50", linestyle="none",
                     marker="D", markersize=6, zorder=5,
-                    label="Actual 2018")
+                    label="Actual 2017")
 
-        ax.axvline(pd.Timestamp("2018-01-01"), color="#BDC3C7",
+        ax.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
                    linewidth=1.0, linestyle=":")
         ax.set_title(f"{series.capitalize()} Growth (% YoY)",
                      fontsize=12, fontweight="bold")
@@ -644,7 +668,7 @@ def _plot_forecasts_vs_actual(
         ax.axhline(0, color="#BDC3C7", linewidth=0.7)
 
     fig.suptitle(
-        "UK Energy–Carbon Forecast vs Actual 2018  "
+        "UK Energy–Carbon Forecast vs Actual 2017  "
         "(core-only | macro-augmented | realised values)",
         fontsize=13, fontweight="bold", y=1.01,
     )
@@ -657,7 +681,7 @@ def _plot_forecasts_vs_actual(
         hist = core_df[
             (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
         ].set_index("date")[col]
-        act  = actual_2018.get(series, np.full(12, np.nan))
+        act  = actual_2017.get(series, np.full(12, np.nan))
 
         fig2, ax2 = plt.subplots(figsize=(12, 4))
         fig2.patch.set_facecolor("white")
@@ -665,7 +689,7 @@ def _plot_forecasts_vs_actual(
 
         if not hist.empty:
             ax2.plot(hist.index, hist.values, color=_PALETTE[series],
-                     linewidth=1.8, label="Historical 2005–2017")
+                     linewidth=1.8, label="Historical 2005–2016")
 
         for mode, ls, col_mode in [("core", "-", _PALETTE["core"]),
                                     ("macro", "--", _PALETTE["macro"])]:
@@ -683,9 +707,9 @@ def _plot_forecasts_vs_actual(
 
         if not np.all(np.isnan(act)):
             ax2.plot(FORECAST_DATES, act, color="#2C3E50", linestyle="none",
-                     marker="D", markersize=7, zorder=5, label="Actual 2018")
+                     marker="D", markersize=7, zorder=5, label="Actual 2017")
 
-        ax2.axvline(pd.Timestamp("2018-01-01"), color="#BDC3C7",
+        ax2.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
                     linewidth=1.0, linestyle=":")
         ax2.axhline(0, color="#BDC3C7", linewidth=0.7)
         ax2.set_title(

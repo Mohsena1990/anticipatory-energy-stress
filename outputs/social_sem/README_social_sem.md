@@ -1,18 +1,18 @@
-# Social SEM Pipeline -- UK ENABLE.EU x FES 2018
+# Social SEM Pipeline -- UK ENABLE.EU x FES 2017
 
 ## Methodology
 
 ### Why annual FES is used
 
 The Forecasted Energy-Carbon Stress Index (FES) is computed at the UK-country
-level as the annual mean of 12 monthly forecasts for 2018.  Every UK household
+level as the annual mean of 12 monthly forecasts for 2017.  Every UK household
 in the ENABLE.EU survey receives the same FES value because FES is a macro
 indicator of the anticipated energy-market stress environment shared by all
 UK residents.
 
 The interview-date variable (T3) returns '#NULL!' for all UK respondents in this
 dataset, making monthly matching impossible.  Even if dates were available, all
-UK interviews fall within 2018, so matching to a specific forecast month would
+UK interviews fall within 2017, so matching to a specific forecast month would
 not add identifying variation -- all households would still receive the same
 annual contextual value.
 
@@ -30,14 +30,14 @@ To identify FES as a predictor, one would need either:
 ### FES as contextual macro-stress exposure
 
 FES is treated as the anticipated stress environment in which UK households make
-energy decisions.  It defines the shared economic context of 2018, not a
+energy decisions.  It defines the shared economic context of 2017, not a
 property that varies across households.  This is consistent with stress exposure
 research where contextual stressors affect all members of a community equally.
 
 Three FES scenarios are reported descriptively:
   - **fes_core**  : primary forecast using core energy-price models
   - **fes_macro** : alternative forecast augmented with macroeconomic inputs
-  - **fes_actual**: realised 2018 energy prices (benchmark)
+  - **fes_actual**: realised 2017 energy prices (benchmark)
 
 ### COR construct operationalisation
 

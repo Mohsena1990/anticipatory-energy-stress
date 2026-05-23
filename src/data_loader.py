@@ -4,8 +4,9 @@ data_loader.py
 Loads and parses the UK data files from data/raw/ and produces two cleaned,
 standardised monthly DataFrames:
 
-    Dataset A  (core)  — data/raw/core_energy_carbon.csv
-        date | gas_growth | electricity_growth | carbon_growth
+    Dataset A  (core)  — data/processed/core_energy_carbon.csv
+        date | gas_growth | electricity_index | electricity_growth | carbon_growth
+
 
     Dataset B  (macro) — data/raw/macro_controls.csv
         date | inflation_growth | weather_volatility | gdp_growth
@@ -22,12 +23,13 @@ so they are conceptually consistent with each other:
                            ElecGrowth_t = (Elec_t − Elec_{t-12}) / Elec_{t-12} × 100
                          This gives the same conceptual basis as gas_growth.
 
-    carbon_growth      : ICE/Investing.com EUA futures closing price (EUR/tonne)
+    carbon_log_return
+      : ICE/Investing.com EUA futures closing price (EUR/tonne)
                          → the raw series is a PRICE LEVEL, not growth.
                          Transformation:
-                           CarbonGrowth_t = (Carbon_t − Carbon_{t-12}) / Carbon_{t-12} × 100
-                         EUA Phase I launched Apr-2005; the first 12 months are
-                         back-filled so the series aligns with 2005-01-01.
+                           CarbonLogReturn_t = log(Carbon_t / Carbon_{t-12})
+                         EUA Phase I launched Apr-2005; rows before the first
+                         valid YoY carbon value are dropped rather than back-filled.
 
 Macro series (Dataset B)
 ────────────────────────
@@ -40,7 +42,7 @@ Macro series (Dataset B)
 Date range
 ──────────
     TRAIN_START  = 2005-01-01
-    FORECAST_END = 2018-12-01
+    FORECAST_END = 2017-12-01
 
     Internally, parsers load an extended window (from 2003) when 12-month
     lags are needed to compute YoY growth for the 2005 start of the series.
@@ -60,7 +62,7 @@ warnings.filterwarnings("ignore")
 
 # ── Date range of interest ────────────────────────────────────────────────────
 TRAIN_START  = "2005-01-01"
-FORECAST_END = "2018-12-01"
+FORECAST_END = "2017-12-01"
 
 # Extended start for computing 12-month lags without losing 2005 data
 _RAW_START   = "2003-01-01"
@@ -127,7 +129,9 @@ def _parse_electricity_growth(path: str) -> pd.Series:
     growth = raw.pct_change(12) * 100
     growth.name = "electricity_growth"
 
-    growth = growth.loc[TRAIN_START:FORECAST_END].ffill().bfill()
+    # growth = growth.loc[TRAIN_START:FORECAST_END].ffill().bfill()
+    growth = growth.loc[TRAIN_START:FORECAST_END]
+
 
     log.info(
         f"[electricity_growth] {len(growth)} obs | "
@@ -142,6 +146,21 @@ def _parse_electricity_growth(path: str) -> pd.Series:
     return growth
 
 
+def _parse_electricity_core(path: str) -> pd.DataFrame:
+    """
+    Return the electricity CPI index level plus YoY growth.
+
+    The ONS series is CPI INDEX 04.5.1 : ELECTRICITY 2015=100.  The index level
+    is kept for models that forecast the administered CPI index first and derive
+    YoY growth after forecasting.
+    """
+    raw = _load_ons_monthly_raw(path, start=_RAW_START)
+    out = pd.DataFrame(index=raw.index)
+    out["electricity_index"] = raw
+    out["electricity_growth"] = raw.pct_change(12) * 100
+    return out.loc[TRAIN_START:FORECAST_END]
+
+
 def _parse_carbon_growth(path: str) -> pd.Series:
     """
     Carbon: ICE/Investing.com EUA futures closing price (EUR/tonne).
@@ -151,8 +170,8 @@ def _parse_carbon_growth(path: str) -> pd.Series:
 
         CarbonGrowth_t = (Price_t − Price_{t-12}) / Price_{t-12} × 100
 
-    EUA Phase I began Apr-2005.  The 12 months before the first valid YoY
-    (i.e. Apr 2005 → Mar 2006) are back-filled from the first valid value.
+    EUA Phase I began Apr-2005.  The 12 months before the first valid YoY are
+    left missing and dropped when the core dataset is assembled.
     """
     df = pd.read_csv(path)
     df["date"] = pd.to_datetime(df["Date"], dayfirst=True)
@@ -164,20 +183,24 @@ def _parse_carbon_growth(path: str) -> pd.Series:
     # Resample to month-start frequency before YoY computation
     raw_price = raw_price.resample("MS").last().ffill()
 
-    growth = raw_price.pct_change(12) * 100
+    # growth = raw_price.pct_change(12) * 100
+    # growth.name = "carbon_growth"
+
+    growth = np.log(raw_price / raw_price.shift(12)) * 100
     growth.name = "carbon_growth"
 
-    growth = growth.loc[TRAIN_START:FORECAST_END].ffill().bfill()
+    growth = growth.loc[TRAIN_START:FORECAST_END]
+    # growth = growth.loc[TRAIN_START:FORECAST_END].ffill().bfill()
 
     log.info(
-        f"[carbon_growth] {len(growth)} obs | "
+        f"[carbon_log_return] {len(growth)} obs | "
         f"{growth.index.min().date()} to {growth.index.max().date()} | "
         f"YoY % from EUA price | "
         f"mean={growth.mean():.3f}, range=[{growth.min():.3f}, {growth.max():.3f}]"
     )
     log.info(
         "  Transformation: EUA futures price (EUR/tonne) → "
-        "YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100"
+        "  YoY log return = log(Price_t / Price_t-12) × 100 "
     )
     return growth
 
@@ -188,7 +211,7 @@ def _parse_carbon_growth(path: str) -> pd.Series:
 
 def _parse_inflation_growth(path: str) -> pd.Series:
     """
-    Parse cpih08_18.xlsx and return monthly CPIH housing-energy growth rate.
+    Parse cpih08_188.xlsx and return monthly CPIH housing-energy growth rate.
 
     Layout (0-indexed rows):
         row 2: header row  — "Geography" | ... | "Jan-08" | "Feb-08" | ...
@@ -223,11 +246,12 @@ def _parse_inflation_growth(path: str) -> pd.Series:
     ).sort_index()
 
     full_idx = pd.date_range(TRAIN_START, FORECAST_END, freq="MS")
-    cpih = cpih.reindex(full_idx).bfill()
+    cpih = cpih.reindex(full_idx).ffill()
 
     growth = cpih.pct_change(12) * 100
     growth.name = "inflation_growth"
-    growth = growth.ffill().bfill().loc[TRAIN_START:FORECAST_END]
+    growth = growth.loc[TRAIN_START:FORECAST_END]
+    # growth = growth.ffill().bfill().loc[TRAIN_START:FORECAST_END]
 
     log.info(
         f"[inflation_growth] {len(growth)} obs | "
@@ -264,7 +288,7 @@ def _parse_gdp_growth(path: str) -> pd.Series:
 
     series = pd.to_numeric(monthly[growth_col], errors="coerce")
     series.name = "gdp_growth"
-    series = series.loc[TRAIN_START:FORECAST_END].ffill().bfill()
+    series = series.loc[TRAIN_START:FORECAST_END].ffill()
 
     log.info(
         f"[gdp_growth] {len(series)} obs | "
@@ -429,10 +453,10 @@ def _parse_weather_volatility(
         )
 
     # ── Align to target dates ─────────────────────────────────────────────────
-    anomaly_aligned = anomaly_series.reindex(target_dates).ffill().bfill()
+    anomaly_aligned = anomaly_series.reindex(target_dates).ffill()
 
     # weather_volatility = rolling std of anomaly (12-month window)
-    weather_vol = anomaly_aligned.rolling(window=12, min_periods=12).std().bfill()
+    weather_vol = anomaly_aligned.rolling(window=12, min_periods=6).std()
     weather_vol.name = "weather_volatility"
 
     log.info(
@@ -447,6 +471,157 @@ def _parse_weather_volatility(
     return weather_vol
 
 
+def _parse_gas_futures(path: str) -> pd.DataFrame:
+    """
+    UK NBP Natural Gas Quarterly Futures.
+
+    Columns:
+        Date | Price | Open | High | Low | Vol. | Change %
+
+    Returns monthly:
+        gas_futures_price
+        gas_futures_log_return
+        gas_futures_yoy_growth
+    """
+    df = pd.read_csv(path)
+
+    df["date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["date"]).set_index("date").sort_index()
+
+    price = pd.to_numeric(df["Price"], errors="coerce")
+    price = price[price > 0]
+
+    monthly_price = price.resample("MS").last().ffill()
+
+    out = pd.DataFrame(index=monthly_price.index)
+    out["gas_futures_price"] = monthly_price
+    out["gas_futures_log_return"] = np.log(monthly_price / monthly_price.shift(1)) * 100
+    out["gas_futures_yoy_growth"] = monthly_price.pct_change(12) * 100
+
+    out = out.replace([np.inf, -np.inf], np.nan)
+    out = out.loc[TRAIN_START:FORECAST_END]
+
+    log.info(
+        f"[gas_futures] {len(out)} obs | "
+        f"{out.index.min().date()} to {out.index.max().date()}"
+    )
+
+    return out
+
+def _parse_electricity_demand(path: str) -> pd.DataFrame:
+    """
+    UK electricity demand file.
+
+    Key columns:
+        settlement_date
+        settlement_period
+        nd
+        tsd
+        england_wales_demand
+
+    Returns monthly:
+        electricity_demand_mean
+        electricity_demand_peak
+        electricity_tsd_mean
+        england_wales_demand_mean
+        electricity_demand_yoy_growth
+        electricity_peak_yoy_growth
+        embedded_wind_generation_mean
+        embedded_solar_generation_mean
+        embedded_wind_capacity_mean
+        embedded_solar_capacity_mean
+        pump_storage_pumping_mean
+        interconnector_net_flow_mean
+        holiday_share
+    """
+    df = pd.read_csv(path)
+
+    df["date"] = pd.to_datetime(df["settlement_date"], errors="coerce")
+    df = df.dropna(subset=["date"]).set_index("date").sort_index()
+
+    numeric_cols = [
+        "nd",
+        "tsd",
+        "england_wales_demand",
+        "embedded_wind_generation",
+        "embedded_wind_capacity",
+        "embedded_solar_generation",
+        "embedded_solar_capacity",
+        "pump_storage_pumping",
+        "is_holiday",
+    ]
+    interconnector_cols = [
+        "ifa_flow",
+        "ifa2_flow",
+        "britned_flow",
+        "moyle_flow",
+        "east_west_flow",
+        "nemo_flow",
+        "nsl_flow",
+        "eleclink_flow",
+        "viking_flow",
+        "greenlink_flow",
+    ]
+    for col in numeric_cols + interconnector_cols:
+        if col not in df.columns:
+            df[col] = np.nan
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    monthly = pd.DataFrame(index=df.resample("MS").mean(numeric_only=True).index)
+
+    monthly["electricity_demand_mean"] = df["nd"].resample("MS").mean()
+    monthly["electricity_demand_peak"] = df["nd"].resample("MS").max()
+    monthly["electricity_tsd_mean"] = df["tsd"].resample("MS").mean()
+    monthly["england_wales_demand_mean"] = df["england_wales_demand"].resample("MS").mean()
+    monthly["embedded_wind_generation_mean"] = (
+        df["embedded_wind_generation"].resample("MS").mean()
+    )
+    monthly["embedded_solar_generation_mean"] = (
+        df["embedded_solar_generation"].resample("MS").mean()
+    )
+    monthly["embedded_wind_capacity_mean"] = (
+        df["embedded_wind_capacity"].resample("MS").mean()
+    )
+    monthly["embedded_solar_capacity_mean"] = (
+        df["embedded_solar_capacity"].resample("MS").mean()
+    )
+    monthly["pump_storage_pumping_mean"] = (
+        df["pump_storage_pumping"].resample("MS").mean()
+    )
+    monthly["interconnector_net_flow_mean"] = (
+        df[interconnector_cols].sum(axis=1, min_count=1).resample("MS").mean()
+    )
+    monthly["holiday_share"] = df["is_holiday"].resample("MS").mean()
+
+    monthly["electricity_demand_yoy_growth"] = (
+        monthly["electricity_demand_mean"].pct_change(12) * 100
+    )
+
+    monthly["electricity_peak_yoy_growth"] = (
+        monthly["electricity_demand_peak"].pct_change(12) * 100
+    )
+    for col in [
+        "embedded_wind_generation_mean",
+        "embedded_solar_generation_mean",
+        "embedded_wind_capacity_mean",
+        "embedded_solar_capacity_mean",
+        "pump_storage_pumping_mean",
+        "interconnector_net_flow_mean",
+    ]:
+        monthly[f"{col}_yoy_growth"] = monthly[col].pct_change(12) * 100
+
+    monthly = monthly.replace([np.inf, -np.inf], np.nan)
+    monthly = monthly.loc[TRAIN_START:FORECAST_END]
+
+    log.info(
+        f"[electricity_demand] {len(monthly)} obs | "
+        f"{monthly.index.min().date()} to {monthly.index.max().date()}"
+    )
+
+    return monthly
+
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Public API
 # ══════════════════════════════════════════════════════════════════════════════
@@ -455,7 +630,7 @@ def load_core_dataset(
     gas_path:    str = "data/raw/gas.csv",
     elec_path:   str = "data/raw/electricity.csv",
     carbon_path: str = "data/raw/Carbon Emissions Futures Historical Data UK.csv",
-    save_path:   str = "data/raw/core_energy_carbon.csv",
+    save_path:   str = "data/processed/core_energy_carbon.csv",
 ) -> pd.DataFrame:
     """
     Parse Dataset A — all three core series returned as YoY growth rates (%).
@@ -464,30 +639,38 @@ def load_core_dataset(
     ──────
     gas_growth         : ONS RPI % change over 12 months (source already YoY %)
     electricity_growth : (CPI_t − CPI_{t-12}) / CPI_{t-12} × 100
-    carbon_growth      : (EUA_t − EUA_{t-12}) / EUA_{t-12} × 100
+    carbon_log_return  : log(EUA_t − EUA_{t-12}) / EUA_{t-12} × 100
 
-    Range: TRAIN_START (2005-01-01) to FORECAST_END (2018-12-01)
+    Range: TRAIN_START (2005-01-01) to FORECAST_END (2017-12-01)
 
     Returns
     -------
-    pd.DataFrame  columns: date, gas_growth, electricity_growth, carbon_growth
+    pd.DataFrame  columns: date, gas_growth, electricity_index,
+                           electricity_growth, carbon_growth
     """
     log.info("=" * 60)
     log.info("Loading Dataset A — core energy-carbon series (all as YoY growth %)")
     log.info("=" * 60)
 
     gas  = _parse_gas_growth(gas_path)
-    elec = _parse_electricity_growth(elec_path)
+    elec = _parse_electricity_core(elec_path)
     carb = _parse_carbon_growth(carbon_path)
 
     target_idx = pd.date_range(TRAIN_START, FORECAST_END, freq="MS")
 
     df = pd.DataFrame({
         "gas_growth":         gas.reindex(target_idx),
-        "electricity_growth": elec.reindex(target_idx),
+        "electricity_index":  elec["electricity_index"].reindex(target_idx),
+        "electricity_growth": elec["electricity_growth"].reindex(target_idx),
         "carbon_growth":      carb.reindex(target_idx),
     })
-    df = df.ffill().bfill()
+    missing_before = df[["gas_growth", "electricity_growth", "carbon_growth"]].isna().sum()
+    if missing_before.any():
+        log.warning(
+            "Core target rows with unavailable source history will be dropped:\n"
+            f"{missing_before[missing_before > 0]}"
+        )
+    df = df.dropna(subset=["gas_growth", "electricity_index", "electricity_growth", "carbon_growth"])
     df = df.reset_index().rename(columns={"index": "date"})
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
@@ -510,7 +693,9 @@ def load_macro_dataset(
     cpi_path:  str = "data/raw/cpih08_188.xlsx",
     gdp_path:  str = "data/raw/mgdp.csv",
     temp_path: str = "data/raw/monthly-temperature-anomalies.csv",
-    save_path: str = "data/raw/macro_controls.csv",
+    gas_futures_path: str = "data/raw/UK NBP Natural Gas Quaterly Futures Historical Data UK.csv",
+    elec_demand_path: str = "data/raw/historic_demand_2009_2024.csv",
+    save_path: str = "data/processed/macro_controls.csv",
 ) -> pd.DataFrame:
     """
     Parse Dataset B — exogenous / contextual controls.
@@ -534,14 +719,50 @@ def load_macro_dataset(
 
     target_dates = pd.date_range(TRAIN_START, FORECAST_END, freq="MS")
     weather_vol  = _parse_weather_volatility(temp_path, target_dates)
+    gas_futures  = _parse_gas_futures(gas_futures_path)
+    elec_demand  = _parse_electricity_demand(elec_demand_path)
+
+
 
     df = pd.DataFrame(index=target_dates)
     df.index.name = "date"
     df["inflation_growth"]   = inf_growth.reindex(target_dates)
     df["weather_volatility"] = weather_vol.reindex(target_dates)
     df["gdp_growth"]         = gdp_growth.reindex(target_dates)
+    df = df.join(gas_futures.reindex(target_dates))
+    df = df.join(elec_demand.reindex(target_dates))
+    df = df.ffill()
 
-    df = df.ffill().bfill().reset_index()
+    lag_cols = [
+        "inflation_growth",
+        "weather_volatility",
+        "gdp_growth",
+        "gas_futures_log_return",
+        "gas_futures_yoy_growth",
+        "electricity_demand_yoy_growth",
+        "electricity_peak_yoy_growth",
+        "embedded_wind_generation_mean_yoy_growth",
+        "embedded_solar_generation_mean_yoy_growth",
+        "embedded_wind_capacity_mean_yoy_growth",
+        "embedded_solar_capacity_mean_yoy_growth",
+        "pump_storage_pumping_mean_yoy_growth",
+        "interconnector_net_flow_mean_yoy_growth",
+        "holiday_share",
+    ]
+    for col in lag_cols:
+        if col in df.columns:
+            df[f"{col}_lag1"] = df[col].shift(1)
+
+    # Neutral first-month values avoid future back-fill while keeping exog arrays rectangular.
+    neutral_cols = [c for c in df.columns if c.endswith("_lag1")]
+    df[neutral_cols] = df[neutral_cols].fillna(0.0)
+
+    df["post_2016_electricity_regime"] = (df.index >= "2016-01-01").astype(int)
+    df["winter_dummy"] = df.index.month.isin([11, 12, 1, 2, 3]).astype(int)
+
+    df = df.reset_index()
+
+    
 
     log.info(
         f"Macro dataset: {len(df)} rows, "

@@ -1,203 +1,98 @@
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (no transformation)
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | [gas_growth] 144 obs | 2007-01-01 to 2018-12-01 | mean=5.626, range=[-13.200, 51.900]
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | [electricity_growth] 144 obs | 2007-01-01 to 2018-12-01 | mean=90.896, range=[64.800, 121.200]
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | [carbon_growth] 144 obs | 2007-01-01 to 2018-12-01 | mean=9.968, range=[0.010, 28.770]
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | Core dataset: 144 rows, 2007-01-01 to 2018-12-01
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | Core dataset saved -> data/raw/core_energy_carbon.csv
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (transformations applied)
-2026-05-18 22:46:33 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:46:35 | INFO     | energy_stress.data_loader | [inflation_growth] 144 obs | 2007-01-01 to 2018-12-01 | mean=0.1709%, range=[-0.3322, 1.4689]
-2026-05-18 22:46:35 | INFO     | energy_stress.data_loader |   Transformation: CPIH housing-energy index → monthly % change (InflationGrowth_t = (CPIH_t - CPIH_{t-1}) / CPIH_{t-1} x 100)
-2026-05-18 22:46:35 | INFO     | energy_stress.data_loader | [gdp_growth] 144 obs | 2007-01-01 to 2018-12-01 | type=MoM, mean=0.1153%, range=[-1.3000, 1.6000]
-2026-05-18 22:46:35 | INFO     | energy_stress.data_loader |   Transformation: ONS period-on-period growth column used directly (avoids trending GDP levels; stationary month-on-month % change)
-2026-05-18 22:46:35 | INFO     | energy_stress.data_loader | [weather] Loading spatial temperature grid (63k cells) ...
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader | [weather] Seasonal means (Jan-Dec): 4.0, 4.2, 5.7, 7.9, 10.6, 13.3, 15.3, 15.1, 12.9, 9.8, 6.5, 4.3
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader | [weather_volatility] 144 obs | mean=4.3857, range=[3.7016, 4.8712]
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(temperature, 12) where temperature = seasonal_mean + AR(1) inter-annual anomaly. Captures weather instability, not raw seasonal cycle.
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader | Macro dataset: 144 rows, 2007-01-01 to 2018-12-01
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=0.1709%
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader |   weather_volatility: mean=4.3857
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1153%
-2026-05-18 22:46:36 | INFO     | energy_stress.data_loader | Macro dataset saved -> data/raw/macro_controls.csv
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (no transformation)
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | [gas_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=4.811, range=[-13.200, 51.900]
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | [electricity_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=62.888, range=[33.100, 121.200]
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | mean=11.089, range=[0.010, 28.770]
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | Core dataset: 372 rows, 1988-01-01 to 2018-12-01
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | Core dataset saved -> data/raw/core_energy_carbon.csv
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (transformations applied)
-2026-05-18 22:48:01 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:48:03 | INFO     | energy_stress.data_loader | [inflation_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=0.2743%, range=[-0.3322, 4.6460]
-2026-05-18 22:48:03 | INFO     | energy_stress.data_loader |   Transformation: CPIH housing-energy index → monthly % change (InflationGrowth_t = (CPIH_t - CPIH_{t-1}) / CPIH_{t-1} x 100)
-2026-05-18 22:48:03 | INFO     | energy_stress.data_loader | [gdp_growth] 264 obs | 1997-01-01 to 2018-12-01 | type=MoM, mean=0.1720%, range=[-2.3000, 1.8000]
-2026-05-18 22:48:03 | INFO     | energy_stress.data_loader |   Transformation: ONS period-on-period growth column used directly (avoids trending GDP levels; stationary month-on-month % change)
-2026-05-18 22:48:03 | INFO     | energy_stress.data_loader | [weather] Loading spatial temperature grid (63k cells) ...
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader | [weather] Seasonal means (Jan-Dec): 4.0, 4.2, 5.7, 7.9, 10.6, 13.3, 15.3, 15.1, 12.9, 9.8, 6.5, 4.3
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader | [weather_volatility] 372 obs | mean=4.2928, range=[3.6632, 4.8712]
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(temperature, 12) where temperature = seasonal_mean + AR(1) inter-annual anomaly. Captures weather instability, not raw seasonal cycle.
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader | Macro dataset: 372 rows, 1988-01-01 to 2018-12-01
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=0.2743%
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader |   weather_volatility: mean=4.2928
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.2382%
-2026-05-18 22:48:04 | INFO     | energy_stress.data_loader | Macro dataset saved -> data/raw/macro_controls.csv
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (no transformation)
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | [gas_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=4.811, range=[-13.200, 51.900]
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | [electricity_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=62.888, range=[33.100, 121.200]
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | mean=11.089, range=[0.010, 28.770]
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | Core dataset: 372 rows, 1988-01-01 to 2018-12-01
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | Core dataset saved -> data/raw/core_energy_carbon.csv
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (transformations applied)
-2026-05-18 22:53:32 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-18 22:53:34 | INFO     | energy_stress.data_loader | [inflation_growth] 372 obs | 1988-01-01 to 2018-12-01 | mean=0.2743%, range=[-0.3322, 4.6460]
-2026-05-18 22:53:34 | INFO     | energy_stress.data_loader |   Transformation: CPIH housing-energy index → monthly % change (InflationGrowth_t = (CPIH_t - CPIH_{t-1}) / CPIH_{t-1} x 100)
-2026-05-18 22:53:34 | INFO     | energy_stress.data_loader | [gdp_growth] 264 obs | 1997-01-01 to 2018-12-01 | type=MoM, mean=0.1720%, range=[-2.3000, 1.8000]
-2026-05-18 22:53:34 | INFO     | energy_stress.data_loader |   Transformation: ONS period-on-period growth column used directly (avoids trending GDP levels; stationary month-on-month % change)
-2026-05-18 22:53:34 | INFO     | energy_stress.data_loader | [weather] Loading spatial temperature grid (63k cells) ...
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader | [weather] Seasonal means (Jan-Dec): 4.0, 4.2, 5.7, 7.9, 10.6, 13.3, 15.3, 15.1, 12.9, 9.8, 6.5, 4.3
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader | [weather_volatility] 372 obs | mean=4.2928, range=[3.6632, 4.8712]
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(temperature, 12) where temperature = seasonal_mean + AR(1) inter-annual anomaly. Captures weather instability, not raw seasonal cycle.
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader | Macro dataset: 372 rows, 1988-01-01 to 2018-12-01
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=0.2743%
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader |   weather_volatility: mean=4.2928
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.2382%
-2026-05-18 22:53:35 | INFO     | energy_stress.data_loader | Macro dataset saved -> data/raw/macro_controls.csv
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (no transformation)
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=8.129, range=[-13.200, 51.900]
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=85.896, range=[48.800, 121.200]
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | mean=11.089, range=[0.010, 28.770]
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | Core dataset saved -> data/raw/core_energy_carbon.csv
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (transformations applied)
-2026-05-19 00:39:29 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:39:30 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=0.1996%, range=[-0.3322, 1.4689]
-2026-05-19 00:39:30 | INFO     | energy_stress.data_loader |   Transformation: CPIH housing-energy index → monthly % change (InflationGrowth_t = (CPIH_t - CPIH_{t-1}) / CPIH_{t-1} x 100)
-2026-05-19 00:39:30 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
-2026-05-19 00:39:30 | INFO     | energy_stress.data_loader |   Transformation: ONS period-on-period growth column used directly (avoids trending GDP levels; stationary month-on-month % change)
-2026-05-19 00:39:30 | INFO     | energy_stress.data_loader | [weather] Loading spatial temperature grid (63k cells) ...
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (no transformation)
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=8.129, range=[-13.200, 51.900]
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=85.896, range=[48.800, 121.200]
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | mean=11.089, range=[0.010, 28.770]
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | Core dataset saved -> data/raw/core_energy_carbon.csv
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (transformations applied)
-2026-05-19 00:41:36 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 00:41:37 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=0.1996%, range=[-0.3322, 1.4689]
-2026-05-19 00:41:37 | INFO     | energy_stress.data_loader |   Transformation: CPIH housing-energy index → monthly % change (InflationGrowth_t = (CPIH_t - CPIH_{t-1}) / CPIH_{t-1} x 100)
-2026-05-19 00:41:37 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
-2026-05-19 00:41:37 | INFO     | energy_stress.data_loader |   Transformation: ONS period-on-period growth column used directly (avoids trending GDP levels; stationary month-on-month % change)
-2026-05-19 00:41:37 | INFO     | energy_stress.data_loader | [weather] Loading spatial temperature grid (63k cells) ...
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (source) | mean=8.129, range=[-13.200, 51.900]
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (pct_change 12) from CPI index | mean=7.211, range=[-8.108, 31.327]
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | YoY % from EUA price | mean=1744.766, range=[-99.878, 155100.000]
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) → YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | Core dataset saved → data/raw/core_energy_carbon.csv
-2026-05-19 01:39:25 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 01:39:26 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
-2026-05-19 01:39:26 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 01:39:27 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=0.1996%, range=[-0.3322, 1.4689]
-2026-05-19 01:39:27 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader | [weather] Parsed wide-format UK temperature data
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader | [weather_volatility] 168 obs (UK-filtered) | mean=nan, range=[nan, nan]
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader | Macro dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=0.1996%
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader |   weather_volatility: mean=nan
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1339%
-2026-05-19 01:39:28 | INFO     | energy_stress.data_loader | Macro dataset saved → data/raw/macro_controls.csv
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (source) | mean=8.129, range=[-13.200, 51.900]
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (pct_change 12) from CPI index | mean=7.211, range=[-8.108, 31.327]
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | YoY % from EUA price | mean=1744.766, range=[-99.878, 155100.000]
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) → YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | Core dataset saved → data/raw/core_energy_carbon.csv
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
-2026-05-19 02:04:38 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:04:39 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=0.1996%, range=[-0.3322, 1.4689]
-2026-05-19 02:04:40 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
-2026-05-19 02:04:40 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
-2026-05-19 02:04:40 | INFO     | energy_stress.data_loader | [weather_volatility] 168 obs (UK-filtered) | mean=1.0776, range=[0.6241, 1.9903]
-2026-05-19 02:04:40 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
-2026-05-19 02:04:41 | INFO     | energy_stress.data_loader | Macro dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 02:04:41 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=0.1996%
-2026-05-19 02:04:41 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0776
-2026-05-19 02:04:41 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1339%
-2026-05-19 02:04:41 | INFO     | energy_stress.data_loader | Macro dataset saved → data/raw/macro_controls.csv
-2026-05-19 02:29:39 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:29:39 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
-2026-05-19 02:29:39 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | [gas_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (source) | mean=8.129, range=[-13.200, 51.900]
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | [electricity_growth] 168 obs | 2005-01-01 to 2018-12-01 | YoY % (pct_change 12) from CPI index | mean=7.211, range=[-8.108, 31.327]
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | [carbon_growth] 164 obs | 2005-05-01 to 2018-12-01 | YoY % from EUA price | mean=1744.766, range=[-99.878, 155100.000]
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) → YoY growth % = (Price_t − Price_{t-12}) / Price_{t-12} × 100
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | Core dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | Core dataset saved → data/raw/core_energy_carbon.csv
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
-2026-05-19 02:29:40 | INFO     | energy_stress.data_loader | ============================================================
-2026-05-19 02:29:41 | INFO     | energy_stress.data_loader | [inflation_growth] 168 obs | 2005-01-01 to 2018-12-01 | mean=2.5025%, range=[-1.1074, 6.6272]
-2026-05-19 02:29:41 | INFO     | energy_stress.data_loader | [gdp_growth] 168 obs | 2005-01-01 to 2018-12-01 | type=MoM, mean=0.1339%, range=[-1.3000, 1.6000]
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader | [weather_volatility] 168 obs (UK-filtered) | mean=1.0819, range=[0.6241, 1.9903]
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader | Macro dataset: 168 rows, 2005-01-01 to 2018-12-01
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=2.5025%
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0819
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1339%
-2026-05-19 02:29:42 | INFO     | energy_stress.data_loader | Macro dataset saved → data/raw/macro_controls.csv
-2026-05-19 02:35:48 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
-2026-05-19 02:35:48 | INFO     | energy_stress.preprocessing | [core] No missing values detected
-2026-05-19 02:35:48 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
-2026-05-19 02:35:50 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.9671, p=0.3012 → NON-STATIONARY
-2026-05-19 02:35:50 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0707, p=0.2565 → NON-STATIONARY
-2026-05-19 02:35:50 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-5.2484, p=0.0000 → STATIONARY
-2026-05-19 02:35:50 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
-2026-05-19 02:35:50 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
-2026-05-19 02:55:44 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
-2026-05-19 02:55:44 | INFO     | energy_stress.preprocessing | [core] No missing values detected
-2026-05-19 02:55:44 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
-2026-05-19 02:55:46 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.9671, p=0.3012 → NON-STATIONARY
-2026-05-19 02:55:46 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0707, p=0.2565 → NON-STATIONARY
-2026-05-19 02:55:46 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-5.2484, p=0.0000 → STATIONARY
-2026-05-19 02:55:46 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
-2026-05-19 02:55:46 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
-2026-05-19 02:57:30 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
-2026-05-19 02:57:30 | INFO     | energy_stress.preprocessing | [core] No missing values detected
-2026-05-19 02:57:30 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
-2026-05-19 02:57:42 | DEBUG    | energy_stress.preprocessing | Loaded data/raw/core_energy_carbon.csv: (168, 3), range 2005-01-01 00:00:00 – 2018-12-01 00:00:00
-2026-05-19 02:57:42 | INFO     | energy_stress.preprocessing | [core] No missing values detected
-2026-05-19 02:57:42 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 12 rows flagged
-2026-05-19 02:57:44 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.9671, p=0.3012 → NON-STATIONARY
-2026-05-19 02:57:44 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0707, p=0.2565 → NON-STATIONARY
-2026-05-19 02:57:44 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-5.2484, p=0.0000 → STATIONARY
-2026-05-19 02:57:44 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
-2026-05-19 02:57:44 | INFO     | energy_stress.preprocessing | Train: 144 rows | Test: 12 rows
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [gas_growth] 156 obs | 2005-01-01 to 2017-12-01 | YoY % (source) | mean=8.472, range=[-13.200, 51.900]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [electricity_growth] 156 obs | 2005-01-01 to 2017-12-01 | YoY % (pct_change 12) from CPI index | mean=7.096, range=[-8.108, 31.327]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [carbon_log_return] 152 obs | 2005-05-01 to 2017-12-01 | YoY % from EUA price | mean=-11.069, range=[-670.930, 734.730]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) →   YoY log return = log(Price_t / Price_t-12) × 100 
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Core dataset: 156 rows, 2005-01-01 to 2017-12-01
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Core dataset saved → data/processed/core_energy_carbon.csv
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [inflation_growth] 156 obs | 2005-01-01 to 2017-12-01 | mean=2.4487%, range=[-1.1074, 6.6272]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [gdp_growth] 156 obs | 2005-01-01 to 2017-12-01 | type=MoM, mean=0.1429%, range=[-1.3000, 1.6000]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [weather_volatility] 156 obs (UK-filtered) | mean=1.0766, range=[0.6241, 1.9903]
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [gas_futures] 156 obs | 2005-01-01 to 2017-12-01
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | [electricity_demand] 108 obs | 2009-01-01 to 2017-12-01
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Macro dataset: 156 rows, 2005-01-01 to 2017-12-01
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=2.5523%
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0766
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1429%
+2026-05-22 17:14:55 | INFO     | energy_stress.data_loader | Macro dataset saved → data/processed/macro_controls.csv
+2026-05-22 17:15:13 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 17:15:13 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 17:15:13 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 20 rows flagged
+2026-05-22 17:15:14 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.7653, p=0.3978 → NON-STATIONARY
+2026-05-22 17:15:14 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0183, p=0.2786 → NON-STATIONARY
+2026-05-22 17:15:14 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-2.8807, p=0.0476 → STATIONARY
+2026-05-22 17:15:14 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-22 17:15:14 | INFO     | energy_stress.preprocessing | Train: 132 rows | Test: 12 rows
+2026-05-22 21:15:51 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 21:15:51 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 20 rows flagged
+2026-05-22 21:15:51 | WARNING  | energy_stress.preprocessing | Outliers in 'gas_growth_irregular': 38 rows flagged
+2026-05-22 21:15:51 | WARNING  | energy_stress.preprocessing | Outliers in 'electricity_growth_irregular': 37 rows flagged
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.7653, p=0.3978 → NON-STATIONARY
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0183, p=0.2786 → NON-STATIONARY
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-2.8807, p=0.0476 → STATIONARY
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-22 21:15:51 | INFO     | energy_stress.preprocessing | Train: 132 rows | Test: 12 rows
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Loading Dataset A — core energy-carbon series (all as YoY growth %)
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [gas_growth] 156 obs | 2005-01-01 to 2017-12-01 | YoY % (source) | mean=8.472, range=[-13.200, 51.900]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [electricity_growth] 156 obs | 2005-01-01 to 2017-12-01 | YoY % (pct_change 12) from CPI index | mean=7.096, range=[-8.108, 31.327]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   Transformation: CPI electricity index (2015=100) → YoY growth % = (Index_t − Index_{t-12}) / Index_{t-12} × 100
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [carbon_log_return] 152 obs | 2005-05-01 to 2017-12-01 | YoY % from EUA price | mean=-11.069, range=[-670.930, 734.730]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   Transformation: EUA futures price (EUR/tonne) →   YoY log return = log(Price_t / Price_t-12) × 100 
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Core dataset: 156 rows, 2005-01-01 to 2017-12-01
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   All series are YoY growth rates (%) — conceptually consistent.
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Core dataset saved → data/processed/core_energy_carbon.csv
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Loading Dataset B — macro controls (UK-specific)
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | ============================================================
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [inflation_growth] 156 obs | 2005-01-01 to 2017-12-01 | mean=2.4487%, range=[-1.1074, 6.6272]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [gdp_growth] 156 obs | 2005-01-01 to 2017-12-01 | type=MoM, mean=0.1429%, range=[-1.3000, 1.6000]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [weather] Filtered to UK: 1036 rows (country col='Entity')
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [weather_volatility] 156 obs (UK-filtered) | mean=1.0766, range=[0.6241, 1.9903]
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   Transformation: RollingStd(UK temperature anomaly, 12 months). Captures unusual weather instability relevant to energy stress.
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [gas_futures] 156 obs | 2005-01-01 to 2017-12-01
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | [electricity_demand] 108 obs | 2009-01-01 to 2017-12-01
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Macro dataset: 156 rows, 2005-01-01 to 2017-12-01
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   inflation_growth  : mean=2.5523%
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   weather_volatility: mean=1.0766
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader |   gdp_growth        : mean=0.1429%
+2026-05-22 22:54:00 | INFO     | energy_stress.data_loader | Macro dataset saved → data/processed/macro_controls.csv
+2026-05-22 22:54:06 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 22:54:06 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 20 rows flagged
+2026-05-22 22:54:06 | WARNING  | energy_stress.preprocessing | Outliers in 'low_price_regime': 36 rows flagged
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.7653, p=0.3978 → NON-STATIONARY
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0183, p=0.2786 → NON-STATIONARY
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-2.8807, p=0.0476 → STATIONARY
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-22 22:54:06 | INFO     | energy_stress.preprocessing | Train: 132 rows | Test: 12 rows
+2026-05-22 23:04:02 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 23:04:02 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 23:07:10 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 23:07:10 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 23:08:17 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 23:08:17 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 23:09:21 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 23:09:21 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 23:11:02 | DEBUG    | energy_stress.preprocessing | Loaded data/processed/core_energy_carbon.csv: (156, 3), range 2005-01-01 00:00:00 – 2017-12-01 00:00:00
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | [core] No missing values detected
+2026-05-22 23:11:02 | WARNING  | energy_stress.preprocessing | Outliers in 'carbon_growth': 20 rows flagged
+2026-05-22 23:11:02 | WARNING  | energy_stress.preprocessing | Outliers in 'gas_growth_irregular': 38 rows flagged
+2026-05-22 23:11:02 | WARNING  | energy_stress.preprocessing | Outliers in 'electricity_growth_irregular': 37 rows flagged
+2026-05-22 23:11:02 | WARNING  | energy_stress.preprocessing | Outliers in 'low_price_regime': 36 rows flagged
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | ADF [gas_growth]: stat=-1.7653, p=0.3978 → NON-STATIONARY
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | ADF [electricity_growth]: stat=-2.0183, p=0.2786 → NON-STATIONARY
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | ADF [carbon_growth]: stat=-2.8807, p=0.0476 → STATIONARY
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | Saved processed data → data/processed/core_processed.csv
+2026-05-22 23:11:02 | INFO     | energy_stress.preprocessing | Train: 132 rows | Test: 12 rows

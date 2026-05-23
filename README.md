@@ -1,7 +1,7 @@
 # Anticipatory Energy-Carbon Stress Index
 
 A production-grade Python pipeline for forecasting UK energy and carbon growth
-rates (2005-2017 training window, 2018 monthly forecast horizon), constructing
+rates (2006-2015 training window, 2017 monthly forecast horizon), constructing
 the **Forecasted Energy-Carbon Stress Index (FES)**, and linking macro-level
 stress to household-level behavioural responses via COR theory.
 
@@ -12,11 +12,11 @@ stress to household-level behavioural responses via COR theory.
 | Baseline | Role | Input |
 |----------|------|-------|
 | **FES_core** | *Main model* — primary anticipatory stress index | Core-only forecasts (gas, electricity, carbon growth) |
-| **FES_macro** | *Robustness 1* — tests whether macro context improves signals | Core + exogenous macro (inflation, weather, GDP) as model inputs |
-| **FES_actual** | *Robustness 2* — realised-price ground truth benchmark | Realised 2018 growth values |
+| **FES_macro** | *Robustness 1* — tests whether macro context improves signals | Core + lagged, series-specific macro inputs |
+| **FES_actual** | *Robustness 2* — realised-price ground truth benchmark | Realised 2017 growth values |
 
-**Key rule**: inflation, weather, and GDP never enter the FES equation directly.
-They are exogenous inputs that help models produce better core forecasts.
+**Key rule**: macro variables never enter the FES equation directly. They are
+lagged exogenous inputs that help models produce better core forecasts.
 
 ### FES Formula
 
@@ -26,7 +26,7 @@ FES_macro_t  = z(Gas_hat_macro_t)    + z(Elec_hat_macro_t)    + z(Carbon_hat_mac
 FES_actual_t = z(GasGrowth_actual_t) + z(ElecGrowth_actual_t) + z(CarbonGrowth_actual_t) + RealVol_t
 ```
 
-All z-scores use the same **2005-2017 training-period reference** (mean and std)
+All z-scores use the same pre-forecast training-period reference (mean and std)
 so that the three variants are directly comparable.
 
 ---
@@ -48,8 +48,8 @@ Stage 2: Forecast models (TWO modes per series)
     |  LSTM (univariate)       |  LSTM (multivariate)        |
     |  TFT (core only)         |  TFT (future covariates)    |
     +--------------------------+-----------------------------+
-    Train: 2005-2016  |  Evaluate: 2017  |  Refit: 2005-2017
-    Forecast horizon: Jan-Dec 2018
+    Train: 2006-2015  |  Evaluate: 2016  |  Refit: through 2016
+    Forecast horizon: Jan-Dec 2017
            |
            v
 Stage 3: Rank-aggregation model selection
@@ -64,14 +64,14 @@ Stage 4: FES construction
     fes_calculator.py
     FES_core   -> best core-only model per series
     FES_macro  -> best macro model per series   (Robustness 1)
-    FES_actual -> realised 2018 values           (Robustness 2)
-    z-scores referenced to 2005-2017 training statistics
+    FES_actual -> realised 2017 values           (Robustness 2)
+    z-scores referenced to the pre-forecast training statistics
            |
            v
 Stage 5: Social SEM -- COR composite-score path analysis
     run_sem.py
     Data: ENABLE.EU UK household survey (n=1,015, Country=11)
-    FES 2018 annual mean -> contextual macro-stress background
+    FES 2017 annual mean -> contextual macro-stress background
     COR pathway (OLS path analysis + bootstrap mediation):
         Insecurity -> Resource Preservation -> Thermal Discomfort
            |
@@ -96,12 +96,12 @@ shared stress environment shapes **micro-level** household responses:
 | Defensive resource protection | **Resource Preservation** (thermostat control, energy-saving behaviours) |
 | Consequences of depletion | **Thermal Discomfort** (heating dissatisfaction, comfort barriers) |
 
-FES 2018 annual mean is the same for all UK households (zero within-country
+FES 2017 annual mean is the same for all UK households (zero within-country
 variance), so it is treated as **contextual macro-stress exposure** — NOT as a
 household-level predictor.  The estimable behavioural pathway is the COR chain:
 
 ```
-  FES 2018 (contextual background)
+  FES 2017 (contextual background)
        |
   [Insecurity]  --a-->  [Resource Preservation]  --b-->  [Thermal Discomfort]
        |______________________c' (direct)__________________________|
@@ -159,9 +159,9 @@ anticipatory-energy-stress/
 +-- outputs/
 |   +-- logs/
 |   +-- tables/
-|   +-- figures/                # Forecast, FES, polar ranking, PI, 2018 comparisons
+|   +-- figures/                # Forecast, FES, polar ranking, PI, 2017 comparisons
 |   +-- forecasts/              # {series}_growth_pct_forecasts_{model}_{mode}.csv
-|   +-- fes/                    # fes_monthly_2018.csv, fes_summary_2018.csv
+|   +-- fes/                    # fes_monthly_2017.csv, fes_summary_2017.csv
 |   +-- social_sem/             # Stage 5 outputs
 |   |   +-- tables/             # 8 CSV tables (item diagnostics, path estimates, mediation...)
 |   |   +-- figures/            # 7 figures (COR path diagram, distributions, FES context...)
@@ -218,15 +218,15 @@ jupyter notebook notebooks/monitoring.ipynb
 | File | Series | Transformation | Source |
 |------|--------|---------------|--------|
 | `gas.csv` | Gas price change | Already YoY % -- used as-is | ONS MM23 CZDA |
-| `electricity.csv` | Electricity CPI index (2015=100) | MoM % = (Index_t - Index_{t-1}) / Index_{t-1} x 100 | ONS MM23 D7DT |
+| `electricity.csv` | ONS CPI INDEX 04.5.1: domestic electricity, 2015=100 | Target is YoY % = (Index_t - Index_{t-12}) / Index_{t-12} x 100; index level is retained only as reference | ONS MM23 D7DT |
 | `Carbon...csv` | EUA futures price (EUR/tonne) | YoY % = (Price_t - Price_{t-12}) / Price_{t-12} x 100 | ICE / Investing.com |
 | `cpih08_188.xlsx` | CPIH housing-energy index | MoM % | ONS CPIH Table 7 |
 | `mgdp.csv` | Monthly GVA growth | Already MoM % -- used as-is | ONS Monthly GDP |
 | `monthly-temperature-anomalies.csv` | Temperature anomaly -- UK filtered | RollingStd(12) | Our World in Data |
 | `ENABLE.EU_dataset_...xlsx` | Household survey (11 countries) | UK sub-sample: Country==11, n=1,015 | ENABLE.EU project |
 
-> All three core series (gas, electricity, carbon) are expressed as **growth rates (%)**
-> for conceptual consistency and FES z-score validity.
+> FES uses growth-rate outputs for gas, electricity, and carbon. Electricity is
+> sourced as an ONS CPI index level, then converted to YoY growth before modeling.
 
 ---
 
@@ -243,8 +243,8 @@ Columns: `date | model | mode | forecast | lower_bound | upper_bound | actual`
 
 | File | Description |
 |------|-------------|
-| `fes_monthly_2018.csv` | 12 rows x all z-components + FES_core, FES_macro, FES_actual |
-| `fes_summary_2018.csv` | Annual mean FES and per-component z-score means |
+| `fes_monthly_2017.csv` | 12 rows x all z-components + FES_core, FES_macro, FES_actual |
+| `fes_summary_2017.csv` | Annual mean FES and per-component z-score means |
 | `fes_components_table.csv` | Cross-baseline component comparison table |
 
 ### Social SEM (`outputs/social_sem/`)
@@ -340,4 +340,4 @@ rather than scaling artefacts.
 
 ---
 
-*Anticipatory Energy-Carbon Stress Index Pipeline -- UK 2005-2018*
+*Anticipatory Energy-Carbon Stress Index Pipeline -- UK 2006-2017*

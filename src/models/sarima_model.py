@@ -9,13 +9,11 @@ Strategy
      the training window (evaluated without exogenous variables to keep order
      selection stable across both modes).
   2. Core mode  : SARIMA — no exogenous variables.
-  3. Macro mode : SARIMAX — inflation_growth, weather_volatility, gdp_growth
-     as exogenous regressors.
-     2017 evaluation  : aligned 2017 macro slice as exog.
-     2018 forecast    : actual 2018 macro values from macro_full as exog.
-                        Real values are NEVER replaced with zeros.
-  4. Evaluate on 2017 test set; refit on full 2005-2017; forecast 2018.
-  5. Save CSV with actual 2018 values for comparison.
+  3. Macro mode : SARIMAX with lagged, series-specific exogenous regressors.
+     Gas uses lagged gas-futures signals; electricity uses lagged fuel-cost
+     and electricity-growth signals.
+  4. Evaluate on 2016 test set; refit on full history through 2016; forecast 2017.
+  5. Save CSV with actual 2017 values for comparison.
      Filename: {series}_growth_pct_forecasts_sarima_core.csv
                {series}_growth_pct_forecasts_sarima_macro.csv
 """
@@ -29,15 +27,18 @@ from typing import Optional, Tuple
 
 from src.logging_utils import get_logger
 from src.metrics_utils import compute_all_metrics
+from src.model_utils import (
+    align_macro_for_series,
+    index_forecast_to_yoy_growth,
+    is_electricity,
+    macro_cols_for_series,
+)
 
 log = get_logger("sarima")
 warnings.filterwarnings("ignore")
 
 FORECAST_PERIODS = 12
 ALPHA            = 0.05
-MACRO_COLS       = ["inflation_growth", "weather_volatility", "gdp_growth"]
-
-
 def _fit_auto(train_series: pd.Series) -> "pmdarima.ARIMA":
     """Auto-select SARIMA orders on training data (no exog — keeps order selection stable)."""
     import pmdarima as pm
@@ -61,10 +62,10 @@ def _fit_auto(train_series: pd.Series) -> "pmdarima.ARIMA":
 def _align_macro(
     macro_df: pd.DataFrame,
     index: pd.DatetimeIndex,
+    series_name: str,
 ) -> np.ndarray:
     """Align macro DataFrame to target index; return float64 array."""
-    cols = [c for c in MACRO_COLS if c in macro_df.columns]
-    return macro_df[cols].reindex(index).ffill().bfill().values.astype(np.float64)
+    return align_macro_for_series(macro_df, index, series_name).values.astype(np.float64)
 
 
 def _eval_on_2017(
@@ -102,7 +103,8 @@ def run_sarima(
     macro_train: Optional[pd.DataFrame] = None,
     macro_full:  Optional[pd.DataFrame] = None,
     use_macro: bool = False,
-    actual_2018: Optional[pd.Series] = None,
+    actual_2017: Optional[pd.Series] = None,
+    eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
 ) -> dict:
     """
@@ -111,13 +113,13 @@ def run_sarima(
     Parameters
     ----------
     series_name  : 'gas', 'electricity', or 'carbon'
-    train        : history up to end of 2016
-    test         : 2017 monthly series (12 obs)
-    full         : history up to end of 2017 (no 2018 data)
+    train        : history up to end of 2015
+    test         : 2016 monthly series (12 obs)
+    full         : history up to end of 2016 (no 2017 data)
     macro_train  : Dataset B aligned to training dates
-    macro_full   : Dataset B for full period (must include 2018 rows for macro mode)
+    macro_full   : Dataset B for full period (must include 2016 rows for macro mode)
     use_macro    : fit SARIMAX with macro exogenous variables
-    actual_2018  : actual 2018 target values for comparison column in CSV
+    actual_2017  : actual 2017 target values for comparison column in CSV
     forecast_dir : output directory
     """
     mode = "macro" if use_macro else "core"
@@ -135,35 +137,42 @@ def run_sarima(
         seasonal_order = (1, 1, 1, 12)
 
     # ── Build exogenous arrays ────────────────────────────────────────────────
-    exog_train = exog_test = exog_full = exog_2018 = None
+    exog_train = exog_test = exog_full = exog_2017 = None
 
     if use_macro and macro_train is not None and macro_full is not None:
-        exog_train = _align_macro(macro_train, train.index)
-        exog_test  = _align_macro(macro_full,  test.index)
-        exog_full  = _align_macro(macro_full,  full.index)
+        exog_train = _align_macro(macro_train, train.index, series_name)
+        exog_test  = _align_macro(macro_full,  test.index, series_name)
+        exog_full  = _align_macro(macro_full,  full.index, series_name)
 
-        dates_2018 = pd.date_range("2018-01-01", periods=12, freq="MS")
-        exog_2018  = _align_macro(macro_full, dates_2018)
-        log.info(f"[SARIMA-MACRO] Using exogenous: {MACRO_COLS}")
+        dates_2017 = pd.date_range("2017-01-01", periods=12, freq="MS")
+        exog_2017  = _align_macro(macro_full, dates_2017, series_name)
+        log.info(f"[SARIMA-MACRO] Using exogenous: {macro_cols_for_series(series_name, macro_full)}")
 
-    # ── Evaluate on 2017 ─────────────────────────────────────────────────────
+    # ── Evaluate on the 2016 validation split ────────────────────────────────
     fc_test, lb_test, ub_test = _eval_on_2017(
         train, test, order, seasonal_order,
         exog_train=exog_train,
         exog_test=exog_test,
     )
     test_arr = test.values
+    if is_electricity(series_name):
+        test_dates = pd.DatetimeIndex(test.index)
+        hist_for_test = pd.concat([train, test]).sort_index()
+        fc_test = index_forecast_to_yoy_growth(fc_test, test_dates, hist_for_test)
+        lb_test = index_forecast_to_yoy_growth(lb_test, test_dates, hist_for_test)
+        ub_test = index_forecast_to_yoy_growth(ub_test, test_dates, hist_for_test)
+        test_arr = eval_actual.reindex(test_dates).values if eval_actual is not None else test_arr
 
     metrics = compute_all_metrics(
         actual=test_arr, forecast=fc_test,
         lower=lb_test, upper=ub_test,
         train_actual=train.values,
     )
-    log.info(f"[SARIMA-{mode.upper()} {series_name}] 2017 eval: "
+    log.info(f"[SARIMA-{mode.upper()} {series_name}] 2016 validation: "
              f"MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}, "
              f"MAPE={metrics['MAPE']:.2f}%")
 
-    # ── Refit on full 2005-2017 → forecast 2018 ──────────────────────────────
+    # ── Refit on full history through 2016 → forecast 2017 ──────────────────
     from statsmodels.tsa.statespace.sarimax import SARIMAX
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -176,24 +185,28 @@ def run_sarima(
             enforce_invertibility=False,
         ).fit(disp=False)
 
-    fcast_2018 = final_model.get_forecast(steps=FORECAST_PERIODS, exog=exog_2018)
-    fc_2018    = fcast_2018.predicted_mean.values
-    ci_2018    = fcast_2018.conf_int(alpha=ALPHA).values
-    lb_2018    = ci_2018[:, 0]
-    ub_2018    = ci_2018[:, 1]
+    fcast_2017 = final_model.get_forecast(steps=FORECAST_PERIODS, exog=exog_2017)
+    fc_2017    = fcast_2017.predicted_mean.values
+    ci_2017    = fcast_2017.conf_int(alpha=ALPHA).values
+    lb_2017    = ci_2017[:, 0]
+    ub_2017    = ci_2017[:, 1]
+    forecast_dates = pd.date_range("2017-01-01", periods=FORECAST_PERIODS, freq="MS")
+    if is_electricity(series_name):
+        fc_2017 = index_forecast_to_yoy_growth(fc_2017, forecast_dates, full)
+        lb_2017 = index_forecast_to_yoy_growth(lb_2017, forecast_dates, full)
+        ub_2017 = index_forecast_to_yoy_growth(ub_2017, forecast_dates, full)
 
-    forecast_dates = pd.date_range("2018-01-01", periods=FORECAST_PERIODS, freq="MS")
     df_out = pd.DataFrame({
         "date":        forecast_dates,
         "model":       "SARIMA",
         "mode":        mode,
-        "forecast":    fc_2018.round(4),
-        "lower_bound": lb_2018.round(4),
-        "upper_bound": ub_2018.round(4),
+        "forecast":    fc_2017.round(4),
+        "lower_bound": lb_2017.round(4),
+        "upper_bound": ub_2017.round(4),
     })
 
-    if actual_2018 is not None:
-        df_out["actual"] = actual_2018.reindex(forecast_dates).values
+    if actual_2017 is not None:
+        df_out["actual"] = actual_2017.reindex(forecast_dates).values
 
     Path(forecast_dir).mkdir(parents=True, exist_ok=True)
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_sarima_{mode}.csv"

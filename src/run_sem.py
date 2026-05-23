@@ -2,7 +2,7 @@
 run_sem.py
 ──────────
 COR Composite-Score Path Analysis
-ENABLE.EU UK Household Survey x FES 2018 Annual Context
+ENABLE.EU UK Household Survey x FES 2017 Annual Context
 
 Methodology
 ───────────
@@ -27,7 +27,7 @@ FES contextual scenarios
 ─────────────────────────
   fes_core   : main forecast (core-only models)
   fes_macro  : Robustness 1 (macro-augmented models)
-  fes_actual : Robustness 2 (realised 2018 prices)
+  fes_actual : Robustness 2 (realised 2017 prices)
 
 These are reported as background context and compared descriptively.
 They are NOT tested as household-level predictors.
@@ -73,7 +73,7 @@ _ROOT = Path(__file__).parent.parent
 
 DATA_PATH        = _ROOT / "data" / "social_science_data" / \
                    "ENABLE.EU_dataset_survey of households.xlsx"
-FES_MONTHLY_PATH = _ROOT / "outputs" / "fes" / "fes_monthly_2018.csv"
+FES_MONTHLY_PATH = _ROOT / "outputs" / "fes" / "fes_monthly_2017.csv"
 OUT_DIR          = _ROOT / "outputs" / "social_sem"
 FIGS_DIR         = OUT_DIR / "figures"
 
@@ -197,7 +197,7 @@ def load_enable_uk() -> pd.DataFrame:
 
 def attach_annual_fes(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Attach annual FES 2018 values to every UK household.
+    Attach annual FES 2017 values to every UK household.
 
     Annual FES is the mean of the 12 monthly FES values from the forecasting
     pipeline.  Every UK household receives the same value for each variant
@@ -205,13 +205,13 @@ def attach_annual_fes(df: pd.DataFrame) -> pd.DataFrame:
 
     Interview-date merging is NOT attempted:
     - T3 values are '#NULL!' for UK respondents in this dataset.
-    - Even if dates were available, all UK interviews fall within 2018, so
+    - Even if dates were available, all UK interviews fall within 2017, so
       matching to a specific forecast month would not add identifying variation.
 
     FES is therefore treated as contextual annual macro-stress exposure and
     reported descriptively only -- it is NOT entered into path regressions.
     """
-    print("\n[2] Attaching annual FES 2018 context...")
+    print("\n[2] Attaching annual FES 2017 context...")
 
     fes_variants = {"fes_core": np.nan, "fes_macro": np.nan, "fes_actual": np.nan}
 
@@ -236,7 +236,7 @@ def attach_annual_fes(df: pd.DataFrame) -> pd.DataFrame:
     interp = {
         "fes_core":   "Main model -- core-only forecast stress",
         "fes_macro":  "Robustness 1 -- macro-augmented forecast stress",
-        "fes_actual": "Robustness 2 -- realised 2018 price benchmark",
+        "fes_actual": "Robustness 2 -- realised 2017 price benchmark",
     }
     for col, val in fes_variants.items():
         ctx_rows.append({
@@ -706,7 +706,7 @@ def fes_context_summary(df: pd.DataFrame) -> pd.DataFrame:
          "Robustness 1: macro-augmented model (inflation, weather, GDP as exogenous inputs)",
          "Alternative scenario; tests if macro context alters stress signal"),
         ("fes_actual",
-         "Robustness 2: realised 2018 energy prices (benchmark comparison)",
+         "Robustness 2: realised 2017 energy prices (benchmark comparison)",
          "Ground-truth benchmark; verifies forecast direction and magnitude"),
     ]:
         val = df[variant].iloc[0] if variant in df.columns else np.nan
@@ -783,7 +783,7 @@ def generate_figures(
     )
     ax.add_patch(rect_fes)
     ax.text(7.0, 4.35,
-            f"UK Annual FES 2018  (contextual macro-stress background)\n{fes_text}",
+            f"UK Annual FES 2017  (contextual macro-stress background)\n{fes_text}",
             ha="center", va="center", fontsize=8.5, color="#2C3E50",
             fontweight="bold")
 
@@ -862,7 +862,7 @@ def generate_figures(
         ax.set_xlabel("Score (0 = low, 1 = high)", fontsize=10)
         ax.set_ylabel("Households", fontsize=10)
         ax.grid(True, color=_PALETTE["grid"], linewidth=0.7)
-    fig.suptitle("COR Composite Score Distributions -- UK Households (ENABLE.EU 2018)",
+    fig.suptitle("COR Composite Score Distributions -- UK Households (ENABLE.EU 2017)",
                  fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
     _save_fig(fig, "cor_score_distributions")
@@ -946,7 +946,7 @@ def generate_figures(
                     v + (0.01 if v >= 0 else -0.03),
                     f"{v:+.4f}", ha="center", fontsize=11, fontweight="bold")
         ax.axhline(0, color="#95A5A6", lw=0.8)
-        ax.set_title("FES Annual Contextual Scenarios 2018 (UK)\n"
+        ax.set_title("FES Annual Contextual Scenarios 2017 (UK)\n"
                      "(sum of z-scored components; not household-level predictors)",
                      fontsize=12, fontweight="bold")
         ax.set_ylabel("FES Annual Mean (z-score sum)", fontsize=11)
@@ -1012,21 +1012,21 @@ def generate_figures(
 def write_readme() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     content = """\
-# Social SEM Pipeline -- UK ENABLE.EU x FES 2018
+# Social SEM Pipeline -- UK ENABLE.EU x FES 2017
 
 ## Methodology
 
 ### Why annual FES is used
 
 The Forecasted Energy-Carbon Stress Index (FES) is computed at the UK-country
-level as the annual mean of 12 monthly forecasts for 2018.  Every UK household
+level as the annual mean of 12 monthly forecasts for 2017.  Every UK household
 in the ENABLE.EU survey receives the same FES value because FES is a macro
 indicator of the anticipated energy-market stress environment shared by all
 UK residents.
 
 The interview-date variable (T3) returns '#NULL!' for all UK respondents in this
 dataset, making monthly matching impossible.  Even if dates were available, all
-UK interviews fall within 2018, so matching to a specific forecast month would
+UK interviews fall within 2017, so matching to a specific forecast month would
 not add identifying variation -- all households would still receive the same
 annual contextual value.
 
@@ -1044,14 +1044,14 @@ To identify FES as a predictor, one would need either:
 ### FES as contextual macro-stress exposure
 
 FES is treated as the anticipated stress environment in which UK households make
-energy decisions.  It defines the shared economic context of 2018, not a
+energy decisions.  It defines the shared economic context of 2017, not a
 property that varies across households.  This is consistent with stress exposure
 research where contextual stressors affect all members of a community equally.
 
 Three FES scenarios are reported descriptively:
   - **fes_core**  : primary forecast using core energy-price models
   - **fes_macro** : alternative forecast augmented with macroeconomic inputs
-  - **fes_actual**: realised 2018 energy prices (benchmark)
+  - **fes_actual**: realised 2017 energy prices (benchmark)
 
 ### COR construct operationalisation
 
@@ -1193,7 +1193,7 @@ def print_final_summary(
 def main() -> None:
     print(f"\n{'='*65}")
     print("  COR COMPOSITE-SCORE PATH ANALYSIS")
-    print("  ENABLE.EU UK x FES 2018 Annual Context")
+    print("  ENABLE.EU UK x FES  2017Annual Context")
     print(f"{'='*65}")
 
     df = load_enable_uk()
