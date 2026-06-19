@@ -16,11 +16,8 @@ pmdarima>=2.0.0          # auto_arima for SARIMA order selection
 # ── Prophet ───────────────────────────────────────────────────────────────────
 prophet>=1.1.4
 
-# ── Deep-learning (LSTM) ──────────────────────────────────────────────────────
-tensorflow>=2.10.0
-
-# ── Deep-learning (TFT) ───────────────────────────────────────────────────────
-torch>=1.13.0
+# ── Deep-learning (LSTM + TFT — PyTorch only, no TensorFlow) ─────────────────
+torch>=2.0.0
 pytorch-forecasting>=0.10.3
 pytorch-lightning>=1.9.0
 

@@ -1,5 +1,0 @@
-test,criterion,result,interpretation
-Threat -> Preservation pathway,"insecurity_score -> preservation_score, p < 0.05",supported,Perceived energy insecurity drives defensive resource preservation
-Preservation -> Discomfort pathway,"preservation_score -> discomfort_score, p < 0.05",supported,Preservation behaviour significantly predicts thermal discomfort
-Mediated COR mechanism,Bootstrap 95% CI of indirect effect excludes zero,supported,The insecurity -> preservation -> discomfort pathway is mediated
-Overall COR mechanism,All three pathway tests pass,fully supported,3/3 pathway tests supported

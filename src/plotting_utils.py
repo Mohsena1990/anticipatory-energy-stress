@@ -428,8 +428,130 @@ def plot_all_polar_charts(
 
 
 # ── F. Prediction Interval comparison figure ───────────────────────────────────
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def plot_prediction_intervals(
+    forecast_dir: str,
+    out_path: str,
+    series_names: list = None,
+) -> None:
+    """
+    Two-row figure showing 2017 forecast + prediction intervals for all series.
+
+    Row 1 — core-only models
+    Row 2 — macro-augmented models
+
+    For each series, plots:
+      - Point forecast (solid line)
+      - 95 % PI shaded band
+      - Actual 2017 values (diamonds, if available)
+
+    Parameters
+    ----------
+    forecast_dir : directory containing *_forecasts_all.csv files
+    out_path     : PNG output path
+    series_names : list of series to plot (default: gas, electricity, carbon)
+    """
+    if series_names is None:
+        series_names = ["gas", "electricity", "carbon"]
+
+    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    _PALETTE = {
+        "actual":      "#2C3E50",
+    }
+
+    _MODEL_STYLES: dict = {
+        "SARIMA":  {"color": "#2980B9", "ls": "-",   "marker": "o",  "lw": 2.0},
+        "Prophet": {"color": "#E67E22", "ls": "--",  "marker": "s",  "lw": 2.0},
+        "LSTM":    {"color": "#8E44AD", "ls": "-.",  "marker": "^",  "lw": 2.0},
+        "TFT":     {"color": "#27AE60", "ls": ":",   "marker": "D",  "lw": 2.0},
+    }
+
+    fig, axes = plt.subplots(2, len(series_names),
+                             figsize=(6 * len(series_names), 9),
+                             sharey=False)
+    fig.patch.set_facecolor("white")
+
+    for col_idx, series in enumerate(series_names):
+        path = f"{forecast_dir}/{series}_growth_pct_forecasts_all.csv"
+        try:
+            df_all = pd.read_csv(path, parse_dates=["date"])
+        except FileNotFoundError:
+            log.warning(f"Not found: {path}")
+            for row_idx in range(2):
+                axes[row_idx, col_idx].set_visible(False)
+            continue
+
+        forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+
+        for row_idx, mode in enumerate(["core", "macro"]):
+            ax = axes[row_idx, col_idx]
+            ax.set_facecolor("white")
+
+            df_mode = df_all[df_all["mode"] == mode]
+
+            # Loop through the pre-defined styles to map data by model string key
+            for model, style in _MODEL_STYLES.items():
+                df_m = df_mode[df_mode["model"] == model]
+                if df_m.empty:
+                    continue
+                
+                df_m = df_m.set_index("date")
+                fc = df_m["forecast"].reindex(forecast_dates).values
+                lb = df_m["lower_bound"].reindex(forecast_dates).values
+                ub = df_m["upper_bound"].reindex(forecast_dates).values
+
+                # Line plots now absorb individual settings from your style dict
+                ax.plot(MONTHS[:12], fc, 
+                        color=style["color"], 
+                        linewidth=style["lw"],
+                        linestyle=style["ls"], 
+                        marker=style["marker"],
+                        markersize=5,
+                        alpha=0.9,
+                        label=f"{model} forecast")
+                
+                # Fills map cleanly to your selected configurations
+                ax.fill_between(MONTHS[:12], lb, ub,
+                                alpha=0.12, color=style["color"])
+
+            # Actual 2017
+            act = _actual_values_by_date(df_mode, forecast_dates)
+            if not all(pd.isna(act)):
+                ax.plot(MONTHS[:12], act,
+                        color=_PALETTE["actual"], marker="o",
+                        markersize=5, linestyle="none", zorder=5,
+                        label="Actual 2017")
+
+            ax.axhline(0, color="#BDC3C7", linewidth=0.8)
+            ax.set_title(
+                f"{series.capitalize()} [{mode}]",
+                fontsize=11, fontweight="bold",
+            )
+            ax.tick_params(axis="x", rotation=45, labelsize=8)
+            ax.set_ylabel("YoY Growth (%)" if col_idx == 0 else "")
+            ax.legend(fontsize=7.5, loc="best", framealpha=0.85, ncol=2)
+            ax.grid(True, color="#EAECEE", linewidth=0.7)
+
+    # Row labels
+    for row_idx, label in enumerate(["CORE — target series only",
+                                     "MACRO — core + exogenous"]):
+        axes[row_idx, 0].set_ylabel(f"{label}\n\nYoY Growth (%)",
+                                    fontsize=10, fontweight="bold")
+
+    fig.suptitle(
+        "Prediction Intervals — 2017 Forecast (core vs macro)  |  95 % PI shaded",
+        fontsize=14, fontweight="bold", y=1.01,
+    )
+    plt.tight_layout()
+    _save(fig, out_path)
+
+
+
+def plot_prediction_intervalss(
     forecast_dir: str,
     out_path: str,
     series_names: list = None,
@@ -466,6 +588,13 @@ def plot_prediction_intervals(
         "actual":      "#2C3E50",
     }
 
+    _MODEL_STYLES: dict = {
+    "SARIMA":  {"color": "#2980B9", "ls": "-",   "marker": "o",  "lw": 2.0},
+    "Prophet": {"color": "#E67E22", "ls": "--",  "marker": "s",  "lw": 2.0},
+    "LSTM":    {"color": "#8E44AD", "ls": "-.",  "marker": "^",  "lw": 2.0},
+    "TFT":     {"color": "#27AE60", "ls": ":",   "marker": "D",  "lw": 2.0},
+    }
+
     import pandas as pd
 
     fig, axes = plt.subplots(2, len(series_names),
@@ -496,6 +625,7 @@ def plot_prediction_intervals(
             models_in_mode = df_mode["model"].unique()
             for midx, model in enumerate(models_in_mode):
                 df_m = df_mode[df_mode["model"] == model].set_index("date")
+                
                 fc = df_m["forecast"].reindex(forecast_dates).values
                 lb = df_m["lower_bound"].reindex(forecast_dates).values
                 ub = df_m["upper_bound"].reindex(forecast_dates).values
@@ -514,8 +644,8 @@ def plot_prediction_intervals(
             act = _actual_values_by_date(df_mode, forecast_dates)
             if not all(pd.isna(act)):
                 ax.plot(MONTHS[:12], act,
-                        color=_PALETTE["actual"], marker="D",
-                        markersize=6, linestyle="none", zorder=5,
+                        color=_PALETTE["actual"], marker="o",
+                        markersize=5, linestyle="none", zorder=5,
                         label="Actual 2017")
 
             ax.axhline(0, color="#BDC3C7", linewidth=0.8)
@@ -632,7 +762,7 @@ def plot_2017_model_comparison(
         ax.plot(
             _MONTHS, act_vals,
             color="#2C3E50", linestyle="none",
-            marker="D", markersize=8, markeredgewidth=1.5,
+            marker="o", markersize=6, markeredgewidth=1.0,
             markeredgecolor="white", zorder=6,
             label="Actual 2017",
         )
@@ -641,7 +771,7 @@ def plot_2017_model_comparison(
     mode_label = "Core-Only Models" if mode == "core" else "Macro-Augmented Models"
     ax.set_title(
         f"UK {series_name.capitalize()} Growth (%) — 2017 Monthly Forecast\n"
-        f"{mode_label}  |  95 % PI shaded  |  Actual values ◆",
+        f"{mode_label}  |  95 % PI shaded  |  Actual values ●",
         fontsize=13, fontweight="bold", pad=12,
     )
     ax.set_xlabel("Month (2017)", fontsize=11)
@@ -751,7 +881,7 @@ def plot_interactive_forecast(
                 y=act_2017.values,
                 name="Actual 2017",
                 mode="markers",
-                marker=dict(symbol="diamond", size=10,
+                marker=dict(symbol="circle", size=10,
                             color="#2C3E50", line=dict(color="white", width=1.5)),
                 hovertemplate="<b>%{x|%b %Y}</b><br>Actual: %{y:.3f}%<extra></extra>",
             ))

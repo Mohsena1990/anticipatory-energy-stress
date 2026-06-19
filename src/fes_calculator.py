@@ -654,7 +654,7 @@ def _plot_forecasts_vs_actual(
         act = actual_2017.get(series, np.full(12, np.nan))
         if not np.all(np.isnan(act)):
             ax.plot(fc_dates, act, color="#2C3E50", linestyle="none",
-                    marker="D", markersize=6, zorder=5,
+                    marker="o", markersize=5, zorder=5,
                     label="Actual 2017")
 
         ax.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
@@ -707,7 +707,7 @@ def _plot_forecasts_vs_actual(
 
         if not np.all(np.isnan(act)):
             ax2.plot(FORECAST_DATES, act, color="#2C3E50", linestyle="none",
-                     marker="D", markersize=7, zorder=5, label="Actual 2017")
+                     marker="o", markersize=5, zorder=5, label="Actual 2017")
 
         ax2.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
                     linewidth=1.0, linestyle=":")

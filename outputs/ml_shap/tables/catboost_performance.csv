@@ -1,2 +1,0 @@
-accuracy,balanced_accuracy,precision,recall,f1,roc_auc,pr_auc,n_train,n_test,best_iteration,pos_class_weight
-0.696,0.6061,0.4091,0.4219,0.4154,0.6589,0.4504,747,250,8,2.932

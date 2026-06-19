@@ -1,4 +1,0 @@
-construct,n_items_used,n_scored,mean,std,min,max
-Insecurity,8,1015,0.3908,0.2067,0.0,0.9444
-Resource Preservation,15,1015,0.2269,0.0602,0.1333,0.4444
-Thermal Discomfort,7,997,0.4911,0.1147,0.1905,1.0
