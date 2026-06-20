@@ -1,0 +1,7 @@
+construct_i,construct_j,htmt,htmt_ok
+FCP,AEMC,0.5234,True
+FCP,BLI,0.0996,True
+FCP,TCR,0.1773,True
+AEMC,BLI,0.5336,True
+AEMC,TCR,0.7805,True
+BLI,TCR,0.3186,True

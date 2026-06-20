@@ -427,6 +427,7 @@ def run_lstm(
     batch_size: int = BATCH_SIZE,
     patience: int = 15,
     macro_feature_set: str = "lean",
+    save_dir: Optional[str] = None,
 ) -> dict:
     """Full LSTM pipeline for one series (PyTorch backend)."""
     try:
@@ -588,6 +589,40 @@ def run_lstm(
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_lstm_{mode}.csv"
     df_out.to_csv(out_path, index=False)
     log.info(f"[LSTM-{mode.upper()}] Forecast saved → {out_path}")
+
+    # ── Optionally save model and scalers for SHAP ────────────────────────────
+    if save_dir is not None:
+        try:
+            import torch, joblib
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            _n_feat = X_full.shape[-1]
+            torch.save(
+                {
+                    "state_dict": model2.state_dict(),
+                    "n_features": _n_feat,
+                    "lookback":   lookback,
+                    "units_1":    units_1,
+                    "units_2":    units_2,
+                    "dropout":    dropout,
+                },
+                f"{save_dir}/{series_name}_lstm_{mode}.pt",
+            )
+            joblib.dump(
+                final_target_scaler,
+                f"{save_dir}/{series_name}_lstm_{mode}_target_scaler.pkl",
+            )
+            if use_macro and final_macro_scaler is not None:
+                joblib.dump(
+                    final_macro_scaler,
+                    f"{save_dir}/{series_name}_lstm_{mode}_macro_scaler.pkl",
+                )
+                joblib.dump(
+                    final_macro_cols,
+                    f"{save_dir}/{series_name}_lstm_{mode}_macro_cols.pkl",
+                )
+            log.info(f"[LSTM-{mode.upper()}] Model saved → {save_dir}")
+        except Exception as _e:
+            log.warning(f"[LSTM-{mode.upper()}] Model save failed: {_e}")
 
     return {
         "series":        series_name,

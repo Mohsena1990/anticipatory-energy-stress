@@ -67,6 +67,7 @@ def run_prophet(
     changepoint_prior_scale: float = 0.05,
     seasonality_prior_scale: float = 10.0,
     seasonality_mode: Optional[str] = None,
+    return_model: bool = False,
 ) -> dict:
     """
     Full Prophet pipeline for one series.
@@ -103,7 +104,7 @@ def run_prophet(
 
     # ── Determine available macro columns ─────────────────────────────────────
     if use_regressors and macro_train is not None:
-        available = macro_cols_for_series(series_name, macro_train)
+        available = macro_cols_for_series(series_name, macro_train, feature_set="linear")
     else:
         available = []
 
@@ -132,7 +133,7 @@ def run_prophet(
     test_future = m.make_future_dataframe(periods=12, freq="MS")
     if available and macro_full is not None:
         future_dates = pd.DatetimeIndex(test_future["ds"])
-        aligned = align_macro_for_series(macro_full, future_dates, series_name)
+        aligned = align_macro_for_series(macro_full, future_dates, series_name, feature_set="linear")
         for col in available:
             test_future[col] = aligned[col].values
 
@@ -182,7 +183,7 @@ def run_prophet(
     future_2017 = m2.make_future_dataframe(periods=12, freq="MS")
     if available and macro_full is not None:
         future_dates = pd.DatetimeIndex(future_2017["ds"])
-        aligned = align_macro_for_series(macro_full, future_dates, series_name)
+        aligned = align_macro_for_series(macro_full, future_dates, series_name, feature_set="linear")
         for col in available:
             future_2017[col] = aligned[col].values
     fcast_2017 = m2.predict(future_2017)
@@ -196,6 +197,17 @@ def run_prophet(
         fc_2017 = index_forecast_to_yoy_growth(fc_2017, pd.DatetimeIndex(forecast_dates), full)
         lb_2017 = index_forecast_to_yoy_growth(lb_2017, pd.DatetimeIndex(forecast_dates), full)
         ub_2017 = index_forecast_to_yoy_growth(ub_2017, pd.DatetimeIndex(forecast_dates), full)
+
+    # Clip to ±3σ using the recent 60-month window rather than full history.
+    # Full-history std is inflated by structural one-time events (e.g. EUA Phase I
+    # collapse in 2007), making the full-history bounds too wide to be useful.
+    _recent = full.iloc[-60:]
+    _t_mean = _recent.mean()
+    _t_std  = max(_recent.std(), 1.0)
+    _lo, _hi = _t_mean - 3 * _t_std, _t_mean + 3 * _t_std
+    fc_2017 = np.clip(fc_2017, _lo, _hi)
+    lb_2017 = np.clip(lb_2017, _lo, _hi)
+    ub_2017 = np.clip(ub_2017, _lo, _hi)
 
     df_out = pd.DataFrame({
         "date":        forecast_dates,
@@ -216,7 +228,7 @@ def run_prophet(
     df_out.to_csv(out_path, index=False)
     log.info(f"[Prophet-{mode.upper()}] Forecast saved → {out_path}")
 
-    return {
+    result = {
         "series":        series_name,
         "model":         "Prophet",
         "mode":          mode,
@@ -228,3 +240,7 @@ def run_prophet(
             "seasonality_mode": final_seasonality_mode,
         },
     }
+    if return_model:
+        result["fitted_model"]   = m2
+        result["regressor_cols"] = list(available) if available else []
+    return result

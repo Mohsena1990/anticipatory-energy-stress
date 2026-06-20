@@ -367,6 +367,7 @@ def run_tft(
     attention_dropout: float = 0.1,
     batch_size: int = 16,
     lookback: int = LOOKBACK,
+    save_dir: Optional[str] = None,
 ) -> dict:
     """
     Full TFT pipeline for one series.
@@ -432,9 +433,24 @@ def run_tft(
     )
     model.fit(train_arr, epochs=epochs, batch_size=batch_size)
 
-    scaled_train  = (train_arr - model.scaler_mean) / model.scaler_std
-    seed_eval     = scaled_train[-lookback:]
-    fc_test, lb_test, ub_test = model.rolling_forecast(seed_eval, steps=12)
+    scaled_train = (train_arr - model.scaler_mean) / model.scaler_std
+    seed_eval    = scaled_train[-lookback:]
+
+    # Supply actual 2016 macro values during evaluation — consistent with how
+    # the 2017 forecast is generated (zeroing macro columns would corrupt eval).
+    eval_macro_scaled = None
+    if use_macro and macro_full is not None and n_feats > 1:
+        n_macro = n_feats - 1
+        macro_eval_vals = align_macro_for_series(
+            macro_full, pd.DatetimeIndex(test.index), series_name
+        ).values.astype(np.float64)
+        eval_macro_scaled = (
+            (macro_eval_vals - model.scaler_mean[1:1 + n_macro])
+            / model.scaler_std[1:1 + n_macro]
+        )
+
+    fc_test, lb_test, ub_test = model.rolling_forecast(seed_eval, steps=12,
+                                                        future_macro_scaled=eval_macro_scaled)
     test_arr = test.values
     if is_electricity(series_name):
         test_dates = pd.DatetimeIndex(test.index)
@@ -506,6 +522,28 @@ def run_tft(
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_tft_{mode}.csv"
     df_out.to_csv(out_path, index=False)
     log.info(f"[TFT-Fallback] Forecast saved → {out_path}")
+
+    # ── Optionally save model for SHAP ────────────────────────────────────────
+    if save_dir is not None:
+        try:
+            import torch
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            n_feats2 = full_arr.shape[1]  # model2 is trained on full_arr
+            torch.save(
+                {
+                    "state_dict":   model2.model.state_dict(),
+                    "n_features":   n_feats2,
+                    "hidden":       hidden,
+                    "n_heads":      n_heads,
+                    "dropout":      dropout,
+                    "scaler_mean":  model2.scaler_mean.tolist() if model2.scaler_mean is not None else None,
+                    "scaler_std":   model2.scaler_std.tolist()  if model2.scaler_std  is not None else None,
+                },
+                f"{save_dir}/{series_name}_tft_{mode}.pt",
+            )
+            log.info(f"[TFT-Fallback] Model saved → {save_dir}")
+        except Exception as _e:
+            log.warning(f"[TFT-Fallback] Model save failed: {_e}")
 
     return {
         "series":        series_name,

@@ -1,0 +1,6 @@
+path,predictor,outcome,coef,std_err,t_stat,p_value,r_squared,n,significant
+a: FCP→AEMC,fcp_score,aemc_score,-0.02365,0.01604,-1.4739,0.1408,0.0021,1015,False
+b/c'/d/e: → AEV,fcp_score,aev_score,0.25,0.0,7467840272600688.0,0.0,1.0,971,True
+b/c'/d/e: → AEV,aemc_score,aev_score,-0.25,0.0,-3766108121604562.0,0.0,1.0,971,True
+b/c'/d/e: → AEV,bli_score,aev_score,0.25,0.0,1.1624473918298564e+16,0.0,1.0,971,True
+b/c'/d/e: → AEV,tcr_score,aev_score,0.25,0.0,7317829494967189.0,0.0,1.0,971,True

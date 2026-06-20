@@ -1,0 +1,49 @@
+method,latent_dim,construct_short,construct_label,construct_score,pearson_r,pearson_p,spearman_r,spearman_p,n,strong_alignment
+PCA,PC1,FCP,Financial–Energy Cost Pressure,fcp_score,-0.012,0.7878,-0.0092,0.8374,503,False
+PCA,PC1,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.3364,0.0,-0.3718,0.0,503,False
+PCA,PC1,BLI,Energy Behavioural Lock-in,bli_score,0.8067,0.0,0.8089,0.0,503,True
+PCA,PC1,TCR,Transition-Cost Resistance,tcr_score,0.6375,0.0,0.5869,0.0,503,True
+PCA,PC2,FCP,Financial–Energy Cost Pressure,fcp_score,0.2853,0.0,0.2524,0.0,503,False
+PCA,PC2,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.4598,0.0,0.447,0.0,503,True
+PCA,PC2,BLI,Energy Behavioural Lock-in,bli_score,-0.4258,0.0,-0.5397,0.0,503,True
+PCA,PC2,TCR,Transition-Cost Resistance,tcr_score,0.2771,0.0,0.2247,0.0,503,False
+PCA,PC3,FCP,Financial–Energy Cost Pressure,fcp_score,-0.204,0.0,-0.2082,0.0,503,False
+PCA,PC3,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.3614,0.0,-0.2714,0.0,503,False
+PCA,PC3,BLI,Energy Behavioural Lock-in,bli_score,-0.3801,0.0,-0.4063,0.0,503,False
+PCA,PC3,TCR,Transition-Cost Resistance,tcr_score,0.454,0.0,0.4536,0.0,503,True
+PCA,PC4,FCP,Financial–Energy Cost Pressure,fcp_score,-0.2315,0.0,-0.2863,0.0,503,False
+PCA,PC4,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.4647,0.0,0.3418,0.0,503,True
+PCA,PC4,BLI,Energy Behavioural Lock-in,bli_score,0.0574,0.1983,0.1169,0.0087,503,False
+PCA,PC4,TCR,Transition-Cost Resistance,tcr_score,0.3308,0.0,0.4193,0.0,503,False
+EFA,EFA1,FCP,Financial–Energy Cost Pressure,fcp_score,-0.012,0.7878,-0.0092,0.8374,503,False
+EFA,EFA1,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.3364,0.0,-0.3718,0.0,503,False
+EFA,EFA1,BLI,Energy Behavioural Lock-in,bli_score,0.8067,0.0,0.8089,0.0,503,True
+EFA,EFA1,TCR,Transition-Cost Resistance,tcr_score,0.6375,0.0,0.5869,0.0,503,True
+EFA,EFA2,FCP,Financial–Energy Cost Pressure,fcp_score,0.2853,0.0,0.2524,0.0,503,False
+EFA,EFA2,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.4598,0.0,0.447,0.0,503,True
+EFA,EFA2,BLI,Energy Behavioural Lock-in,bli_score,-0.4258,0.0,-0.5397,0.0,503,True
+EFA,EFA2,TCR,Transition-Cost Resistance,tcr_score,0.2771,0.0,0.2247,0.0,503,False
+EFA,EFA3,FCP,Financial–Energy Cost Pressure,fcp_score,-0.204,0.0,-0.2082,0.0,503,False
+EFA,EFA3,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.3614,0.0,-0.2714,0.0,503,False
+EFA,EFA3,BLI,Energy Behavioural Lock-in,bli_score,-0.3801,0.0,-0.4063,0.0,503,False
+EFA,EFA3,TCR,Transition-Cost Resistance,tcr_score,0.454,0.0,0.4536,0.0,503,True
+EFA,EFA4,FCP,Financial–Energy Cost Pressure,fcp_score,-0.2315,0.0,-0.2863,0.0,503,False
+EFA,EFA4,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.4647,0.0,0.3418,0.0,503,True
+EFA,EFA4,BLI,Energy Behavioural Lock-in,bli_score,0.0574,0.1983,0.1169,0.0087,503,False
+EFA,EFA4,TCR,Transition-Cost Resistance,tcr_score,0.3308,0.0,0.4193,0.0,503,False
+Linear_AE,AE1,FCP,Financial–Energy Cost Pressure,fcp_score,0.2365,0.0,0.2786,0.0,503,False
+Linear_AE,AE1,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.3347,0.0,-0.2372,0.0,503,False
+Linear_AE,AE1,BLI,Energy Behavioural Lock-in,bli_score,0.0473,0.2893,0.0134,0.764,503,False
+Linear_AE,AE1,TCR,Transition-Cost Resistance,tcr_score,-0.4609,0.0,-0.5239,0.0,503,True
+Linear_AE,AE2,FCP,Financial–Energy Cost Pressure,fcp_score,0.0803,0.0719,0.0854,0.0557,503,False
+Linear_AE,AE2,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.2876,0.0,0.215,0.0,503,False
+Linear_AE,AE2,BLI,Energy Behavioural Lock-in,bli_score,0.2614,0.0,0.3029,0.0,503,False
+Linear_AE,AE2,TCR,Transition-Cost Resistance,tcr_score,-0.6212,0.0,-0.6035,0.0,503,True
+Linear_AE,AE3,FCP,Financial–Energy Cost Pressure,fcp_score,0.306,0.0,0.3229,0.0,503,False
+Linear_AE,AE3,AEMC,Adaptive Energy-Management Capacity,aemc_score,0.4213,0.0,0.4237,0.0,503,True
+Linear_AE,AE3,BLI,Energy Behavioural Lock-in,bli_score,-0.1374,0.002,-0.3545,0.0,503,False
+Linear_AE,AE3,TCR,Transition-Cost Resistance,tcr_score,0.333,0.0,0.2599,0.0,503,False
+Linear_AE,AE4,FCP,Financial–Energy Cost Pressure,fcp_score,-0.05,0.2631,-0.0463,0.3001,503,False
+Linear_AE,AE4,AEMC,Adaptive Energy-Management Capacity,aemc_score,-0.4346,0.0,-0.4515,0.0,503,True
+Linear_AE,AE4,BLI,Energy Behavioural Lock-in,bli_score,0.6378,0.0,0.6556,0.0,503,True
+Linear_AE,AE4,TCR,Transition-Cost Resistance,tcr_score,0.7149,0.0,0.6737,0.0,503,True

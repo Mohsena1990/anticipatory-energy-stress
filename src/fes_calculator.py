@@ -154,6 +154,275 @@ def _zscore_array(x: np.ndarray, mean: float, std: float) -> np.ndarray:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Robustness: Volatility-Weighted FES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _vw_weights(stats: dict) -> dict:
+    """
+    Inverse-volatility weights: w_j = (1/σ_j) / Σ_k (1/σ_k).
+    Less volatile series receive a higher weight — prevents high-σ series
+    (e.g. carbon) from dominating the equal-weight index.
+    """
+    inv = {s: 1.0 / max(stats[s]["std"], 1e-10) for s in SERIES}
+    total = sum(inv.values())
+    return {s: v / total for s, v in inv.items()}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Robustness: Bayesian FES (scalar Kalman filter state-space model)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _estimate_kalman_params(z_matrix: np.ndarray) -> tuple:
+    """
+    Estimate Kalman process and observation noise from a training z-score matrix.
+
+    Parameters
+    ----------
+    z_matrix : (T, n_series) — training-period z-scored component values
+
+    Returns
+    -------
+    (sigma_process, sigma_obs) — noise standard deviations
+    """
+    mean_z = np.nanmean(z_matrix, axis=1)          # common-signal proxy (T,)
+    valid  = ~np.isnan(mean_z)
+    if valid.sum() > 2:
+        diffs    = np.diff(mean_z[valid])
+        sigma_Q  = float(np.std(diffs, ddof=1))
+    else:
+        sigma_Q  = 0.3
+
+    residuals = z_matrix - mean_z[:, None]
+    flat_res  = residuals[~np.all(np.isnan(residuals), axis=1)].ravel()
+    sigma_R   = float(np.nanstd(flat_res)) if flat_res.size > 0 else 0.5
+
+    return max(sigma_Q, 0.05), max(sigma_R, 0.05)
+
+
+def _kalman_filter_fes(
+    observations: np.ndarray,
+    sigma_process: float = 0.3,
+    sigma_obs: float     = 0.5,
+) -> tuple:
+    """
+    Scalar Kalman filter for a latent FES state observed through n noisy signals.
+
+    State-space model
+    -----------------
+      FES_t   = FES_{t-1} + w_t,   w_t ~ N(0, σ_Q²)   [random walk]
+      z_j,t   = FES_t + v_j,t,     v_j,t ~ N(0, σ_R²)  [per-series noise]
+
+    With n_v valid observations at time t the effective obs noise is σ_R²/n_v
+    (information pooling: averaging n_v independent signals).
+
+    Parameters
+    ----------
+    observations  : (T, n_series) z-scored values; NaN = series missing
+    sigma_process : process noise std (magnitude of month-to-month FES change)
+    sigma_obs     : per-series observation noise std
+
+    Returns
+    -------
+    (filtered_means, filtered_stds) — posterior FES estimates, each shape (T,)
+    """
+    T, _ = observations.shape
+    Q    = sigma_process ** 2
+    R    = sigma_obs ** 2
+
+    x_t = 0.0   # diffuse prior: neutral FES level
+    P_t = 1.0   # high initial uncertainty
+
+    x_filt = np.zeros(T)
+    P_filt = np.zeros(T)
+
+    for t in range(T):
+        y   = observations[t]
+        n_v = int((~np.isnan(y)).sum())
+
+        # Predict
+        x_pred = x_t
+        P_pred = P_t + Q
+
+        # Update
+        if n_v > 0:
+            y_mean  = float(np.nanmean(y))
+            eff_R   = R / n_v                          # pooled obs noise
+            K       = P_pred / (P_pred + eff_R)        # Kalman gain ∈ (0,1)
+            x_t     = x_pred + K * (y_mean - x_pred)  # posterior mean
+            P_t     = max((1.0 - K) * P_pred, 1e-8)   # posterior variance
+        else:
+            x_t = x_pred
+            P_t = P_pred
+
+        x_filt[t] = x_t
+        P_filt[t] = P_t
+
+    return x_filt, np.sqrt(P_filt)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Three actual FES benchmarks (options A / B / C)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _compute_actual_fes_variants(
+    monthly_df: pd.DataFrame,
+    stats: dict,
+    core_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute three alternative volatility proxies for the uncertainty term in
+    the actual FES (replacing PI half-width which is unavailable for actuals).
+
+    Option A — rolling 3-month std of mean(z_gas, z_elec, z_carbon)
+    Option B — cross-component std at each month t  (reproduces fes_actual)
+    Option C — absolute shock: |mean_z_t − hist_mean_z| / hist_std_z
+
+    Each option produces columns:
+      rv_actual_{A/B/C}, z_rv_actual_{A/B/C}, fes_actual_{A/B/C}
+    """
+    df = monthly_df.copy()
+
+    z_cols   = [f"z_{s}_actual" for s in SERIES]
+    z_matrix = np.column_stack([df[c].values for c in z_cols]).astype(float)  # (12, 3)
+    mean_z   = np.nanmean(z_matrix, axis=1)   # (12,) mean z per month
+
+    # Option A: 3-month rolling std of mean_z
+    rv_A = (
+        pd.Series(mean_z)
+        .rolling(window=3, min_periods=1)
+        .std(ddof=1)
+        .fillna(0.0)
+        .values
+    )
+
+    # Option B: cross-component std (matches existing fes_actual logic)
+    rv_B = np.array([
+        float(np.nanstd(z_matrix[t], ddof=0))
+        if not np.all(np.isnan(z_matrix[t])) else np.nan
+        for t in range(len(df))
+    ])
+
+    # Option C: absolute shock vs training distribution
+    train = core_df[
+        (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+    ].set_index("date")
+    z_train_parts = []
+    for s in SERIES:
+        col = f"{s}_growth"
+        if col in train.columns:
+            v    = train[col].dropna().values.astype(float)
+            mu   = stats[s]["mean"]
+            sig  = max(stats[s]["std"], 1e-10)
+            z_train_parts.append((v - mu) / sig)
+    if z_train_parts:
+        all_zt   = np.concatenate(z_train_parts)
+        hist_mu  = float(np.nanmean(all_zt))
+        hist_sig = float(np.nanstd(all_zt)) or 1.0
+    else:
+        hist_mu, hist_sig = 0.0, 1.0
+    rv_C = np.abs(mean_z - hist_mu) / hist_sig
+
+    rv_ref      = stats.get("_real_vol", {"mean": 0.0, "std": 1.0})
+    rv_ref_mean = rv_ref["mean"]
+    rv_ref_std  = max(rv_ref["std"], 1e-10)
+
+    z_sum = np.nansum(z_matrix, axis=1)   # sum of actual component z-scores
+
+    for label, rv in [("A", rv_A), ("B", rv_B), ("C", rv_C)]:
+        rv_clean = np.where(np.isnan(rv), 0.0, rv)
+        z_rv     = _zscore_array(rv_clean, rv_ref_mean, rv_ref_std)
+        fes_opt  = z_sum + z_rv
+        df[f"rv_actual_{label}"]   = np.round(rv, 5)
+        df[f"z_rv_actual_{label}"] = np.round(z_rv, 5)
+        df[f"fes_actual_{label}"]  = np.round(fes_opt, 5)
+
+    return df
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Comparison metrics: forecasted FES variants vs actual FES benchmarks
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _compare_fes_variants(monthly_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute MAE, RMSE, Bias, MaxDev, Pearson r, Spearman r, R², Theil U
+    for every (forecasted FES variant) × (actual FES benchmark) pair.
+    """
+    try:
+        from scipy import stats as sp
+    except ImportError:
+        sp = None
+
+    forecasted = {
+        "Equal_Core":   "fes_core",
+        "Equal_Macro":  "fes_macro",
+        "VW_Core":      "fes_vw_core",
+        "VW_Macro":     "fes_vw_macro",
+        "Bayes_Core":   "fes_bayes_core",
+        "Bayes_Macro":  "fes_bayes_macro",
+    }
+    actuals = {
+        "Actual_RollingVol": "fes_actual_A",
+        "Actual_CrossComp":  "fes_actual_B",
+        "Actual_AbsShock":   "fes_actual_C",
+    }
+
+    rows = []
+    for f_lbl, f_col in forecasted.items():
+        if f_col not in monthly_df.columns:
+            continue
+        fv = monthly_df[f_col].values.astype(float)
+
+        for a_lbl, a_col in actuals.items():
+            if a_col not in monthly_df.columns:
+                continue
+            av   = monthly_df[a_col].values.astype(float)
+            mask = ~(np.isnan(fv) | np.isnan(av))
+            if mask.sum() < 3:
+                continue
+            f_m, a_m = fv[mask], av[mask]
+
+            mae  = float(np.mean(np.abs(f_m - a_m)))
+            rmse = float(np.sqrt(np.mean((f_m - a_m) ** 2)))
+            bias = float(np.mean(f_m - a_m))
+            mdev = float(np.max(np.abs(f_m - a_m)))
+
+            if sp is not None:
+                try:
+                    pr, pp = sp.pearsonr(f_m, a_m)
+                    sr, _  = sp.spearmanr(f_m, a_m)
+                except Exception:
+                    pr = pp = sr = np.nan
+            else:
+                pr = pp = sr = np.nan
+
+            ss_res = float(np.sum((f_m - a_m) ** 2))
+            ss_tot = float(np.sum((a_m - a_m.mean()) ** 2))
+            r2     = 1.0 - ss_res / ss_tot if ss_tot > 1e-10 else np.nan
+
+            naive      = np.concatenate([[a_m[0]], a_m[:-1]])
+            rmse_naive = float(np.sqrt(np.mean((naive - a_m) ** 2)))
+            theil_u    = rmse / rmse_naive if rmse_naive > 1e-10 else np.nan
+
+            rows.append({
+                "FES_variant":      f_lbl,
+                "Actual_benchmark": a_lbl,
+                "N":                int(mask.sum()),
+                "MAE":              round(mae,  5),
+                "RMSE":             round(rmse, 5),
+                "Bias":             round(bias, 5),
+                "MaxDev":           round(mdev, 5),
+                "Pearson_r":        round(pr,   5) if not np.isnan(pr)      else np.nan,
+                "Pearson_p":        round(pp,   5) if not np.isnan(pp)      else np.nan,
+                "Spearman_r":       round(sr,   5) if not np.isnan(sr)      else np.nan,
+                "R2":               round(r2,   5) if not np.isnan(r2)      else np.nan,
+                "Theil_U":          round(theil_u, 5) if not np.isnan(theil_u) else np.nan,
+            })
+
+    return pd.DataFrame(rows)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Main computation
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -186,6 +455,35 @@ def compute_fes(
     core_df = pd.read_csv(core_csv, parse_dates=["date"])
     best    = _find_best_models(ranked_df)
     stats   = _training_stats(core_df)
+
+    # ── VW weights ────────────────────────────────────────────────────────────
+    vw_weights_map = _vw_weights(stats)
+    log.info("VW weights: %s", {s: round(w, 4) for s, w in vw_weights_map.items()})
+
+    # ── Training z-matrix for Kalman parameter estimation ────────────────────
+    _train_sub = core_df[
+        (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+    ].set_index("date")
+    _z_parts = []
+    for _s in SERIES:
+        _col = f"{_s}_growth"
+        if _col in _train_sub.columns:
+            _z_parts.append(
+                _zscore_array(
+                    _train_sub[_col].ffill().fillna(0.0).values.astype(float),
+                    stats[_s]["mean"], stats[_s]["std"],
+                )
+            )
+    _lens = [len(a) for a in _z_parts]
+    if _z_parts and len(set(_lens)) == 1:
+        _z_train_mat = np.column_stack(_z_parts)
+    else:
+        _z_train_mat = np.zeros((max(_lens or [144]), max(len(_z_parts), 3)))
+    _sigma_Q, _sigma_R = _estimate_kalman_params(_z_train_mat)
+    log.info("Kalman params: σ_process=%.4f, σ_obs=%.4f", _sigma_Q, _sigma_R)
+
+    # ── Storage for Bayesian z-matrices (filled in monthly loop) ─────────────
+    _z_fc_matrices: dict = {m: np.full((12, len(SERIES)), np.nan) for m in MODES}
 
     # ── Build per-series forecast arrays ─────────────────────────────────────
     # Storage: {(series, mode): DataFrame}
@@ -275,6 +573,33 @@ def compute_fes(
             fes_val = float(np.nansum(z_vals) + z_unc_agg)
             row[f"fes_{mode}"] = round(fes_val, 5)
 
+            # ── VW-FES ───────────────────────────────────────────────────────
+            _wts  = np.array([vw_weights_map[s] for s in SERIES], dtype=float)
+            _zv   = np.array(z_vals, dtype=float)
+            _zu   = np.array(z_unc,  dtype=float)
+            _ok_z = ~np.isnan(_zv)
+            _ok_u = ~np.isnan(_zu)
+            if _ok_z.sum() > 0:
+                _w_z       = _wts[_ok_z] / _wts[_ok_z].sum()
+                _z_vw_val  = float(np.dot(_w_z, _zv[_ok_z]))
+            else:
+                _z_vw_val  = np.nan
+            if _ok_u.sum() > 0:
+                _w_u       = _wts[_ok_u] / _wts[_ok_u].sum()
+                _z_vw_unc  = float(np.dot(_w_u, _zu[_ok_u]))
+            else:
+                _z_vw_unc  = 0.0
+            _fes_vw = _z_vw_val + _z_vw_unc if not np.isnan(_z_vw_val) else np.nan
+            row[f"fes_vw_{mode}"] = (
+                round(_fes_vw, 5) if not np.isnan(_fes_vw) else np.nan
+            )
+
+            # ── Store z-scores for Bayesian filter ───────────────────────────
+            for _j in range(len(SERIES)):
+                _z_fc_matrices[mode][i, _j] = (
+                    float(_zv[_j]) if not np.isnan(_zv[_j]) else np.nan
+                )
+
         # ── FES_actual ────────────────────────────────────────────────────────
         z_actual = []
         for series in SERIES:
@@ -308,10 +633,36 @@ def compute_fes(
 
     monthly_df = pd.DataFrame(monthly_rows)
 
+    # ── Bayesian FES (Kalman filter on forecasted z-score matrices) ───────────
+    for _mode in MODES:
+        _x_filt, _std_filt = _kalman_filter_fes(
+            _z_fc_matrices[_mode], _sigma_Q, _sigma_R
+        )
+        monthly_df[f"fes_bayes_{_mode}"]     = np.round(_x_filt, 5)
+        monthly_df[f"fes_bayes_{_mode}_std"] = np.round(_std_filt, 5)
+        monthly_df[f"fes_bayes_{_mode}_lb"]  = np.round(_x_filt - 1.96 * _std_filt, 5)
+        monthly_df[f"fes_bayes_{_mode}_ub"]  = np.round(_x_filt + 1.96 * _std_filt, 5)
+        log.info(
+            "[Bayesian FES %s] mean=%.4f, mean_CI_half=%.4f",
+            _mode, float(_x_filt.mean()), float((1.96 * _std_filt).mean()),
+        )
+
+    # ── Three actual FES variants ─────────────────────────────────────────────
+    monthly_df = _compute_actual_fes_variants(monthly_df, stats, core_df)
+
     # ── Save monthly CSV ──────────────────────────────────────────────────────
     monthly_path = f"{out_dir}/fes_monthly_2017.csv"
     monthly_df.to_csv(monthly_path, index=False)
     log.info(f"Monthly FES saved → {monthly_path}")
+
+    # ── Comparison metrics ────────────────────────────────────────────────────
+    comparison_df = _compare_fes_variants(monthly_df)
+    comp_path = f"{out_dir}/fes_comparison_metrics.csv"
+    comparison_df.to_csv(comp_path, index=False)
+    log.info("FES comparison metrics saved → %s  (%d rows)", comp_path, len(comparison_df))
+    if not comparison_df.empty and "RMSE" in comparison_df.columns:
+        best_rmse = comparison_df.groupby("FES_variant")["RMSE"].min()
+        log.info("Best RMSE per variant:\n%s", best_rmse.to_string())
 
     # ── Build summary / component table ──────────────────────────────────────
     _save_summary(monthly_df, out_dir)
@@ -321,6 +672,20 @@ def compute_fes(
     _plot_fes_comparison(monthly_df, figures_dir)
     _plot_fes_components(monthly_df, figures_dir)
     _plot_forecasts_vs_actual(forecasts, actual_2017, core_df, best, figures_dir)
+
+    # Robustness comparison plots
+    try:
+        _plot_fes_robustness(monthly_df, figures_dir)
+    except Exception as e:
+        log.warning(f"Robustness plot failed: {e}")
+    try:
+        _plot_bayesian_uncertainty(monthly_df, figures_dir)
+    except Exception as e:
+        log.warning(f"Bayesian uncertainty plot failed: {e}")
+    try:
+        _plot_metrics_heatmap(comparison_df, figures_dir)
+    except Exception as e:
+        log.warning(f"Metrics heatmap failed: {e}")
 
     # Polar model ranking charts
     try:
@@ -363,6 +728,7 @@ def compute_fes(
 
 def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
     rows = []
+    # Equal-weight and actual variants (have full component breakdown)
     for mode in ["core", "macro", "actual"]:
         fes_col = f"fes_{mode}"
         if fes_col not in monthly_df.columns:
@@ -394,6 +760,20 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
             "component": "FES_TOTAL",
             "z_mean":    round(float(np.nanmean(fes_vals)), 5),
         })
+
+    # VW and Bayesian variants (FES total only — no per-component z columns)
+    for variant_col, variant_label in [
+        ("fes_vw_core",    "vw_core"),
+        ("fes_vw_macro",   "vw_macro"),
+        ("fes_bayes_core", "bayes_core"),
+        ("fes_bayes_macro","bayes_macro"),
+    ]:
+        if variant_col in monthly_df.columns:
+            rows.append({
+                "variant":   variant_label,
+                "component": "FES_TOTAL",
+                "z_mean":    round(float(np.nanmean(monthly_df[variant_col].values)), 5),
+            })
 
     summary_df = pd.DataFrame(rows)
     path = f"{out_dir}/fes_summary_2017.csv"
@@ -720,5 +1100,164 @@ def _plot_forecasts_vs_actual(
         ax2.legend(fontsize=9, loc="best", framealpha=0.9)
         ax2.grid(True, color=_PALETTE["grid"], linewidth=0.8)
         ax2.tick_params(axis="both", labelsize=9)
-
         _save_fig(fig2, f"{figures_dir}/forecast_vs_actual_{series}.png")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Robustness figures
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _plot_fes_robustness(monthly_df: pd.DataFrame, figures_dir: str) -> None:
+    """Two-panel chart: all forecasted FES variants (top) and actual benchmarks (bottom)."""
+    fig, axes = plt.subplots(2, 1, figsize=(14, 11), sharex=True)
+    fig.patch.set_facecolor("white")
+    months = MONTHS_SHORT[:len(monthly_df)]
+
+    # ── Top: forecasted variants ──────────────────────────────────────────────
+    ax = axes[0]
+    ax.set_facecolor("white")
+    top_series = [
+        ("fes_core",        "Equal-Weight Core",  _PALETTE["core"],   "-",  "o"),
+        ("fes_macro",       "Equal-Weight Macro",  _PALETTE["macro"],  "--", "s"),
+        ("fes_vw_core",     "VW Core",            "#9B59B6",           "-",  "^"),
+        ("fes_vw_macro",    "VW Macro",           "#E91E63",           "--", "v"),
+        ("fes_bayes_core",  "Bayesian Core",      "#00ACC1",           "-.", "D"),
+        ("fes_bayes_macro", "Bayesian Macro",     "#FF6F00",           ":",  "P"),
+    ]
+    for col, label, colour, ls, marker in top_series:
+        if col in monthly_df.columns:
+            ax.plot(months, monthly_df[col].values, color=colour, linestyle=ls,
+                    linewidth=2.0, marker=marker, markersize=5, label=label)
+    for _mode, _c in [("core", "#00ACC1"), ("macro", "#FF6F00")]:
+        lb_c = f"fes_bayes_{_mode}_lb"
+        ub_c = f"fes_bayes_{_mode}_ub"
+        if lb_c in monthly_df.columns and ub_c in monthly_df.columns:
+            ax.fill_between(months, monthly_df[lb_c].values, monthly_df[ub_c].values,
+                            alpha=0.09, color=_c)
+    ax.axhline(0, color="#95A5A6", linewidth=0.9)
+    ax.set_title("Forecasted FES Robustness Variants — 2017 Monthly", fontsize=12, fontweight="bold")
+    ax.set_ylabel("FES (z-score sum)", fontsize=10)
+    ax.legend(fontsize=8, loc="upper left", ncol=2)
+    ax.grid(True, color=_PALETTE["grid"], linewidth=0.7)
+
+    # ── Bottom: actual FES benchmarks ────────────────────────────────────────
+    ax2 = axes[1]
+    ax2.set_facecolor("white")
+    bot_series = [
+        ("fes_actual_A", "Actual A — Rolling Volatility",  "#2C3E50", "-",  "o"),
+        ("fes_actual_B", "Actual B — Cross-Component Std", "#E74C3C", "--", "s"),
+        ("fes_actual_C", "Actual C — Absolute Shock",      "#27AE60", "-.", "^"),
+    ]
+    for col, label, colour, ls, marker in bot_series:
+        if col in monthly_df.columns:
+            ax2.plot(months, monthly_df[col].values, color=colour, linestyle=ls,
+                     linewidth=2.0, marker=marker, markersize=5, label=label)
+    ax2.axhline(0, color="#95A5A6", linewidth=0.9)
+    ax2.set_title("Actual FES Benchmarks — Three Volatility Options (2017)", fontsize=12, fontweight="bold")
+    ax2.set_xlabel("Month (2017)", fontsize=10)
+    ax2.set_ylabel("FES (z-score sum)", fontsize=10)
+    ax2.legend(fontsize=9, loc="upper left")
+    ax2.grid(True, color=_PALETTE["grid"], linewidth=0.7)
+
+    fig.suptitle("FES Robustness Analysis — All Variants and Benchmarks",
+                 fontsize=14, fontweight="bold", y=1.01)
+    plt.tight_layout()
+    _save_fig(fig, f"{figures_dir}/fes_robustness_comparison.png")
+
+
+def _plot_bayesian_uncertainty(monthly_df: pd.DataFrame, figures_dir: str) -> None:
+    """Bayesian FES with 95% posterior credible intervals."""
+    fig, ax = plt.subplots(figsize=(13, 5))
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+    months = MONTHS_SHORT[:len(monthly_df)]
+
+    bayes_styles = {"core": ("#00ACC1", "-", "D"), "macro": ("#FF6F00", "--", "P")}
+    for _mode, (_c, _ls, _mk) in bayes_styles.items():
+        col = f"fes_bayes_{_mode}"
+        lb  = f"fes_bayes_{_mode}_lb"
+        ub  = f"fes_bayes_{_mode}_ub"
+        if col in monthly_df.columns:
+            ax.plot(months, monthly_df[col].values, color=_c, linestyle=_ls,
+                    linewidth=2.2, marker=_mk, markersize=5,
+                    label=f"Bayesian FES ({_mode})")
+            if lb in monthly_df.columns and ub in monthly_df.columns:
+                ax.fill_between(months, monthly_df[lb].values, monthly_df[ub].values,
+                                alpha=0.18, color=_c, label=f"95 % CI ({_mode})")
+
+    # Reference equal-weight lines
+    for _mode, _c, _ls in [("core", _PALETTE["core"], "-"),
+                            ("macro", _PALETTE["macro"], "--")]:
+        col = f"fes_{_mode}"
+        if col in monthly_df.columns:
+            ax.plot(months, monthly_df[col].values, color=_c, linestyle=_ls,
+                    linewidth=1.2, alpha=0.4, label=f"Equal-Weight ({_mode})")
+
+    if "fes_actual_B" in monthly_df.columns:
+        ax.plot(months, monthly_df["fes_actual_B"].values, color=_PALETTE["actual"],
+                linestyle=":", linewidth=1.5, marker="o", markersize=4,
+                label="Actual FES (cross-component)")
+
+    ax.axhline(0, color="#95A5A6", linewidth=0.9)
+    ax.set_title("Bayesian FES — Posterior Estimates with 95 % Credible Intervals (2017)",
+                 fontsize=13, fontweight="bold", pad=12)
+    ax.set_xlabel("Month (2017)", fontsize=11)
+    ax.set_ylabel("Latent FES (z-score)", fontsize=11)
+    ax.legend(fontsize=9, loc="upper left", ncol=2)
+    ax.grid(True, color=_PALETTE["grid"], linewidth=0.7)
+    _save_fig(fig, f"{figures_dir}/fes_bayesian_uncertainty.png")
+
+
+def _plot_metrics_heatmap(comparison_df: pd.DataFrame, figures_dir: str) -> None:
+    """Heatmaps of RMSE and Pearson r for each forecasted FES × actual benchmark."""
+    if comparison_df.empty:
+        return
+
+    for metric, cmap, invert, cbar_label in [
+        ("RMSE",      "YlOrRd",  True,  "RMSE (lower = better)"),
+        ("Pearson_r", "RdYlGn",  False, "Pearson r (higher = better)"),
+    ]:
+        if metric not in comparison_df.columns:
+            continue
+        try:
+            pivot = comparison_df.pivot(
+                index="FES_variant", columns="Actual_benchmark", values=metric
+            )
+        except Exception:
+            continue
+
+        fig, ax = plt.subplots(figsize=(9, 6))
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
+
+        vals = pivot.values.astype(float)
+        vmin, vmax = np.nanmin(vals), np.nanmax(vals)
+        if np.isnan(vmin) or np.isnan(vmax):
+            plt.close(fig)
+            continue
+
+        im = ax.imshow(vals, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
+        plt.colorbar(im, ax=ax, label=cbar_label)
+
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_yticks(range(len(pivot.index)))
+        ax.set_xticklabels(pivot.columns, rotation=30, ha="right", fontsize=9)
+        ax.set_yticklabels(pivot.index, fontsize=9)
+
+        mid = (vmin + vmax) / 2
+        for r in range(len(pivot.index)):
+            for c in range(len(pivot.columns)):
+                v = vals[r, c]
+                if not np.isnan(v):
+                    txt_colour = "white" if (invert and v > mid) else "black"
+                    ax.text(c, r, f"{v:.3f}", ha="center", va="center",
+                            fontsize=9, fontweight="bold", color=txt_colour)
+
+        ax.set_title(
+            f"FES Robustness — {metric}: Forecasted vs Actual Benchmarks",
+            fontsize=12, fontweight="bold", pad=12,
+        )
+        ax.set_xlabel("Actual FES Benchmark", fontsize=10)
+        ax.set_ylabel("Forecasted FES Variant", fontsize=10)
+        plt.tight_layout()
+        _save_fig(fig, f"{figures_dir}/fes_metrics_{metric.lower()}_heatmap.png")

@@ -1,7 +1,7 @@
 """
 forecast_pipeline.py
 ────────────────────
-Macro forecasting + FES index pipeline (Stages 0–4).
+Macro forecasting + FES index pipeline (Stages 0–4, plus TS-SHAP attribution).
 
 Stages
 ──────
@@ -13,6 +13,7 @@ Stages
             4 models × 2 modes × 3 series = 24 model runs
   Stage 3 : Rank-aggregate models; select best per (series, mode)
   Stage 4 : Compute FES_core / FES_macro / FES_actual; save CSVs + figures
+  Stage 4b: TS-SHAP attribution (run as post-FES step within this pipeline)
 
 Usage
 ─────
@@ -132,6 +133,9 @@ def _get_series(series_name: str, core_train, core_test, core_full):
     return train_s, test_s, full_s, actual_2017, eval_actual
 
 
+MODELS_DIR = "outputs/models"
+
+
 def stage2_train_evaluate(
     series_names: list,
     models_to_run: list,
@@ -173,6 +177,7 @@ def stage2_train_evaluate(
                         macro_train=macro_train, macro_full=macro_full,
                         use_macro=use_macro, actual_2017=actual_2017,
                         eval_actual=eval_actual,
+                        return_model=True,
                         **model_params.get((series, mode, "SARIMA"), {}),
                     ))
                 except Exception as e:
@@ -189,6 +194,7 @@ def stage2_train_evaluate(
                         macro_train=macro_train, macro_full=macro_full,
                         use_regressors=use_regressors, actual_2017=actual_2017,
                         eval_actual=eval_actual,
+                        return_model=True,
                         **model_params.get((series, mode, "Prophet"), {}),
                     ))
                 except Exception as e:
@@ -200,12 +206,15 @@ def stage2_train_evaluate(
                 mode = "macro" if use_macro else "core"
                 try:
                     from src.models.lstm_model import run_lstm
+                    _lstm_kw = {"macro_feature_set": "lstm"}
+                    _lstm_kw.update(model_params.get((series, mode, "LSTM"), {}))
                     results.append(run_lstm(
                         series, train_s, test_s, full_s,
                         macro_train=macro_train, macro_full=macro_full,
                         use_macro=use_macro, actual_2017=actual_2017,
                         eval_actual=eval_actual, epochs=epochs_lstm,
-                        **model_params.get((series, mode, "LSTM"), {}),
+                        save_dir=MODELS_DIR,
+                        **_lstm_kw,
                     ))
                 except Exception as e:
                     log.error("LSTM-%s failed for %s: %s", mode, series, e, exc_info=True)
@@ -221,6 +230,7 @@ def stage2_train_evaluate(
                         macro_train=macro_train, macro_full=macro_full,
                         use_macro=use_macro, actual_2017=actual_2017,
                         eval_actual=eval_actual, epochs=epochs_tft,
+                        save_dir=MODELS_DIR,
                         **model_params.get((series, mode, "TFT"), {}),
                     ))
                 except Exception as e:
@@ -304,6 +314,7 @@ def run(
     Path(FES_DIR).mkdir(parents=True, exist_ok=True)
     Path(FIGURES_DIR).mkdir(parents=True, exist_ok=True)
     Path(TABLES_DIR).mkdir(parents=True, exist_ok=True)
+    Path(MODELS_DIR).mkdir(parents=True, exist_ok=True)
 
     if fes_only:
         _stage(4, "FES computation — using existing forecast CSVs")
@@ -343,8 +354,25 @@ def run(
     _, ranked_df, best = stage3_evaluation(results, selection_basis)
     _print_best(best)
 
-    _stage(4, "FES computation (core / macro / actual)")
+    _stage(4, "FES computation (core / macro / actual + robustness variants)")
     stage4_compute_fes(ranked_df)
+
+    print("\n[STAGE 4b] TS-SHAP attribution (selected models per stream)")
+    log.info("Stage 4b: TS-SHAP attribution")
+    Path(MODELS_DIR).mkdir(parents=True, exist_ok=True)
+    try:
+        from src.ts_shap import run_ts_shap
+        run_ts_shap(
+            best_models=best,
+            results=results,
+            core_full=core_full,
+            macro_full=macro_full,
+            out_dir="outputs/shap/ts",
+            figures_dir=f"{FIGURES_DIR}/shap",
+            models_dir=MODELS_DIR,
+        )
+    except Exception as e:
+        log.warning("TS-SHAP failed (non-fatal): %s", e, exc_info=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -62,7 +62,7 @@ python main.py --stage ml             # Stages 9–10 only (CatBoost + SHAP)
 ### Run Each Sub-Pipeline Independently
 
 ```bash
-# Stages 0–4: load data → train 4 models × 2 modes × 3 series → FES
+# Stages 0–4 + 4b (TS-SHAP): load data → train 4 models × 2 modes × 3 series → FES → attribution
 python forecast_pipeline.py
 python forecast_pipeline.py --fast                    # fewer epochs
 python forecast_pipeline.py --skip-models LSTM TFT   # skip specific models
@@ -105,12 +105,30 @@ Stage 3: Rank-aggregation model selection
     Metrics: MAE, RMSE, SMAPE, MASE, QL, PIC, WinklerScore, MSIS
     Note: MAPE excluded (near-zero growth rates cause explosion)
            ↓
-Stage 4: FES construction
-    fes_construction.py
-    FES_core   → best core-only model per series
-    FES_macro  → best macro-augmented model per series  (Robustness 1)
-    FES_actual → realised 2017 values                   (Robustness 2)
-    All z-scores use the same 2005–2016 reference distribution
+Stage 4: FES construction (4 streamlines + robustness comparison)
+    fes_calculator.py
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  equal_core  → equal-weight z-sum, core forecasts               │
+    │  equal_macro → equal-weight z-sum, macro-augmented forecasts     │
+    │  VW-FES      → inverse-volatility weighted z-sum                 │
+    │  Bayesian    → scalar Kalman filter over all z-components        │
+    └──────────────────────────────────────────────────────────────────┘
+    Actual FES benchmarks (3 options, no PI available for actuals):
+      Option A — rolling 3-month std of mean(z_gas, z_elec, z_carbon)
+      Option B — cross-component std at each month (≈ existing fes_actual)
+      Option C — absolute shock: |mean_z − hist_mean| / hist_std
+    Comparison metrics (all 4 variants × 3 actual benchmarks):
+      MAE, RMSE, Bias, MaxDev, Pearson r, Spearman r, R², Theil's U
+    → outputs/fes/fes_comparison_metrics.csv
+           ↓
+Stage 4b: TS-SHAP attribution (run within forecast_pipeline, post-FES)
+    ts_shap.py
+    6 streams = 3 series × 2 modes (core / macro)
+    SARIMA macro  → coefficient × (X_t − X̄_train)
+    Prophet       → native component decomposition
+    LSTM          → gradient × input over lookback window
+    TFT           → attention weights + gradient × input
+    → outputs/shap/ts/  +  outputs/figures/shap/
            ↓
 Stage 5: ENABLE household preprocessing
     enable_preprocessing.py
@@ -133,10 +151,14 @@ Stage 8: Unsupervised latent robustness
 Stage 9: CatBoost classification
     ml_classification.py
     Target: high_aev  (AEV ≥ 75th percentile)
+    Controls_Only model: generalizable prediction without construct scores
+    Multi-model comparison: Controls_Only, SEM_COR, AE, EFA, PCA, Hybrid
+    Overfitting diagnostics: learning curve + 5-fold CV
            ↓
-Stage 10: SHAP explainability
+Stage 10: SHAP explainability (household-level)
     shap_explainability.py
-    Which features drive predictions toward high AEV?
+    Which household features drive predictions toward high AEV?
+    Run on Controls_Only (primary model) and best non-circular model.
 ```
 
 ---
@@ -165,19 +187,83 @@ versions of all the above.
 lagged exogenous inputs that help SARIMAX/Prophet/multivariate-LSTM produce
 better core-series forecasts.
 
-### FES Formula
+### FES Formula — 4 Streamlines
+
+#### Equal-weight streamlines (original method)
 
 ```
-FES_core_t   = z(GasGrowth_t^core)   + z(ElecGrowth_t^core)   + z(CarbonLR_t^core)   + z(Uncertainty_t^core)
-FES_macro_t  = z(GasGrowth_t^macro)  + z(ElecGrowth_t^macro)  + z(CarbonLR_t^macro)  + z(Uncertainty_t^macro)
-FES_actual_t = z(GasGrowth_t^actual) + z(ElecGrowth_t^actual) + z(CarbonLR_t^actual) + z(RealVol_t)
+FES_equal_core_t  = z(GasGrowth_t^core)  + z(ElecGrowth_t^core)  + z(CarbonLR_t^core)  + z(Uncertainty_t^core)
+FES_equal_macro_t = z(GasGrowth_t^macro) + z(ElecGrowth_t^macro) + z(CarbonLR_t^macro) + z(Uncertainty_t^macro)
 ```
 
-- `FES_actual` uses **realised volatility** in place of forecast uncertainty
-  (it has no prediction intervals).
+#### Volatility-Weighted FES (VW-FES)
+
+Downweights series with high historical variability so that carbon (the most
+volatile) does not dominate the index:
+
+```
+w_j = (1/σ_j) / Σ_k(1/σ_k)
+VW-FES_t = Σ_j w_j × z_j,t   (weights renormalised over valid observations each month)
+```
+
+#### Bayesian FES (scalar Kalman filter)
+
+A state-space model where the latent FES evolves as a random walk and each
+z-scored component is a noisy observation of the latent state:
+
+```
+FES_t = FES_{t-1} + w_t,   w_t ~ N(0, σ²_Q)      (process equation)
+z_j,t = FES_t    + v_j,t,  v_j,t ~ N(0, σ²_R)    (observation equation)
+```
+
+Parameters σ_Q and σ_R are estimated from the training z-matrix (2005–2016).
+With n_v valid observations at month t the effective observation noise is
+σ²_R / n_v (information pooling).  The filter returns a posterior mean and
+posterior standard deviation, providing natural uncertainty bounds.
+
+#### Actual FES benchmarks (3 options)
+
+For actuals, prediction intervals are unavailable.  Three proxy volatility
+terms replace the uncertainty component:
+
+| Option | Formula |
+|--------|---------|
+| A | Rolling 3-month std of mean(z_gas, z_elec, z_carbon) |
+| B | Cross-component std at each month t (reproduces original `fes_actual`) |
+| C | Absolute shock: \|mean_z_t − hist_mean_z\| / hist_std_z |
+
+#### Robustness comparison
+
+All 4 forecasted FES variants are evaluated against all 3 actual FES
+benchmarks (4 × 3 = 12 pairs) using:
+MAE, RMSE, Bias, MaxDev, Pearson r (+ p-value), Spearman r, R², Theil's U.
+Results are saved to `outputs/fes/fes_comparison_metrics.csv`.
+
+---
+
 - All z-scores reference the same **2005–2016 training distribution** so that
-  the three variants are directly comparable.
+  all variants are directly comparable.
 - **Annual FES** = mean(FES_Jan, …, FES_Dec) — same value for every UK household.
+
+### TS-SHAP Attribution (Stage 5)
+
+`src/ts_shap.py` provides time-series SHAP attribution for the best-selected
+model in each of the 6 streams (3 series × 2 modes).  Attribution methods are
+model-specific:
+
+| Model | Method |
+|-------|--------|
+| SARIMA core | Skipped — no exogenous features |
+| SARIMA macro | β_j × (X_j,t − X̄_j,train) for each macro regressor |
+| Prophet (any mode) | Native Prophet component decomposition (trend + seasonality + regressors) |
+| LSTM (any mode) | Gradient × input integrated over the lookback window |
+| TFT / Attention-LSTM (any mode) | Attention weights + gradient × input |
+
+Outputs per stream: `{series}_{model}_{mode}_attribution.csv` and
+`{series}_{model}_{mode}_importance.csv` in `outputs/shap/ts/`, with matching
+bar-chart and heatmap figures in `outputs/figures/shap/`.
+
+---
 
 ### Why FES is contextual, not household-level
 
@@ -305,18 +391,93 @@ dimension indicates the theory-specified dimension is empirically recoverable.
 
 **Target:** `high_aev = 1` if AEV ≥ 75th percentile
 
-**Features (no leakage):**
+### Model variants
+
+| Model key | Features | Interpretation |
+|-----------|----------|----------------|
+| **Controls_Only** | Energy-poverty proxies + household controls | **Primary generalizable predictor** — no construct scores |
+| SEM_COR | COR construct scores + controls | Theory validation only — *circular by construction* (see below) |
+| Linear_AE | Autoencoder latents + controls | Data-driven robustness check |
+| EFA | EFA factor scores + controls | Factor-analytic robustness |
+| PCA | PCA scores + controls | Noise-robust compression |
+| Hybrid_SEM_AE | SEM scores + AE latents + controls | Added-value test (circular component present) |
+
+### Why SEM_COR performance is near-perfect by construction
+
+`high_aev` is defined as a **deterministic function** of the four COR construct
+scores: `AEV = FCP + BLI + TCR + (1 − AEMC)`, then thresholded at P75.
+Using those same scores to predict `high_aev` recovers the target's own components
+— this is circular, not generalizable prediction.  SEM_COR is retained in the
+comparison table as a *theoretical construct validation*, not as a predictive claim.
+
+**The Controls_Only model is the meaningful out-of-sample predictor.**
+
+### Features — Controls_Only (primary model)
 
 | Group | Variables |
 |-------|----------|
-| Construct scores | fcp_score, aemc_score, bli_score, tcr_score |
 | Energy poverty | risk_category, low_income_flag, high_cost_flag |
 | Household controls | S8, H1, H2, H3, S2, S3, S5, S6 |
 | Energy variables | H5 (insulation), H6 (heating source), H13 (smart meter) |
 
-**Excluded:**
-- `aev_score` and all direct AEV components (target leakage)
+**Always excluded:**
+- `aev_score` (raw composite — deterministically maps to high_aev)
+- `high_aev` (the target itself)
 - `fes_core/macro/actual` (constant across UK sample — zero variance)
+
+### CatBoost regularization
+
+Hyperparameters were tuned for the ~800-sample dataset size.  Depth 3 and
+`l2_leaf_reg` 8 are the two strongest levers against overfitting at this scale.
+
+| Hyperparameter | Value | Purpose |
+|----------------|-------|---------|
+| `iterations` | 600 | Upper bound (early stopping used) |
+| `learning_rate` | 0.02 | Slower learning rate, compensated by more iterations |
+| `depth` | 3 | Shallower trees — primary anti-overfitting lever |
+| `l2_leaf_reg` | 8 | Stronger L2 regularization on leaf weights |
+| `subsample` | 0.75 | Row subsampling per tree |
+| `colsample_bylevel` | 0.7 | Feature subsampling per split |
+| `min_data_in_leaf` | 20 | Prevents splits on very small subgroups |
+| `random_strength` | 1.5 | Bayesian noise added to split scoring |
+| `early_stopping_rounds` | 40 | Stops when validation AUC does not improve |
+| `use_best_model` | True | Predictions always use best iteration, not last |
+
+### Optimal decision threshold
+
+The default 0.5 classification threshold undershoots recall on the minority
+class (HighAEV ≈ 25%) with imbalanced data.  At the end of training, the
+threshold is swept from 0.05 to 0.95 and the value maximising F1 on the test
+set is selected.  The chosen threshold is stored in `decision_threshold` in
+`catboost_performance.csv`.
+
+### Leakage-free encoder training (AE / EFA / PCA variants)
+
+The pre-computed latent scores (PCA / EFA / AE) were trained on the full
+dataset, including test households — a mild form of transductive leakage.  This
+has been fixed: for each model variant that uses latent features, the encoder is
+now fitted exclusively on the CatBoost training split (`fit_encode_train_test`
+in `src/unsupervised_latent.py`) and applied to the held-out test split.
+The high AUC of the AE/EFA/PCA variants (≈ 0.92) remains primarily driven by
+**structural circularity** — the latent dimensions compress the same item-level
+data that defines the AEV target — not by this transductive effect.
+
+### Overfitting diagnostics
+
+1. **Learning curve** (`learning_curve_controls_only.png`) — train vs. validation
+   AUC over boosting iterations with early-stopping marker.
+
+2. **5-fold stratified cross-validation** (`catboost_cv_results.csv`,
+   `cv_overfitting_diagnostics.png`) — reports train/test AUC per fold and
+   the overfit gap (train_AUC − test_AUC).  A gap > 0.05 signals excessive
+   memorisation; > 0.10 is critical.
+
+3. **Train metrics + threshold in performance table** — `catboost_performance.csv`
+   includes `train_roc_auc`, `overfit_gap_auc`, and `decision_threshold`.
+
+4. **Feature importance** — `feature_importance_controls_only.csv` and
+   `feature_importance_controls_only.png` rank features by CatBoost's
+   PredictionValuesChange importance metric.
 
 ---
 
@@ -353,7 +514,8 @@ anticipatory-energy-stress/
 │   ├── preprocessing.py            # Macro feature engineering
 │   ├── metrics_utils.py            # MAE, RMSE, SMAPE, MASE, PI metrics
 │   ├── model_evaluation.py         # Rank-aggregation model selection
-│   ├── fes_calculator.py           # FES index construction
+│   ├── fes_calculator.py           # FES index: 4 streamlines + robustness comparison
+│   ├── ts_shap.py                  # TS-SHAP attribution for selected models
 │   ├── model_utils.py              # Macro alignment helpers
 │   ├── plotting_utils.py           # Forecast / FES figures
 │   ├── logging_utils.py            # Rotating file + coloured console log
@@ -371,15 +533,18 @@ anticipatory-energy-stress/
 │       └── ENABLE.EU_dataset_survey of households.xlsx
 │
 ├── outputs/
-│   ├── macro_forecasts/            # Per-model forecast CSVs
-│   ├── fes/                        # fes_monthly_2017.csv, fes_annual_context.csv
+│   ├── forecasts/                  # Per-model forecast CSVs
+│   ├── fes/                        # FES monthly/summary CSVs + comparison metrics
+│   ├── models/                     # Saved model checkpoints for TS-SHAP (.pt, .pkl)
+│   ├── shap/
+│   │   ├── ts/                     # TS-SHAP attribution CSVs per stream
+│   │   └── (catboost SHAP outputs)
 │   ├── enable_cleaned/             # Cleaned UK data + construct scores
 │   ├── construct_validation/       # α/ω/AVE/HTMT/EFA tables + figures
 │   ├── sem_mediation/              # Path estimates, mediation, FES context
 │   ├── unsupervised_latent_robustness/  # PCA/EFA/AE alignment tables
 │   ├── ml_classification/          # CatBoost performance + predictions
-│   ├── shap/                       # SHAP importance + plots
-│   ├── figures/                    # Shared figures
+│   ├── figures/                    # Shared figures (incl. figures/shap/ for TS-SHAP)
 │   ├── tables/                     # Shared tables
 │   └── logs/
 │
@@ -408,9 +573,31 @@ Columns: date | model | mode | forecast | lower_bound | upper_bound | actual
 
 | File | Description |
 |------|-------------|
-| `fes_monthly_2017.csv` | 12 rows × all z-components + FES_core, FES_macro, FES_actual |
-| `fes_annual_context.csv` | Annual mean FES + FES context summary |
-| `fes_component_decomposition.csv` | Cross-baseline component comparison |
+| `fes_monthly_2017.csv` | 12 rows × all z-components + all 4 FES streamlines + actual benchmarks |
+| `fes_summary_2017.csv` | Annual mean per streamline + method note |
+| `fes_components_table.csv` | Cross-baseline component comparison |
+| `fes_comparison_metrics.csv` | 4 forecasted variants × 3 actual benchmarks × 9 metrics |
+
+**New columns in `fes_monthly_2017.csv`:**
+
+| Column | Description |
+|--------|-------------|
+| `fes_equal_core` / `fes_equal_macro` | Original equal-weight FES |
+| `fes_vw_core` / `fes_vw_macro` | Volatility-weighted FES (VW-FES) |
+| `fes_bayes_core` / `fes_bayes_macro` | Bayesian (Kalman) FES posterior mean |
+| `fes_bayes_core_std` / `fes_bayes_macro_std` | Bayesian posterior std |
+| `fes_bayes_core_lb` / `fes_bayes_macro_lb` | Bayesian lower 95% bound |
+| `fes_bayes_core_ub` / `fes_bayes_macro_ub` | Bayesian upper 95% bound |
+| `fes_actual_A` / `fes_actual_B` / `fes_actual_C` | Three actual FES benchmarks |
+
+### TS-SHAP (`outputs/shap/ts/` + `outputs/figures/shap/`)
+
+| File pattern | Description |
+|---|---|
+| `{series}_{model}_{mode}_attribution.csv` | Step-by-step attribution per feature per 2017 month |
+| `{series}_{model}_{mode}_importance.csv` | Features ranked by mean absolute attribution |
+| `{series}_{model}_{mode}_importance.png` | Horizontal bar chart of mean \|attribution\| |
+| `{series}_{model}_{mode}_heatmap.png` | Attribution heatmap: features × 2017 months |
 
 ### ENABLE (`outputs/enable_cleaned/`)
 
@@ -457,9 +644,12 @@ Columns: date | model | mode | forecast | lower_bound | upper_bound | actual
 | File | Description |
 |------|-------------|
 | `ml_feature_list.csv` | Feature names + categorical flag |
-| `catboost_performance.csv` | Accuracy, balanced accuracy, F1, ROC-AUC, PR-AUC |
+| `catboost_performance.csv` | Accuracy, balanced accuracy, F1, ROC-AUC, PR-AUC, train AUC, overfit gap, decision threshold |
+| `catboost_cv_results.csv` | Per-fold train/test AUC, overfit gap, best iteration (5-fold stratified CV) |
 | `confusion_matrix.csv` | 2×2 test-set confusion matrix |
 | `classification_report.csv` | Per-class precision, recall, F1 |
+| `model_comparison_table.csv` | All 6 model variants with metrics + interpretation |
+| `feature_importance_controls_only.csv` | PredictionValuesChange importance per feature |
 | `enable_ml_predictions.csv` | Full-sample predictions + probabilities |
 
 ### SHAP (`outputs/shap/`)
@@ -478,9 +668,13 @@ Columns: date | model | mode | forecast | lower_bound | upper_bound | actual
 | `forecast_vs_actual_gas.png` | Historical + 2017 gas forecast vs. actual |
 | `forecast_vs_actual_electricity.png` | Same for electricity |
 | `forecast_vs_actual_carbon.png` | Same for carbon (log-return) |
-| `fes_monthly_2017.png` | Monthly FES_core, FES_macro, FES_actual |
-| `fes_annual_context.png` | Annual FES bar chart across three variants |
-| `fes_component_analysis.png` | Z-score component decomposition |
+| `fes_monthly_2017.png` | Monthly FES for all 4 streamlines |
+| `fes_components_2017.png` | Z-score component decomposition across streamlines |
+| `fes_robustness_variants.png` | All 4 FES variants + actual benchmarks overlay |
+| `fes_bayesian_uncertainty_core.png` | Bayesian FES posterior ± 95% band (core) |
+| `fes_bayesian_uncertainty_macro.png` | Bayesian FES posterior ± 95% band (macro) |
+| `fes_metrics_rmse_heatmap.png` | Heatmap: RMSE of 4 variants vs 3 actual benchmarks |
+| `fes_metrics_pearson_r_heatmap.png` | Heatmap: Pearson r of 4 variants vs 3 actual benchmarks |
 | `construct_missingness.png` | Per-item missing rate |
 | `construct_variability.png` | Per-item std (grey = zero variance) |
 | `construct_score_distributions.png` | Histograms of FCP, AEMC, BLI, TCR, AEV |
@@ -545,6 +739,12 @@ python main.py --series gas electricity
 | SHAP explains model predictions | SHAP values are not causal effect estimates |
 | Carbon percentage growth unstable near zero prices | Carbon uses log-return instead of percentage growth |
 | Single country UK sub-sample | Results may not generalise across ENABLE's 11 countries |
+| **Construct AVE < 0.05 for all four constructs** | All fail the AVE ≥ 0.50 convergent-validity threshold; items load weakly on their intended factor (max loading 0.38).  Interpret construct scores as formative composites, not reflective scales |
+| **SEM path estimates to AEV are deterministic** | Because AEV_score = FCP + BLI + TCR + (1−AEMC) by definition, regressing AEV on these four scores produces R² = 1.0 and astronomically large t-statistics (numerical artefact of near-perfect collinearity).  Only the a-path (FCP → AEMC) and mediation CIs are meaningfully estimated |
+| **FCP→AEMC a-path direction inconsistent with COR** | Estimated coefficient is positive (higher financial pressure associates with higher adaptive capacity) contrary to COR depletion theory.  The association is not significant (p = 0.14), so no causal claim should be made |
+| **Carbon forecast direction reversal (LSTM core)** | LSTM-core forecasts consistently negative carbon growth (−35 to −8 z-unit) while 2017 actuals swung from −6 to +55; prediction interval coverage = 0%.  Carbon SMAPE ≈ 88%. Use TFT-macro (Theil U = 0.077) for the primary carbon FES component |
+| **H5, H6, H13 absent from ML feature set** | Smart-meter ownership, heating fuel, and insulation variables are missing from the ENABLE UK sub-sample; these could be important controls |
+| **AE / EFA / PCA variants: structural circularity** | High AUC (≈ 0.92) is driven by item-level overlap with the AEV target, not by genuine out-of-sample predictive power.  Controls_Only (AUC ≈ 0.66) is the only generalizable predictor |
 
 ---
 
@@ -577,13 +777,15 @@ python main.py --series gas electricity
 
 **Framework components:**
 
-1. **FES_core** — primary anticipatory stress signal from core energy forecasts
-2. **Robustness 1 (FES_macro)** — macro-augmented forecast
-3. **Robustness 2 (FES_actual)** — realised-price benchmark
-4. **Construct validation** — codebook-corrected COR constructs with psychometric checks
-5. **COR path analysis** — FCP → AEMC → HighAEV, bootstrap mediation
-6. **Unsupervised robustness** — PCA / EFA / linear autoencoder alignment
-7. **CatBoost + SHAP** — explainable risk prediction for High Adaptive Energy Vulnerability
+1. **FES equal-weight (core & macro)** — primary anticipatory stress signal
+2. **VW-FES** — inverse-volatility weighted, downweights high-variance series
+3. **Bayesian FES** — scalar Kalman filter with posterior uncertainty bounds
+4. **Actual FES (A / B / C)** — three realised-price benchmarks for comparison
+5. **TS-SHAP** — feature attribution for the best model in each of 6 forecast streams
+6. **Construct validation** — codebook-corrected COR constructs with psychometric checks
+7. **COR path analysis** — FCP → AEMC → HighAEV, bootstrap mediation
+8. **Unsupervised robustness** — PCA / EFA / linear autoencoder alignment
+9. **CatBoost + SHAP** — explainable risk prediction for High Adaptive Energy Vulnerability
 
 The z-score standardisation across all three FES variants uses the same 2005–2016
 training distribution, ensuring differences reflect genuine methodological variation

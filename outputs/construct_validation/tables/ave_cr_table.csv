@@ -1,0 +1,5 @@
+construct,label,ave,cr,ave>=0.50
+FCP,Financial–Energy Cost Pressure,0.0384,0.0966,False
+AEMC,Adaptive Energy-Management Capacity,0.0352,0.0929,False
+BLI,Energy Behavioural Lock-in,0.0814,0.3033,False
+TCR,Transition-Cost Resistance,0.0413,0.1646,False

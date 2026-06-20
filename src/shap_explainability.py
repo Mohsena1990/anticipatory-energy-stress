@@ -50,16 +50,16 @@ log = logging.getLogger(__name__)
 # I/O helpers
 # =============================================================================
 
-def _save_csv(df: pd.DataFrame, name: str) -> None:
+def _save_csv(df: pd.DataFrame, name: str, prefix: str = "") -> None:
     paths.SHAP_TABLES.mkdir(parents=True, exist_ok=True)
-    p = paths.SHAP_TABLES / f"{name}.csv"
+    p = paths.SHAP_TABLES / f"{prefix}{name}.csv"
     df.to_csv(p, index=False)
     log.info("Saved %s", p.name)
 
 
-def _save_fig(fig: plt.Figure, name: str) -> None:
+def _save_fig(fig: plt.Figure, name: str, prefix: str = "") -> None:
     paths.SHAP_FIGURES.mkdir(parents=True, exist_ok=True)
-    p = paths.SHAP_FIGURES / f"{name}.{config.FIGURE_FORMAT}"
+    p = paths.SHAP_FIGURES / f"{prefix}{name}.{config.FIGURE_FORMAT}"
     fig.savefig(p, dpi=config.DPI, bbox_inches="tight")
     plt.close(fig)
     log.info("Saved figure %s", p.name)
@@ -124,7 +124,7 @@ def build_importance_table(
 # Figures
 # =============================================================================
 
-def _plot_shap_bar(importance_df: pd.DataFrame, top_n: int = 15) -> None:
+def _plot_shap_bar(importance_df: pd.DataFrame, top_n: int = 15, prefix: str = "") -> None:
     """Horizontal bar chart of mean |SHAP| for top-N features."""
     top = importance_df.head(top_n).copy()
     fig, ax = plt.subplots(figsize=(8, max(4, top_n * 0.45)))
@@ -139,10 +139,10 @@ def _plot_shap_bar(importance_df: pd.DataFrame, top_n: int = 15) -> None:
         "Note: SHAP explains model predictions, not causal influence"
     )
     fig.tight_layout()
-    _save_fig(fig, "shap_bar_importance")
+    _save_fig(fig, "shap_bar_importance", prefix=prefix)
 
 
-def _plot_beeswarm(shap_values: np.ndarray, X: pd.DataFrame, top_n: int = 15) -> None:
+def _plot_beeswarm(shap_values: np.ndarray, X: pd.DataFrame, top_n: int = 15, prefix: str = "") -> None:
     """SHAP beeswarm plot (uses shap library if available)."""
     try:
         import shap
@@ -164,16 +164,17 @@ def _plot_beeswarm(shap_values: np.ndarray, X: pd.DataFrame, top_n: int = 15) ->
             "Each dot = one household; colour = feature value"
         )
         fig = plt.gcf()
-        _save_fig(fig, "shap_beeswarm")
+        _save_fig(fig, "shap_beeswarm", prefix=prefix)
     except (ImportError, Exception) as e:
         log.info("Beeswarm fallback: using scatter approximation (%s)", e)
-        _plot_beeswarm_fallback(shap_values, X, top_n)
+        _plot_beeswarm_fallback(shap_values, X, top_n, prefix=prefix)
 
 
 def _plot_beeswarm_fallback(
     shap_values: np.ndarray,
     X: pd.DataFrame,
     top_n: int = 15,
+    prefix: str = "",
 ) -> None:
     """Simple scatter fallback when shap plotting API is unavailable."""
     mean_abs = np.abs(shap_values).mean(axis=0)
@@ -194,7 +195,7 @@ def _plot_beeswarm_fallback(
     ax.set_xlabel("SHAP value (impact on HighAEV prediction)")
     ax.set_title("SHAP beeswarm (top features): colour = feature value (blue=low, red=high)")
     fig.tight_layout()
-    _save_fig(fig, "shap_beeswarm")
+    _save_fig(fig, "shap_beeswarm", prefix=prefix)
 
 
 def _plot_dependence(
@@ -202,6 +203,7 @@ def _plot_dependence(
     X: pd.DataFrame,
     feature_names: list[str],
     top_n: int = 3,
+    prefix: str = "",
 ) -> None:
     """Scatter SHAP dependence plots for top-N features."""
     n    = min(top_n, len(feature_names))
@@ -221,7 +223,7 @@ def _plot_dependence(
         ax.set_title(f"Dependence: {feat}")
     fig.suptitle("SHAP dependence plots (top features)", fontsize=11)
     fig.tight_layout()
-    _save_fig(fig, "shap_dependence_top_features")
+    _save_fig(fig, "shap_dependence_top_features", prefix=prefix)
 
 
 # =============================================================================
@@ -234,6 +236,7 @@ def household_examples(
     y_test: pd.Series,
     y_prob: np.ndarray,
     n_examples: int = 5,
+    prefix: str = "",
 ) -> None:
     """Log and save SHAP explanations for highest/lowest probability households."""
     if len(X) == 0:
@@ -252,7 +255,7 @@ def household_examples(
                 row[f"shap_{feat}"] = round(float(sv), 5)
             rows.append(row)
 
-    _save_csv(pd.DataFrame(rows), "shap_household_examples")
+    _save_csv(pd.DataFrame(rows), "shap_household_examples", prefix=prefix)
 
 
 # =============================================================================
@@ -266,24 +269,28 @@ def run(
     y_prob: np.ndarray,
     cat_idx: list[int],
     top_n: int = 15,
+    model_label: str = "",
 ) -> None:
     """
     Run SHAP explainability for the CatBoost HighAEV classifier.
 
     Parameters
     ----------
-    model      : fitted CatBoostClassifier
-    X_test     : test feature matrix
-    y_test     : true binary labels
-    y_prob     : predicted probabilities (class 1)
-    cat_idx    : indices of categorical features
-    top_n      : number of top features to show in plots
+    model        : fitted CatBoostClassifier
+    X_test       : test feature matrix
+    y_test       : true binary labels
+    y_prob       : predicted probabilities (class 1)
+    cat_idx      : indices of categorical features
+    top_n        : number of top features to show in plots
+    model_label  : prefix for output filenames, e.g. "sem_cor_" or "hybrid_"
+                   Empty string → no prefix (backward-compatible default)
     """
     paths.SHAP_TABLES.mkdir(parents=True, exist_ok=True)
     paths.SHAP_FIGURES.mkdir(parents=True, exist_ok=True)
 
-    log.info("Computing SHAP values (n_test=%d, n_features=%d)...",
-             len(X_test), X_test.shape[1])
+    prefix = f"{model_label}_" if model_label else ""
+    log.info("Computing SHAP values [%s] (n_test=%d, n_features=%d)...",
+             model_label or "default", len(X_test), X_test.shape[1])
 
     shap_vals = compute_shap_values(model, X_test, cat_idx)
 
@@ -291,19 +298,19 @@ def run(
 
     # Importance table
     imp = build_importance_table(shap_vals, feature_names)
-    _save_csv(imp, "shap_feature_importance")
+    _save_csv(imp, "shap_feature_importance", prefix=prefix)
 
     top_features = imp["feature"].head(top_n).tolist()
 
     # Figures
-    _plot_shap_bar(imp, top_n=top_n)
-    _plot_beeswarm(shap_vals, X_test, top_n=top_n)
-    _plot_dependence(shap_vals, X_test, top_features, top_n=3)
+    _plot_shap_bar(imp, top_n=top_n, prefix=prefix)
+    _plot_beeswarm(shap_vals, X_test, top_n=top_n, prefix=prefix)
+    _plot_dependence(shap_vals, X_test, top_features, top_n=3, prefix=prefix)
 
     # Household-level examples
-    household_examples(shap_vals, X_test, y_test, y_prob, n_examples=5)
+    household_examples(shap_vals, X_test, y_test, y_prob, n_examples=5, prefix=prefix)
 
-    log.info("SHAP explainability stream complete.")
+    log.info("SHAP explainability complete [%s].", model_label or "default")
     log.info("Top 5 features by mean |SHAP|:")
     for _, row in imp.head(5).iterrows():
         log.info("  %d. %-22s  mean|SHAP|=%.5f", row["rank"], row["feature"],

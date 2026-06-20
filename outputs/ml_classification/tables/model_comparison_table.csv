@@ -1,0 +1,7 @@
+model_key,model_label,interpretation,n_train,n_test,roc_auc,train_roc_auc,overfit_gap,pr_auc,balanced_accuracy,recall_highAEV,precision,f1,accuracy,best_iteration
+Controls_Only,Controls only,Generalizable prediction (no construct scores),641,214,0.6582,0.633,-0.0252,0.347,0.6176,0.54,0.3506,0.4252,0.6589,6
+SEM_COR,SEM/COR scores,Theory validation (circular: scores define target),619,207,0.9957,0.9987,0.003,0.9849,0.961,0.9773,0.8269,0.8958,0.9517,331
+Linear_AE,Linear AE latents,Data-driven robustness,342,114,0.9194,0.9503,0.0309,0.6011,0.8633,0.9524,0.4878,0.6452,0.807,16
+EFA,EFA latents,Factor-analytic compression,342,114,0.9237,0.923,-0.0007,0.7408,0.861,0.9048,0.5278,0.6667,0.8333,7
+PCA,PCA latents,Noise-robust compression,342,114,0.9237,0.923,-0.0007,0.7408,0.861,0.9048,0.5278,0.6667,0.8333,7
+Hybrid_SEM_AE,Hybrid SEM + AE,Added-value test (circular component present),342,114,0.9693,0.993,0.0237,0.914,0.8986,0.9048,0.6552,0.76,0.8947,194

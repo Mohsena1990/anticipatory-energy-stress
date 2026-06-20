@@ -1,0 +1,2 @@
+x,mediator,y,a_path,b_path,indirect,direct,total,boot_lo,boot_hi,n_boot,ci_level,n_obs,sig_mediation
+fcp_score,aemc_score,aev_score,-0.02365,-0.4884,0.01155,0.2595,0.27105,-0.00329,0.02736,2000,0.95,1015,False

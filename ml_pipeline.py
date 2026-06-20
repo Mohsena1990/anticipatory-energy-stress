@@ -86,18 +86,45 @@ def run(df: pd.DataFrame | None = None, run_shap: bool = True) -> None:
 
     _stage(9, "CatBoost classification of High Adaptive Energy Vulnerability")
     from src.ml_classification import run as run_ml
-    model, results = run_ml(df)
+    comparison_df, all_models = run_ml(df)
 
     if run_shap:
         _stage(10, "SHAP explainability")
         from src.shap_explainability import run as run_shap_fn
-        run_shap_fn(
-            model=model,
-            X_test=results["X_test"],
-            y_test=results["y_test"],
-            y_prob=results["y_prob"],
-            cat_idx=results["cat_idx"],
-        )
+
+        # Run SHAP on the controls-only primary model (generalizable prediction)
+        primary_key = "Controls_Only" if "Controls_Only" in all_models else "SEM_COR"
+        if primary_key in all_models:
+            primary = all_models[primary_key]
+            log.info("SHAP: %s model (primary generalizable predictor)", primary_key)
+            run_shap_fn(
+                model=primary["model"],
+                X_test=primary["X_test"],
+                y_test=primary["y_test"],
+                y_prob=primary["y_prob"],
+                cat_idx=primary["cat_idx"],
+                model_label=primary_key.lower(),
+            )
+
+        # Also run SHAP on the best non-circular model by test ROC-AUC
+        circular_keys = {"SEM_COR", "Hybrid_SEM_AE"}
+        if not comparison_df.empty:
+            non_circular = comparison_df[~comparison_df["model_key"].isin(circular_keys)]
+            if not non_circular.empty:
+                best_row = non_circular.sort_values("roc_auc", ascending=False).iloc[0]
+                best_key = best_row["model_key"]
+                if best_key != primary_key and best_key in all_models:
+                    best = all_models[best_key]
+                    log.info("SHAP: best non-circular model = %s (ROC-AUC=%.4f)",
+                             best_key, best_row["roc_auc"])
+                    run_shap_fn(
+                        model=best["model"],
+                        X_test=best["X_test"],
+                        y_test=best["y_test"],
+                        y_prob=best["y_prob"],
+                        cat_idx=best["cat_idx"],
+                        model_label=best_key.lower(),
+                    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

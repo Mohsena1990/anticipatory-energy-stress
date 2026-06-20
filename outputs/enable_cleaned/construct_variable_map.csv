@@ -1,0 +1,38 @@
+construct,construct_label,variable,description,direction,reverse_coded,optional
+FCP,Financial–Energy Cost Pressure,S8,difficulty living on present income,higher=more financial difficulty,False,False
+FCP,Financial–Energy Cost Pressure,E2A,perceived cost of running TV for an hour,higher=higher perceived cost,False,False
+FCP,Financial–Energy Cost Pressure,E2B,perceived cost of running washing machine,higher=higher perceived cost,False,False
+FCP,Financial–Energy Cost Pressure,S7,received financial aid for energy bills (binary),1=received aid → financial pressure proxy,False,True
+FCP,Financial–Energy Cost Pressure,E1,perceived cost of 1 kWh electricity,higher=higher perceived cost,False,True
+FCP,Financial–Energy Cost Pressure,E3A,energy knowledge item A,use only if theoretically justified,False,True
+FCP,Financial–Energy Cost Pressure,E3B,energy knowledge item B,use only if theoretically justified,False,True
+FCP,Financial–Energy Cost Pressure,E3C,energy knowledge item C,use only if theoretically justified,False,True
+AEMC,Adaptive Energy-Management Capacity,E5A1,I do not use reminders to save energy,1=no reminders → low capacity,True,False
+AEMC,Adaptive Energy-Management Capacity,E5A2,note/calendar/fridge reminder for energy saving,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E5A3,ask others to remind me to save energy,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E5A4,mobile phone reminders for energy saving,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E5A6,tariff/price alert reminder,higher=more adaptive,False,True
+AEMC,Adaptive Energy-Management Capacity,E5A7,timer-based energy reminder,higher=more adaptive,False,True
+AEMC,Adaptive Energy-Management Capacity,E5A8,smart meter alert,higher=more adaptive,False,True
+AEMC,Adaptive Energy-Management Capacity,E5A9,other energy-saving reminder,higher=more adaptive,False,True
+AEMC,Adaptive Energy-Management Capacity,E6A1,I do not have energy-saving routines,1=no routines → low capacity,True,False
+AEMC,Adaptive Energy-Management Capacity,E6A2,check each room before leaving house,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E6A3,switch lights off before leaving rooms,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E6A4,unplug appliances after use,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E6A5,time-of-use tariff routine,higher=more adaptive,False,True
+AEMC,Adaptive Energy-Management Capacity,E6A6,use cheap tariff,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E6A7,turn off heating when not needed,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,E6A8,do not overfill kettle,higher=more adaptive,False,False
+AEMC,Adaptive Energy-Management Capacity,H9,heating control method (programmer/thermostat),recoded: automated controls score higher,False,True
+BLI,Energy Behavioural Lock-in,E7A,energy behaviours anchored in practice through repetition,higher=stronger lock-in,False,False
+BLI,Energy Behavioural Lock-in,E7B,energy behaviours done while thinking about something else,higher=stronger lock-in,False,False
+BLI,Energy Behavioural Lock-in,E7C,energy behaviours performed without full awareness,higher=stronger lock-in,False,False
+BLI,Energy Behavioural Lock-in,E7D,it would be difficult to change energy behaviours,higher=stronger lock-in,False,False
+BLI,Energy Behavioural Lock-in,E7E,energy behaviours done consciously because alternatives are too effortful,higher=stronger lock-in,False,False
+TCR,Transition-Cost Resistance,H15A,I will only act on environmental issues if others around me do the same,higher=greater conditional/social resistance,False,False
+TCR,Transition-Cost Resistance,H15B,the effects of environmental issues on our lives have been overstated,higher=greater skepticism / resistance,False,False
+TCR,Transition-Cost Resistance,H15C,environmental issues are for future generations to deal with,higher=greater temporal resistance,False,False
+TCR,Transition-Cost Resistance,H15D,I am willing to make changes to my lifestyle to reduce environmental impacts,reverse: higher willingness → lower resistance score,True,False
+TCR,Transition-Cost Resistance,H15E,government environmental policies should not cost extra money,higher=greater cost resistance,False,False
+TCR,Transition-Cost Resistance,H15F,environmental issues will be solved by new technologies without requiring behaviour change,higher=greater techno-optimism fatalism,False,False
+TCR,Transition-Cost Resistance,H15G,environmental protection goes hand in hand with economic growth,positive belief — treat separately from resistance composite,False,True

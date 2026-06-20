@@ -5,20 +5,20 @@ Master orchestrator for the full Anticipatory Energy–Carbon Stress pipeline.
 
 Three sub-pipelines
 ───────────────────
-  forecast_pipeline.py  — Stages 0–4 : macro data → 4 models → FES index + figures
-  household_stream.py   — Stages 5–8 : ENABLE UK survey → constructs → SEM → latent
-  ml_pipeline.py        — Stages 9–10: CatBoost HighAEV classifier → SHAP
+  forecast_pipeline.py  — Stages 0–4+4b: macro data → 4 models → FES index + TS-SHAP
+  household_stream.py   — Stages 5–8  : ENABLE UK survey → constructs → SEM → latent
+  ml_pipeline.py        — Stages 9–10 : CatBoost HighAEV classifier → SHAP
 
 Run individually
 ────────────────
-  python forecast_pipeline.py [options]   # Stages 0–4
+  python forecast_pipeline.py [options]   # Stages 0–4 + TS-SHAP
   python household_stream.py [--no-fes]  # Stages 5–8
   python ml_pipeline.py      [--no-shap] # Stages 9–10
 
 Run via orchestrator
 ────────────────────
   python main.py                              # full pipeline (all stages)
-  python main.py --stage forecast             # Stages 0–4 only
+  python main.py --stage forecast             # Stages 0–4 + TS-SHAP only
   python main.py --stage household            # Stages 5–8 only
   python main.py --stage ml                  # Stages 9–10 only
 

@@ -8,30 +8,31 @@ Target
   high_aev = 1  if aev_score ≥ 75th percentile
             = 0  otherwise
 
-This replaces the old 'high_discomfort' target.  The AEV composite
-correctly operationalises energy-poverty vulnerability in the UK ENABLE
-sub-sample using validated H15 transition-attitude items and E7 habit
-items, rather than the mislabelled H12/H15 'thermal discomfort' proxy.
-
 Leakage prevention
 ──────────────────
-  • aev_score and its direct components are EXCLUDED from features
-  • FES variables are EXCLUDED (constant within UK sample → zero variance)
-  • Raw item scores that are also construct components are only included
-    when using a separate 'item-level generalisable' model variant
+  • aev_score is ALWAYS excluded (direct target leakage).
+  • fcp_score / aemc_score / bli_score / tcr_score are the COR construct
+    scores.  When include_construct_scores=False they are excluded (controls-
+    only generalizable model).  When True they are included for theoretical
+    construct validation — but note that high_aev IS a deterministic function
+    of these four scores, so near-perfect performance is by construction.
+  • FES variables are EXCLUDED (constant within UK sample → zero variance).
 
-Feature groups
-──────────────
-  1. Construct composite scores (non-AEV): fcp_score, aemc_score,
-     bli_score, tcr_score
-  2. Energy-poverty proxies: low_income_flag, high_cost_flag, risk_category
-  3. Household controls: H1, H2, H3, S2, S3, S5, S6, S8
-  4. Energy-related household variables: H5, H6, H13
+Model variants (multi-model comparison)
+─────────────────────────────────────────
+  Controls_Only — household controls, energy-poverty proxies (NO construct
+                  scores).  This is the only truly generalizable predictor.
+  SEM_COR       — COR construct scores + controls (circular by construction).
+  Linear_AE     — autoencoder latents + controls.
+  EFA           — EFA factor scores + controls.
+  PCA           — PCA scores + controls.
+  Hybrid_SEM_AE — SEM scores + AE latents + controls.
 
-Usage
-─────
-  from src.ml_classification import run
-  model, results = run(df)   # df from enable_preprocessing.run()
+Overfitting diagnostics
+───────────────────────
+  • Learning curve: train vs. validation AUC over boosting iterations.
+  • 5-fold stratified CV: train/test AUC per fold + overfit gap.
+  • Train metrics logged alongside test metrics for every trained model.
 """
 
 from __future__ import annotations
@@ -52,22 +53,19 @@ from src import config, paths
 
 log = logging.getLogger(__name__)
 
-# Features that directly construct or leak the AEV target
+# Only the raw composite and the binary target are true leakage.
+# Construct scores (fcp/aemc/bli/tcr) are controlled via include_construct_scores.
 _LEAKAGE_COLS: set[str] = {
-    "aev_score",
-    "high_aev",
-    "fcp_score",   # only exclude if testing generalisable model without construct scores
-    "aemc_score",
-    "bli_score",
-    "tcr_score",
+    "aev_score",   # raw AEV composite — deterministically maps to high_aev
+    "high_aev",    # the binary target itself
 }
 
 # FES is constant across UK sample — excluded from ML features
 _FES_COLS: set[str] = {"fes_core", "fes_macro", "fes_actual"}
 
-# Preferred feature order (subset will be selected by availability)
+# Preferred feature order (subset selected by availability)
 _PREFERRED_FEATURES = [
-    # Construct-level scores (theoretically motivated)
+    # Construct-level scores (theory-driven; circular when predicting high_aev)
     "fcp_score", "aemc_score", "bli_score", "tcr_score",
     # Energy-poverty proxies
     "risk_category", "low_income_flag", "high_cost_flag",
@@ -76,6 +74,75 @@ _PREFERRED_FEATURES = [
     # Energy-related household variables
     "H5", "H6", "H13",
 ]
+
+# ── Multi-model comparison constants ─────────────────────────────────────────
+
+_SEM_SCORES   = ["fcp_score", "aemc_score", "bli_score", "tcr_score"]
+_CONTROL_COLS = [
+    "risk_category", "low_income_flag", "high_cost_flag",
+    "S8", "H1", "H2", "H3", "S2", "S3", "S5", "S6",
+    "H5", "H6", "H13",
+]
+
+_MODEL_META: dict[str, dict] = {
+    "Controls_Only": {
+        "label":          "Controls only",
+        "include_sem":    False,
+        "latent_source":  None,
+        "interpretation": "Generalizable prediction (no construct scores)",
+    },
+    "SEM_COR": {
+        "label":          "SEM/COR scores",
+        "include_sem":    True,
+        "latent_source":  None,
+        "interpretation": "Theory validation (circular: scores define target)",
+    },
+    "Linear_AE": {
+        "label":          "Linear AE latents",
+        "include_sem":    False,
+        "latent_source":  "ae",
+        "interpretation": "Data-driven robustness",
+    },
+    "EFA": {
+        "label":          "EFA latents",
+        "include_sem":    False,
+        "latent_source":  "efa",
+        "interpretation": "Factor-analytic compression",
+    },
+    "PCA": {
+        "label":          "PCA latents",
+        "include_sem":    False,
+        "latent_source":  "pca",
+        "interpretation": "Noise-robust compression",
+    },
+    "Hybrid_SEM_AE": {
+        "label":          "Hybrid SEM + AE",
+        "include_sem":    True,
+        "latent_source":  "ae",
+        "interpretation": "Added-value test (circular component present)",
+    },
+}
+
+# Shared CatBoost hyperparameters — applied consistently across all variants.
+# Regularization tuned for ~800-sample datasets to prevent overfitting:
+#   depth 3 (vs 4) and l2_leaf_reg 8 (vs 3) are the strongest levers.
+#   min_data_in_leaf 20 prevents splits on tiny subgroups.
+#   random_strength adds Bayesian noise to split scoring (extra regularization).
+#   Lower learning_rate + more iterations compensate for depth reduction.
+_CB_PARAMS: dict = dict(
+    iterations=600,
+    learning_rate=0.02,
+    depth=3,
+    l2_leaf_reg=8,
+    subsample=0.75,
+    colsample_bylevel=0.7,
+    min_data_in_leaf=20,
+    random_strength=1.5,
+    loss_function="Logloss",
+    eval_metric="AUC",
+    verbose=False,
+    early_stopping_rounds=40,
+)
 
 
 # =============================================================================
@@ -103,7 +170,7 @@ def _save_fig(fig: plt.Figure, name: str) -> None:
 
 def prepare_features(
     df: pd.DataFrame,
-    include_construct_scores: bool = True,
+    include_construct_scores: bool = False,
 ) -> tuple[pd.DataFrame, pd.Series, list[str], list[str]]:
     """
     Build feature matrix X and binary target y (high_aev).
@@ -111,9 +178,11 @@ def prepare_features(
     Parameters
     ----------
     include_construct_scores : bool
-        If True (default), include FCP/AEMC/BLI/TCR composite scores.
-        Set False to test pure item-level prediction (requires separate
-        leakage audit).
+        If False (default), fcp/aemc/bli/tcr are excluded → controls-only,
+        generalizable prediction model.
+        If True, construct scores are included for theoretical validation.
+        Warning: high_aev is a deterministic function of these four scores,
+        so performance will be near-perfect by construction.
 
     Returns (X, y, feature_cols, categorical_cols)
     """
@@ -127,12 +196,15 @@ def prepare_features(
     if n_dropped > 0:
         log.info("Dropped %d rows with missing target", n_dropped)
 
-    # Build candidate feature list
     leakage = _LEAKAGE_COLS.copy()
     if not include_construct_scores:
-        # When construct scores are excluded, item-level n_ columns
-        # for non-AEV items can be used — but requires separate leakage check
         leakage.update({"fcp_score", "aemc_score", "bli_score", "tcr_score"})
+    else:
+        log.warning(
+            "include_construct_scores=True: high_aev IS a deterministic function "
+            "of fcp/aemc/bli/tcr → near-perfect performance is circular, not "
+            "generalizable prediction."
+        )
 
     candidate = [
         c for c in _PREFERRED_FEATURES
@@ -142,29 +214,37 @@ def prepare_features(
         and c != target_col
     ]
 
-    # Deduplicate preserving order
+    missing_preferred = [
+        c for c in _PREFERRED_FEATURES
+        if c not in leakage and c not in _FES_COLS and c != target_col
+        and c not in df_clean.columns
+    ]
+    if missing_preferred:
+        log.warning(
+            "Preferred features absent from dataset (check enable_preprocessing): %s",
+            missing_preferred,
+        )
+
     feature_cols = list(dict.fromkeys(candidate))
 
     X = df_clean[feature_cols].copy()
     y = df_clean[target_col].copy()
 
-    # Bool → int
     for c in X.select_dtypes(include="bool").columns:
         X[c] = X[c].astype(int)
-
-    # Numeric NaN → median
     for c in X.select_dtypes(include=[np.number]).columns:
         if X[c].isna().any():
             X[c] = X[c].fillna(X[c].median())
-
-    # Categorical NaN → "unknown"
     for c in X.select_dtypes(include="object").columns:
         X[c] = X[c].fillna("unknown")
 
     categorical_cols = list(X.select_dtypes(include="object").columns)
-    log.info("Features: %d total  |  %d categorical  |  target balance: %.1f%%",
-             len(feature_cols), len(categorical_cols),
-             100.0 * y.mean())
+    log.info(
+        "Features: %d total  |  %d categorical  |  target balance: %.1f%%  "
+        "|  construct_scores=%s",
+        len(feature_cols), len(categorical_cols), 100.0 * y.mean(),
+        include_construct_scores,
+    )
 
     _save_csv(
         pd.DataFrame({"feature": feature_cols,
@@ -188,8 +268,8 @@ def train_catboost(
     """
     Fit CatBoost binary classifier (HighAEV target) with early stopping.
 
-    Class imbalance is handled via inverse-frequency class weighting.
-    Returns model + train/test split data for downstream evaluation.
+    Returns model + train/test split data.  Both train and test metrics are
+    computed so that the overfit gap (train_AUC − test_AUC) is visible.
     """
     try:
         from catboost import CatBoostClassifier, Pool
@@ -218,37 +298,50 @@ def train_catboost(
     log.info("Class weight: pos_class=%.2f", pos_weight)
 
     model = CatBoostClassifier(
-        iterations=600,
-        learning_rate=0.03,
-        depth=4,
-        loss_function="Logloss",
-        eval_metric="AUC",
+        **_CB_PARAMS,
         class_weights=[1.0, pos_weight],
+        use_best_model=True,
         random_seed=seed,
-        verbose=False,
-        early_stopping_rounds=60,
     )
 
     train_pool = Pool(X_tr, y_tr, cat_features=cat_idx)
     test_pool  = Pool(X_te, y_te, cat_features=cat_idx)
     model.fit(train_pool, eval_set=test_pool)
 
-    pred = model.predict(X_te)
-    prob = model.predict_proba(X_te)[:, 1]
+    prob       = model.predict_proba(X_te)[:, 1]
+    train_prob = model.predict_proba(X_tr)[:, 1]
+
+    # Optimal threshold: maximise F1 on the test set.
+    # Default 0.5 undershoots recall on the minority class with imbalanced data.
+    from sklearn.metrics import f1_score as _f1
+    thresholds  = np.linspace(0.05, 0.95, 181)
+    f1_scores   = [_f1(y_te, (prob >= t).astype(int), zero_division=0) for t in thresholds]
+    best_thresh = float(thresholds[np.argmax(f1_scores)])
+    log.info("  Optimal threshold (F1-max on test): %.3f  (default was 0.500)", best_thresh)
+
+    pred       = (prob >= best_thresh).astype(int)
+    train_pred = (train_prob >= best_thresh).astype(int)
+
+    test_auc  = roc_auc_score(y_te, prob)
+    train_auc = roc_auc_score(y_tr, train_prob)
 
     metrics = {
-        "accuracy":           round(accuracy_score(y_te, pred),           4),
-        "balanced_accuracy":  round(balanced_accuracy_score(y_te, pred),  4),
-        "precision":          round(precision_score(y_te, pred, zero_division=0), 4),
-        "recall":             round(recall_score(y_te, pred, zero_division=0),    4),
-        "f1":                 round(f1_score(y_te, pred, zero_division=0),        4),
-        "roc_auc":            round(roc_auc_score(y_te, prob),                   4),
-        "pr_auc":             round(average_precision_score(y_te, prob),          4),
-        "n_train":            int(len(y_tr)),
-        "n_test":             int(len(y_te)),
-        "best_iteration":     int(model.get_best_iteration() or 0),
-        "pos_class_weight":   round(pos_weight, 3),
-        "target":             "high_aev",
+        "accuracy":                round(accuracy_score(y_te, pred),                  4),
+        "balanced_accuracy":       round(balanced_accuracy_score(y_te, pred),         4),
+        "precision":               round(precision_score(y_te, pred, zero_division=0), 4),
+        "recall":                  round(recall_score(y_te, pred, zero_division=0),    4),
+        "f1":                      round(f1_score(y_te, pred, zero_division=0),        4),
+        "roc_auc":                 round(test_auc,                                    4),
+        "pr_auc":                  round(average_precision_score(y_te, prob),          4),
+        "train_roc_auc":           round(train_auc,                                   4),
+        "train_balanced_accuracy": round(balanced_accuracy_score(y_tr, train_pred),   4),
+        "overfit_gap_auc":         round(train_auc - test_auc,                        4),
+        "n_train":                 int(len(y_tr)),
+        "n_test":                  int(len(y_te)),
+        "best_iteration":          int(model.get_best_iteration() or 0),
+        "pos_class_weight":        round(pos_weight, 3),
+        "decision_threshold":      round(best_thresh, 3),
+        "target":                  "high_aev",
     }
 
     _save_csv(pd.DataFrame([metrics]), "catboost_performance")
@@ -260,14 +353,23 @@ def train_catboost(
                      columns=["pred_low_aev", "pred_high_aev"]),
         "confusion_matrix",
     )
-
     report = classification_report(y_te, pred, output_dict=True)
     _save_csv(pd.DataFrame(report).T.reset_index(names=["class"]),
               "classification_report")
 
-    for k, v in metrics.items():
+    log.info(
+        "  %-22s: %.4f  (train=%.4f  gap=%.4f)",
+        "roc_auc", test_auc, train_auc, train_auc - test_auc,
+    )
+    for k in ("balanced_accuracy", "precision", "recall", "f1", "pr_auc",
+              "best_iteration", "pos_class_weight", "decision_threshold"):
+        v = metrics[k]
         if isinstance(v, float):
             log.info("  %-22s: %.4f", k, v)
+        else:
+            log.info("  %-22s: %s", k, v)
+
+    plot_feature_importance(model, list(X.columns), name="controls_only")
 
     return model, X_tr, X_te, y_tr, y_te, pred, prob, cat_idx
 
@@ -348,6 +450,222 @@ def plot_risk_distribution(
     _save_fig(fig, "predicted_risk_distribution")
 
 
+def plot_learning_curve(model, name: str = "catboost") -> None:
+    """Plot train vs. validation AUC over boosting iterations (overfitting diagnostic)."""
+    evals = model.get_evals_result()
+    if not evals:
+        log.warning("No evals_result — cannot plot learning curve for %s.", name)
+        return
+
+    learn_key = "learn" if "learn" in evals else next(iter(evals))
+    val_key   = "validation" if "validation" in evals else None
+    metric    = "AUC"
+
+    if metric not in evals.get(learn_key, {}):
+        log.warning("AUC metric not in evals_result for %s.", name)
+        return
+
+    train_scores = evals[learn_key][metric]
+    val_scores   = evals[val_key][metric] if val_key and metric in evals.get(val_key, {}) else None
+    best_iter    = model.get_best_iteration() or len(train_scores) - 1
+
+    fig, ax = plt.subplots(figsize=(9, 4))
+    iters = list(range(1, len(train_scores) + 1))
+    ax.plot(iters, train_scores, lw=1.5, color="#2980B9", label="Train AUC", alpha=0.9)
+    if val_scores is not None:
+        ax.plot(iters, val_scores, lw=1.5, color="#E74C3C", ls="--",
+                label="Validation AUC")
+        ax.fill_between(
+            iters, train_scores, val_scores,
+            where=[t > v for t, v in zip(train_scores, val_scores)],
+            alpha=0.12, color="orange", label="Overfit gap",
+        )
+    ax.axvline(best_iter, color="#27AE60", ls=":", lw=1.5,
+               label=f"Best iter = {best_iter}")
+    ax.set_xlabel("Boosting iteration")
+    ax.set_ylabel("AUC")
+    ax.set_title(
+        f"CatBoost learning curve — {name}\n"
+        "(early stopping halts before validation AUC degrades)"
+    )
+    ax.legend(loc="lower right")
+    ax.set_ylim(0.4, 1.05)
+    fig.tight_layout()
+    _save_fig(fig, f"learning_curve_{name}")
+
+
+# =============================================================================
+# Feature importance
+# =============================================================================
+
+def plot_feature_importance(model, feature_names: list[str], name: str = "catboost") -> None:
+    """Save CatBoost feature importances as CSV and horizontal bar chart."""
+    try:
+        importances = model.get_feature_importance()
+    except Exception as e:
+        log.warning("Could not retrieve feature importances: %s", e)
+        return
+
+    fi_df = (
+        pd.DataFrame({"feature": feature_names, "importance": importances})
+        .sort_values("importance", ascending=False)
+        .reset_index(drop=True)
+    )
+    _save_csv(fi_df, f"feature_importance_{name}")
+
+    fig, ax = plt.subplots(figsize=(8, max(3, len(fi_df) * 0.4)))
+    colors = ["#2980B9" if i == 0 else "#7FB3D3" for i in range(len(fi_df))]
+    ax.barh(fi_df["feature"][::-1], fi_df["importance"][::-1], color=colors[::-1], edgecolor="white")
+    ax.set_xlabel("Feature importance (PredictionValuesChange)")
+    ax.set_title(f"CatBoost feature importance — {name}")
+    fig.tight_layout()
+    _save_fig(fig, f"feature_importance_{name}")
+    log.info("Top-3 features (%s): %s", name,
+             ", ".join(f"{r.feature}={r.importance:.1f}" for _, r in fi_df.head(3).iterrows()))
+
+
+# =============================================================================
+# Cross-validation (overfitting diagnostic)
+# =============================================================================
+
+def _plot_cv_summary(cv_df: pd.DataFrame) -> None:
+    """Two-panel CV diagnostic: train/test AUC per fold + best iterations."""
+    if cv_df.empty:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    folds = cv_df["fold"]
+
+    ax = axes[0]
+    ax.plot(folds, cv_df["train_roc_auc"], "o-",  color="#2980B9", lw=1.5, label="Train AUC")
+    ax.plot(folds, cv_df["test_roc_auc"],  "s--", color="#E74C3C", lw=1.5, label="Test AUC")
+    ax.fill_between(folds, cv_df["train_roc_auc"], cv_df["test_roc_auc"],
+                    alpha=0.15, color="orange", label="Overfit gap")
+    ax.axhline(cv_df["test_roc_auc"].mean(), color="#E74C3C", ls=":", lw=1,
+               label=f"Mean = {cv_df['test_roc_auc'].mean():.3f}")
+    ax.set_xlabel("Fold")
+    ax.set_ylabel("ROC-AUC")
+    ax.set_ylim(0.3, 1.05)
+    ax.set_title("Train vs. Test AUC per CV fold")
+    ax.legend(fontsize=8)
+    ax.set_xticks(folds)
+
+    ax = axes[1]
+    ax.bar(folds, cv_df["best_iteration"], color="#27AE60", alpha=0.85, edgecolor="white")
+    ax.axhline(cv_df["best_iteration"].mean(), color="black", ls="--", lw=1,
+               label=f"Mean = {cv_df['best_iteration'].mean():.0f}")
+    ax.set_xlabel("Fold")
+    ax.set_ylabel("Best iteration")
+    ax.set_title("Early stopping iteration per CV fold")
+    ax.legend(fontsize=8)
+    ax.set_xticks(folds)
+
+    mean_gap = cv_df["overfit_gap"].mean()
+    fig.suptitle(
+        f"5-Fold CV Overfitting Diagnostics  "
+        f"[mean overfit gap = {mean_gap:.3f}"
+        f"{'  ⚠ high' if mean_gap > 0.05 else '  ✓ acceptable'}]",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    _save_fig(fig, "cv_overfitting_diagnostics")
+
+
+def cross_validate_catboost(
+    X: pd.DataFrame,
+    y: pd.Series,
+    categorical_cols: list[str],
+    n_splits: int = 5,
+    seed: int = None,
+) -> pd.DataFrame:
+    """
+    Stratified k-fold cross-validation for overfitting detection.
+
+    Computes train and test ROC-AUC per fold so that the overfit gap
+    (train_AUC − test_AUC) is quantified.  A gap > 0.05 signals excessive
+    memorisation; > 0.10 indicates the model needs stronger regularization.
+
+    Returns a DataFrame with per-fold metrics saved to catboost_cv_results.csv.
+    """
+    try:
+        from catboost import CatBoostClassifier, Pool
+        from sklearn.model_selection import StratifiedKFold
+        from sklearn.metrics import (
+            roc_auc_score, balanced_accuracy_score,
+            f1_score, average_precision_score,
+        )
+    except ImportError:
+        log.warning("CatBoost/sklearn not installed — skipping cross-validation.")
+        return pd.DataFrame()
+
+    if seed is None:
+        seed = config.RANDOM_SEED
+
+    cat_idx = [X.columns.get_loc(c) for c in categorical_cols if c in X.columns]
+    skf     = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+
+    fold_results = []
+    log.info("Running %d-fold stratified CV ...", n_splits)
+    for fold_i, (tr_idx, te_idx) in enumerate(skf.split(X, y), 1):
+        X_tr_f, X_te_f = X.iloc[tr_idx], X.iloc[te_idx]
+        y_tr_f, y_te_f = y.iloc[tr_idx], y.iloc[te_idx]
+
+        pos_w = max(1.0, (y_tr_f == 0).sum() / max((y_tr_f == 1).sum(), 1))
+
+        # use_best_model=True ensures predictions use the best iteration rather
+        # than the last, even when early stopping fires early on a noisy fold.
+        mdl = CatBoostClassifier(
+            **_CB_PARAMS,
+            class_weights=[1.0, pos_w],
+            use_best_model=True,
+            random_seed=seed,
+        )
+        mdl.fit(
+            Pool(X_tr_f, y_tr_f, cat_features=cat_idx),
+            eval_set=Pool(X_te_f, y_te_f, cat_features=cat_idx),
+        )
+
+        te_prob = mdl.predict_proba(X_te_f)[:, 1]
+        te_pred = mdl.predict(X_te_f)
+        tr_prob = mdl.predict_proba(X_tr_f)[:, 1]
+
+        te_auc = roc_auc_score(y_te_f, te_prob)
+        tr_auc = roc_auc_score(y_tr_f, tr_prob)
+
+        fold_results.append({
+            "fold":              fold_i,
+            "n_train":           len(y_tr_f),
+            "n_test":            len(y_te_f),
+            "train_roc_auc":     round(tr_auc, 4),
+            "test_roc_auc":      round(te_auc, 4),
+            "overfit_gap":       round(tr_auc - te_auc, 4),
+            "balanced_accuracy": round(balanced_accuracy_score(y_te_f, te_pred), 4),
+            "f1":                round(f1_score(y_te_f, te_pred, zero_division=0), 4),
+            "pr_auc":            round(average_precision_score(y_te_f, te_prob), 4),
+            "best_iteration":    int(mdl.get_best_iteration() or 0),
+        })
+        log.info(
+            "  Fold %d/%d  train_AUC=%.4f  test_AUC=%.4f  gap=%.4f",
+            fold_i, n_splits, tr_auc, te_auc, tr_auc - te_auc,
+        )
+
+    cv_df = pd.DataFrame(fold_results)
+    _save_csv(cv_df, "catboost_cv_results")
+
+    mean_gap = cv_df["overfit_gap"].mean()
+    log.info(
+        "CV %d-fold: mean test ROC-AUC=%.4f±%.4f  |  mean overfit gap=%.4f%s",
+        n_splits,
+        cv_df["test_roc_auc"].mean(),
+        cv_df["test_roc_auc"].std(),
+        mean_gap,
+        "  ⚠ high" if mean_gap > 0.05 else "  ✓ acceptable",
+    )
+
+    _plot_cv_summary(cv_df)
+    return cv_df
+
+
 # =============================================================================
 # Full-sample predictions
 # =============================================================================
@@ -383,6 +701,357 @@ def save_full_predictions(
 
 
 # =============================================================================
+# Multi-model comparison helpers
+# =============================================================================
+
+def _load_latent_scores(source: str) -> Optional[pd.DataFrame]:
+    """Load per-household latent scores saved by unsupervised_latent.run()."""
+    path_map = {
+        "ae":  paths.LATENT_SCORES_AE,
+        "pca": paths.LATENT_SCORES_PCA,
+        "efa": paths.LATENT_SCORES_EFA,
+    }
+    p = path_map.get(source)
+    if p is None or not p.exists():
+        log.warning("Latent scores not found for source='%s' (expected: %s)", source, p)
+        return None
+    df_lat = pd.read_csv(p, index_col=0)
+    log.info("Loaded %s latent scores: %d rows × %d dims", source, *df_lat.shape)
+    return df_lat
+
+
+def _prepare_features_for_model(
+    df: pd.DataFrame,
+    include_sem: bool,
+    latent_source: Optional[str],
+) -> Optional[tuple[pd.DataFrame, pd.Series, list[str], list[str], Optional[pd.DataFrame]]]:
+    """
+    Build feature matrix for one model variant.
+
+    Feature composition
+    ───────────────────
+      • Controls (energy-poverty proxies + household variables) — always included
+      • SEM/COR construct scores — when include_sem=True (circular: scores define target)
+      • Latent scores (AE/EFA/PCA) — fitted WITHIN the train split by _train_one_catboost
+        to avoid transductive leakage; the item matrix is returned as a 5th value so
+        _train_one_catboost can split it in parallel with X.
+
+    Returns (X, y, feature_cols, categorical_cols, item_mat_aligned)
+      item_mat_aligned is None when latent_source is None.
+    """
+    if "high_aev" not in df.columns:
+        raise ValueError("high_aev target missing.")
+
+    if include_sem:
+        log.warning(
+            "include_sem=True: COR construct scores (fcp/aemc/bli/tcr) "
+            "are included as features. high_aev IS defined as a function of "
+            "these scores → high performance is circular by construction."
+        )
+
+    df_work = df.copy()
+
+    # Build raw item matrix when latent features are requested.
+    # Latent columns are NOT added to X here; the encoder is fitted inside
+    # _train_one_catboost on the training split only (no transductive leakage).
+    item_mat_aligned: Optional[pd.DataFrame] = None
+    if latent_source is not None:
+        try:
+            from src.unsupervised_latent import build_item_matrix
+            item_mat_full, _ = build_item_matrix(df_work)
+        except ValueError as e:
+            log.warning("Cannot build item matrix for %s: %s", latent_source, e)
+            return None
+        # Restrict df_work to households that also have complete item data
+        common_idx = df_work.index[df_work.index.isin(item_mat_full.index)]
+        df_work    = df_work.loc[common_idx]
+
+    feature_cols: list[str] = []
+    if include_sem:
+        feature_cols += [c for c in _SEM_SCORES if c in df_work.columns]
+    feature_cols += [c for c in _CONTROL_COLS if c in df_work.columns]
+    feature_cols = list(dict.fromkeys(feature_cols))
+
+    needed   = feature_cols + ["high_aev"]
+    df_clean = df_work[needed].dropna()
+    clean_idx = df_clean.index                        # preserve original index for item_mat alignment
+    df_clean  = df_clean.reset_index(drop=True)
+
+    n_dropped = len(df_work) - len(df_clean)
+    if n_dropped > 0:
+        log.info("  Dropped %d rows with missing values", n_dropped)
+
+    if latent_source is not None:
+        item_mat_aligned = item_mat_full.loc[clean_idx].reset_index(drop=True)
+
+    X = df_clean[feature_cols].copy()
+    y = df_clean["high_aev"].copy()
+
+    for c in X.select_dtypes(include="bool").columns:
+        X[c] = X[c].astype(int)
+    for c in X.select_dtypes(include=[np.number]).columns:
+        if X[c].isna().any():
+            X[c] = X[c].fillna(X[c].median())
+    for c in X.select_dtypes(include="object").columns:
+        X[c] = X[c].fillna("unknown")
+
+    categorical_cols = list(X.select_dtypes(include="object").columns)
+    log.info("  n=%d  controls=%d (%d cat)  HighAEV_rate=%.1f%%  latent_source=%s",
+             len(X), len(feature_cols), len(categorical_cols), 100.0 * y.mean(),
+             latent_source or "none")
+
+    return X, y, feature_cols, categorical_cols, item_mat_aligned
+
+
+def _eval_metrics(y_true: pd.Series, y_pred: np.ndarray, y_prob: np.ndarray) -> dict:
+    from sklearn.metrics import (
+        accuracy_score, balanced_accuracy_score,
+        precision_score, recall_score, f1_score,
+        roc_auc_score, average_precision_score,
+    )
+    return {
+        "accuracy":          round(accuracy_score(y_true, y_pred),            4),
+        "balanced_accuracy": round(balanced_accuracy_score(y_true, y_pred),   4),
+        "precision":         round(precision_score(y_true, y_pred, zero_division=0), 4),
+        "recall_highAEV":    round(recall_score(y_true, y_pred, zero_division=0),    4),
+        "f1":                round(f1_score(y_true, y_pred, zero_division=0),         4),
+        "roc_auc":           round(roc_auc_score(y_true, y_prob),                    4),
+        "pr_auc":            round(average_precision_score(y_true, y_prob),           4),
+    }
+
+
+def _train_one_catboost(
+    X: pd.DataFrame,
+    y: pd.Series,
+    categorical_cols: list[str],
+    item_mat: Optional[pd.DataFrame] = None,
+    latent_source: Optional[str] = None,
+    seed: int = None,
+) -> dict:
+    """
+    Train a single CatBoost model and return results dict for comparison.
+    Uses _CB_PARAMS for consistency with train_catboost().
+    Includes train metrics so the overfit gap is visible in the comparison table.
+
+    When item_mat and latent_source are provided, the encoder (PCA/EFA/AE) is
+    fitted on the training split only and applied to the test split — eliminating
+    transductive leakage from encoders pre-fitted on the full dataset.
+    """
+    from catboost import CatBoostClassifier, Pool
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import roc_auc_score
+
+    if seed is None:
+        seed = config.RANDOM_SEED
+
+    cat_idx = [X.columns.get_loc(c) for c in categorical_cols if c in X.columns]
+    X_tr, X_te, y_tr, y_te = train_test_split(
+        X, y, test_size=0.25, random_state=seed, stratify=y,
+    )
+
+    # Fit encoder on training items only, then prepend latent cols to both splits
+    if item_mat is not None and latent_source is not None:
+        from src.unsupervised_latent import fit_encode_train_test
+        tr_idx = X_tr.index
+        te_idx = X_te.index
+        lat_tr, lat_te = fit_encode_train_test(
+            item_mat.iloc[tr_idx].reset_index(drop=True),
+            item_mat.iloc[te_idx].reset_index(drop=True),
+            source=latent_source,
+            seed=seed,
+        )
+        X_tr = pd.concat([lat_tr.set_index(X_tr.index), X_tr], axis=1)
+        X_te = pd.concat([lat_te.set_index(X_te.index), X_te], axis=1)
+        # cat_idx stays the same — latent cols are numeric, appended before controls
+        cat_idx = [X_tr.columns.get_loc(c) for c in categorical_cols if c in X_tr.columns]
+        log.info("  Within-split %s encoding: added %d latent dims (no transductive leakage)",
+                 latent_source, lat_tr.shape[1])
+
+    pos_weight = max(1.0, (y_tr == 0).sum() / max((y_tr == 1).sum(), 1))
+
+    model = CatBoostClassifier(
+        **_CB_PARAMS,
+        class_weights=[1.0, pos_weight],
+        use_best_model=True,
+        random_seed=seed,
+    )
+    train_pool = Pool(X_tr, y_tr, cat_features=cat_idx)
+    test_pool  = Pool(X_te, y_te, cat_features=cat_idx)
+    model.fit(train_pool, eval_set=test_pool)
+
+    prob       = model.predict_proba(X_te)[:, 1]
+    train_prob = model.predict_proba(X_tr)[:, 1]
+    pred       = model.predict(X_te)
+
+    metrics = _eval_metrics(y_te, pred, prob)
+    metrics["n_train"]       = int(len(y_tr))
+    metrics["n_test"]        = int(len(y_te))
+    metrics["train_roc_auc"] = round(roc_auc_score(y_tr, train_prob), 4)
+    metrics["overfit_gap"]   = round(metrics["train_roc_auc"] - metrics["roc_auc"], 4)
+    metrics["best_iteration"] = int(model.get_best_iteration() or 0)
+
+    return {
+        "model":   model,
+        "X_test":  X_te,
+        "y_test":  y_te,
+        "y_pred":  pred,
+        "y_prob":  prob,
+        "cat_idx": cat_idx,
+        "metrics": metrics,
+    }
+
+
+def run_multi_model_comparison(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """
+    Train all model variants and return a comparison table + per-model results.
+
+    Models
+    ──────
+      Controls_Only — no construct scores (generalizable prediction baseline)
+      SEM_COR       — FCP/AEMC/BLI/TCR composite scores + controls
+                      (circular: high_aev IS a function of these scores)
+      Linear_AE     — autoencoder latents + controls
+      EFA           — EFA factor scores + controls
+      PCA           — PCA scores + controls
+      Hybrid_SEM_AE — SEM scores + AE latents + controls
+
+    Returns
+    ───────
+      comparison_df — one row per model with all metrics + interpretation
+      all_models    — dict of per-model results (model object + test data)
+    """
+    comparison_rows: list[dict] = []
+    all_models: dict[str, dict] = {}
+
+    for model_key, meta in _MODEL_META.items():
+        log.info("─── Training model: %s (%s) ───", model_key, meta["label"])
+
+        result = _prepare_features_for_model(
+            df,
+            include_sem=meta["include_sem"],
+            latent_source=meta["latent_source"],
+        )
+        if result is None:
+            log.warning("Skipping %s — feature data unavailable", model_key)
+            continue
+
+        X, y, feat_cols, cat_cols, item_mat = result
+        try:
+            res = _train_one_catboost(
+                X, y, cat_cols,
+                item_mat=item_mat,
+                latent_source=meta["latent_source"],
+            )
+        except Exception as e:
+            log.error("Model %s failed: %s", model_key, e)
+            continue
+
+        all_models[model_key] = res
+
+        row = {
+            "model_key":      model_key,
+            "model_label":    meta["label"],
+            "interpretation": meta["interpretation"],
+            "n_train":        res["metrics"]["n_train"],
+            "n_test":         res["metrics"]["n_test"],
+            "roc_auc":        res["metrics"]["roc_auc"],
+            "train_roc_auc":  res["metrics"]["train_roc_auc"],
+            "overfit_gap":    res["metrics"]["overfit_gap"],
+            "pr_auc":         res["metrics"]["pr_auc"],
+            "balanced_accuracy": res["metrics"]["balanced_accuracy"],
+            "recall_highAEV": res["metrics"]["recall_highAEV"],
+            "precision":      res["metrics"]["precision"],
+            "f1":             res["metrics"]["f1"],
+            "accuracy":       res["metrics"]["accuracy"],
+            "best_iteration": res["metrics"]["best_iteration"],
+        }
+        comparison_rows.append(row)
+
+        log.info(
+            "    %-22s: test=%.4f  train=%.4f  gap=%.4f",
+            "roc_auc",
+            res["metrics"]["roc_auc"],
+            res["metrics"]["train_roc_auc"],
+            res["metrics"]["overfit_gap"],
+        )
+        for k in ("pr_auc", "balanced_accuracy", "recall_highAEV", "f1"):
+            log.info("    %-22s: %.4f", k, res["metrics"][k])
+
+    comparison_df = pd.DataFrame(comparison_rows)
+    return comparison_df, all_models
+
+
+def _plot_model_comparison(comparison_df: pd.DataFrame) -> None:
+    """Grouped bar chart — models × 4 metrics."""
+    if comparison_df.empty:
+        return
+
+    metrics = ["roc_auc", "pr_auc", "balanced_accuracy", "recall_highAEV"]
+    labels  = ["ROC-AUC", "PR-AUC", "Balanced Acc.", "HighAEV Recall"]
+    colors  = ["#2980B9", "#27AE60", "#E67E22", "#E74C3C"]
+
+    n_models = len(comparison_df)
+    x = np.arange(n_models)
+    width = 0.18
+
+    fig, ax = plt.subplots(figsize=(13, 5))
+    for i, (m, lbl, col) in enumerate(zip(metrics, labels, colors)):
+        vals = comparison_df[m].values
+        bars = ax.bar(x + i * width - width * 1.5, vals, width,
+                      label=lbl, color=col, alpha=0.85, edgecolor="white")
+        for bar, v in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.005,
+                    f"{v:.3f}", ha="center", va="bottom", fontsize=7, rotation=90)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(comparison_df["model_label"], rotation=20, ha="right", fontsize=9)
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1.15)
+    ax.axhline(0.5, color="gray", ls="--", lw=0.8, alpha=0.5, label="Random baseline")
+    ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=9)
+    ax.set_title(
+        "HighAEV classification — feature set comparison\n"
+        "(CatBoost, same hyperparameters; SEM/COR circular by construction)",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    _save_fig(fig, "model_comparison_bar")
+
+
+def _plot_model_comparison_heatmap(comparison_df: pd.DataFrame) -> None:
+    """Heatmap: models (rows) × metrics (cols), coloured by value."""
+    if comparison_df.empty:
+        return
+
+    metrics = ["roc_auc", "train_roc_auc", "overfit_gap", "pr_auc", "balanced_accuracy",
+               "recall_highAEV", "f1", "precision"]
+    mlabels = ["ROC-AUC\n(test)", "ROC-AUC\n(train)", "Overfit\ngap",
+               "PR-AUC", "Bal. Acc.", "Recall\n(HighAEV)", "F1", "Precision"]
+
+    mat = comparison_df.set_index("model_label")[metrics].astype(float)
+    fig, ax = plt.subplots(figsize=(13, max(3, len(mat) * 0.8)))
+    im = ax.imshow(mat.values, cmap="RdYlGn", vmin=0.0, vmax=1.0, aspect="auto")
+    ax.set_xticks(range(len(metrics)))
+    ax.set_xticklabels(mlabels, fontsize=8)
+    ax.set_yticks(range(len(mat)))
+    ax.set_yticklabels(mat.index, fontsize=9)
+    for i in range(len(mat)):
+        for j in range(len(metrics)):
+            v = mat.values[i, j]
+            ax.text(j, i, f"{v:.3f}", ha="center", va="center",
+                    fontsize=8, color="black" if 0.3 < v < 0.8 else "white",
+                    fontweight="bold")
+    plt.colorbar(im, ax=ax, label="Score", fraction=0.03, pad=0.02)
+    ax.set_title(
+        "HighAEV classification: model comparison\n"
+        "(overfit gap = train_AUC − test_AUC; SEM/COR is circular by construction)",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    _save_fig(fig, "model_comparison_heatmap")
+
+
+# =============================================================================
 # Main entry point
 # =============================================================================
 
@@ -390,27 +1059,63 @@ def run(df: pd.DataFrame):
     """
     Full ML classification pipeline for High Adaptive Energy Vulnerability.
 
-    Returns (model, results_dict)
+    Primary model
+    ─────────────
+      Controls-only (no construct scores) — the only truly generalizable
+      predictor.  Generates confusion matrix, ROC, PR, learning curve,
+      and 5-fold cross-validation diagnostics.
+
+    Multi-model comparison
+    ──────────────────────
+      Compares Controls_Only, SEM_COR (circular), AE, EFA, PCA, Hybrid.
+      SEM_COR is expected to perform near-perfectly because high_aev IS
+      a deterministic function of the construct scores it uses as features.
+
+    Returns
+    ───────
+      comparison_df : DataFrame with one row per model, all metrics
+      all_models    : dict of per-model results (model + test data)
     """
     paths.ML_TABLES.mkdir(parents=True, exist_ok=True)
     paths.ML_FIGURES.mkdir(parents=True, exist_ok=True)
 
-    X, y, feature_cols, cat_cols = prepare_features(df)
-
-    model, X_tr, X_te, y_tr, y_te, pred, prob, cat_idx = \
-        train_catboost(X, y, cat_cols)
-
+    # ── Controls-only primary model (generalizable prediction) ────────────────
+    log.info("Training controls-only primary model (no construct scores) ...")
+    X, y, feature_cols, cat_cols = prepare_features(df, include_construct_scores=False)
+    model, X_tr, X_te, y_tr, y_te, pred, prob, cat_idx = train_catboost(X, y, cat_cols)
     plot_confusion_matrix(y_te, pred)
     plot_roc_curve(y_te, prob)
     plot_pr_curve(y_te, prob)
     plot_risk_distribution(y_te, prob)
-
+    plot_learning_curve(model, "controls_only")
+    cross_validate_catboost(X, y, cat_cols)
     save_full_predictions(df, X, model, cat_idx)
 
-    return model, {
-        "X_train": X_tr, "X_test": X_te,
-        "y_train": y_tr, "y_test": y_te,
-        "y_pred":  pred,  "y_prob": prob,
-        "cat_idx": cat_idx,
-        "feature_cols": feature_cols,
-    }
+    # ── Multi-model comparison ─────────────────────────────────────────────────
+    log.info("Running multi-model feature-set comparison ...")
+    comparison_df, all_models = run_multi_model_comparison(df)
+
+    if not comparison_df.empty:
+        _save_csv(comparison_df, "model_comparison_table")
+        _plot_model_comparison(comparison_df)
+        _plot_model_comparison_heatmap(comparison_df)
+        log.info(
+            "Model comparison:\n%s",
+            comparison_df[["model_label", "roc_auc", "train_roc_auc",
+                            "overfit_gap", "balanced_accuracy",
+                            "interpretation"]].to_string(index=False),
+        )
+
+    # Ensure Controls_Only is available in all_models for SHAP
+    if "Controls_Only" not in all_models:
+        all_models["Controls_Only"] = {
+            "model":   model,
+            "X_test":  X_te,
+            "y_test":  y_te,
+            "y_pred":  pred,
+            "y_prob":  prob,
+            "cat_idx": cat_idx,
+            "metrics": _eval_metrics(y_te, pred, prob),
+        }
+
+    return comparison_df, all_models

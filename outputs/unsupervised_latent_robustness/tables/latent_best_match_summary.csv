@@ -1,0 +1,13 @@
+construct,method,best_latent,pearson_r,spearman_r,strong_alignment
+FCP,PCA,PC2,0.2853,0.2524,False
+FCP,EFA,EFA2,0.2853,0.2524,False
+FCP,Linear_AE,AE3,0.306,0.3229,False
+AEMC,PCA,PC4,0.4647,0.3418,True
+AEMC,EFA,EFA4,0.4647,0.3418,True
+AEMC,Linear_AE,AE4,-0.4346,-0.4515,True
+BLI,PCA,PC1,0.8067,0.8089,True
+BLI,EFA,EFA1,0.8067,0.8089,True
+BLI,Linear_AE,AE4,0.6378,0.6556,True
+TCR,PCA,PC1,0.6375,0.5869,True
+TCR,EFA,EFA1,0.6375,0.5869,True
+TCR,Linear_AE,AE4,0.7149,0.6737,True

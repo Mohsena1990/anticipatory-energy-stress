@@ -65,7 +65,9 @@ def _align_macro(
     series_name: str,
 ) -> np.ndarray:
     """Align macro DataFrame to target index; return float64 array."""
-    return align_macro_for_series(macro_df, index, series_name).values.astype(np.float64)
+    return align_macro_for_series(
+        macro_df, index, series_name, feature_set="linear"
+    ).values.astype(np.float64)
 
 
 def _eval_on_2017(
@@ -106,6 +108,7 @@ def run_sarima(
     actual_2017: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
+    return_model: bool = False,
 ) -> dict:
     """
     Full SARIMA/SARIMAX pipeline for one series.
@@ -138,15 +141,17 @@ def run_sarima(
 
     # ── Build exogenous arrays ────────────────────────────────────────────────
     exog_train = exog_test = exog_full = exog_2017 = None
+    _exog_col_names: list = []
 
     if use_macro and macro_train is not None and macro_full is not None:
+        _exog_col_names = macro_cols_for_series(series_name, macro_full, feature_set="linear")
         exog_train = _align_macro(macro_train, train.index, series_name)
         exog_test  = _align_macro(macro_full,  test.index, series_name)
         exog_full  = _align_macro(macro_full,  full.index, series_name)
 
         dates_2017 = pd.date_range("2017-01-01", periods=12, freq="MS")
         exog_2017  = _align_macro(macro_full, dates_2017, series_name)
-        log.info(f"[SARIMA-MACRO] Using exogenous: {macro_cols_for_series(series_name, macro_full)}")
+        log.info(f"[SARIMA-MACRO] Using exogenous: {_exog_col_names}")
 
     # ── Evaluate on the 2016 validation split ────────────────────────────────
     fc_test, lb_test, ub_test = _eval_on_2017(
@@ -213,7 +218,7 @@ def run_sarima(
     df_out.to_csv(out_path, index=False)
     log.info(f"[SARIMA-{mode.upper()}] Forecast saved → {out_path}")
 
-    return {
+    result = {
         "series":         series_name,
         "model":          "SARIMA",
         "mode":           mode,
@@ -222,3 +227,7 @@ def run_sarima(
         "order":          order,
         "seasonal_order": seasonal_order,
     }
+    if return_model:
+        result["fitted_model"] = final_model
+        result["macro_cols"]   = _exog_col_names
+    return result

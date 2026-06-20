@@ -71,11 +71,16 @@ MIN_LOADING: float = 0.40   # Factor loading – inclusion threshold
 # =============================================================================
 # Unsupervised latent robustness stream
 # =============================================================================
-N_LATENT_DIMS: int      = 4     # autoencoder bottleneck neurons
-AE_EPOCHS: int          = 300
-AE_LEARNING_RATE: float = 1e-3
-PCA_COMPONENTS: int     = 4
-EFA_FACTORS: int        = 4
+N_LATENT_DIMS: int           = 4        # autoencoder bottleneck neurons
+AE_EPOCHS: int               = 300
+AE_LEARNING_RATE: float      = 1e-3
+AE_VAL_SPLIT: float          = 0.20     # fraction held out for val MSE
+AE_N_SEEDS: int              = 30       # seed stability runs
+AE_BOTTLENECK_SIZES: tuple   = (3, 4, 5)
+AE_SWEEP_SEEDS: int          = 5        # seeds per bottleneck size in sweep
+AE_FORCE_CPU: bool           = True     # True = bypass XLA/Triton GPU issues
+PCA_COMPONENTS: int          = 4
+EFA_FACTORS: int             = 4
 
 # =============================================================================
 # Output

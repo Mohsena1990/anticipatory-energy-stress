@@ -1,0 +1,12 @@
+feature,is_categorical
+risk_category,True
+low_income_flag,False
+high_cost_flag,False
+S8,False
+H1,False
+H2,False
+H3,False
+S2,False
+S3,False
+S5,False
+S6,False

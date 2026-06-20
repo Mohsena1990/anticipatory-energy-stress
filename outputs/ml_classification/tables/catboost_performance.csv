@@ -1,0 +1,2 @@
+accuracy,balanced_accuracy,precision,recall,f1,roc_auc,pr_auc,train_roc_auc,train_balanced_accuracy,overfit_gap_auc,n_train,n_test,best_iteration,pos_class_weight,decision_threshold,target
+0.6063,0.6229,0.35,0.6562,0.4565,0.6474,0.3783,0.6589,0.6118,0.0114,761,254,30,3.005,0.5,high_aev

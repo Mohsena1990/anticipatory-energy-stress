@@ -471,6 +471,46 @@ def _parse_weather_volatility(
     return weather_vol
 
 
+def _parse_gbp_eur_rate(path: str) -> pd.DataFrame:
+    """
+    ONS XUMAERS — Monthly average Sterling/Euro exchange rate (EUR per GBP).
+
+    Relevance to electricity forecasting
+    ─────────────────────────────────────
+    EUA carbon allowances are priced in EUR; a weaker GBP raises compliance costs
+    for UK generators directly. UK interconnectors (France, Netherlands) transmit
+    European electricity prices in EUR — GBP depreciation inflates that import cost.
+    The post-Brexit GBP fall in H2 2016 (1.38 → 1.15 EUR/GBP) preceded the
+    observed 2017 electricity price surge.
+
+    Returns monthly:
+        gbp_eur_rate        : level (EUR per GBP)
+        gbp_eur_yoy_change  : YoY % change (depreciation momentum)
+        gbp_eur_mom_change  : MoM % change (short-term signal)
+    """
+    raw = _load_ons_monthly_raw(path, start=_RAW_START)
+
+    out = pd.DataFrame(index=raw.index)
+    out["gbp_eur_rate"]       = raw
+    out["gbp_eur_yoy_change"] = raw.pct_change(12) * 100
+    out["gbp_eur_mom_change"] = raw.pct_change(1) * 100
+
+    out = out.replace([np.inf, -np.inf], np.nan)
+    out = out.loc[TRAIN_START:FORECAST_END]
+
+    log.info(
+        f"[gbp_eur_rate] {len(out)} obs | "
+        f"{out.index.min().date()} to {out.index.max().date()} | "
+        f"mean={out['gbp_eur_rate'].mean():.4f}, "
+        f"range=[{out['gbp_eur_rate'].min():.4f}, {out['gbp_eur_rate'].max():.4f}]"
+    )
+    log.info(
+        "  Source: ONS XUMAERS (MRET) — average monthly EUR/GBP rate. "
+        "YoY & MoM changes capture GBP depreciation relevant to EUR-priced energy inputs."
+    )
+    return out
+
+
 def _parse_gas_futures(path: str) -> pd.DataFrame:
     """
     UK NBP Natural Gas Quarterly Futures.
@@ -695,6 +735,7 @@ def load_macro_dataset(
     temp_path: str = "data/raw/monthly-temperature-anomalies.csv",
     gas_futures_path: str = "data/raw/UK NBP Natural Gas Quaterly Futures Historical Data UK.csv",
     elec_demand_path: str = "data/raw/historic_demand_2009_2024.csv",
+    gbp_eur_path: str = "data/raw/series-190626.csv",
     save_path: str = "data/processed/macro_controls.csv",
 ) -> pd.DataFrame:
     """
@@ -721,8 +762,7 @@ def load_macro_dataset(
     weather_vol  = _parse_weather_volatility(temp_path, target_dates)
     gas_futures  = _parse_gas_futures(gas_futures_path)
     elec_demand  = _parse_electricity_demand(elec_demand_path)
-
-
+    gbp_eur      = _parse_gbp_eur_rate(gbp_eur_path)
 
     df = pd.DataFrame(index=target_dates)
     df.index.name = "date"
@@ -731,6 +771,7 @@ def load_macro_dataset(
     df["gdp_growth"]         = gdp_growth.reindex(target_dates)
     df = df.join(gas_futures.reindex(target_dates))
     df = df.join(elec_demand.reindex(target_dates))
+    df = df.join(gbp_eur.reindex(target_dates))
     df = df.ffill()
 
     lag_cols = [
@@ -748,13 +789,19 @@ def load_macro_dataset(
         "pump_storage_pumping_mean_yoy_growth",
         "interconnector_net_flow_mean_yoy_growth",
         "holiday_share",
+        "gbp_eur_yoy_change",
+        "gbp_eur_mom_change",
     ]
     for col in lag_cols:
         if col in df.columns:
             df[f"{col}_lag1"] = df[col].shift(1)
 
+    # lag-12 for GBP/EUR: ~12-month regulatory transmission window for UK retail electricity prices
+    if "gbp_eur_yoy_change" in df.columns:
+        df["gbp_eur_yoy_change_lag12"] = df["gbp_eur_yoy_change"].shift(12)
+
     # Neutral first-month values avoid future back-fill while keeping exog arrays rectangular.
-    neutral_cols = [c for c in df.columns if c.endswith("_lag1")]
+    neutral_cols = [c for c in df.columns if c.endswith("_lag1") or c.endswith("_lag12")]
     df[neutral_cols] = df[neutral_cols].fillna(0.0)
 
     df["post_2016_electricity_regime"] = (df.index >= "2016-01-01").astype(int)

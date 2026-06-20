@@ -1,0 +1,13 @@
+series,mode,month,date,feature,attribution
+gas,core,1,2017-01-01,gas_growth,-0.040431
+gas,core,2,2017-02-01,gas_growth,-0.018111
+gas,core,3,2017-03-01,gas_growth,0.019209
+gas,core,4,2017-04-01,gas_growth,0.068918
+gas,core,5,2017-05-01,gas_growth,0.119616
+gas,core,6,2017-06-01,gas_growth,0.123059
+gas,core,7,2017-07-01,gas_growth,0.106254
+gas,core,8,2017-08-01,gas_growth,0.07707
+gas,core,9,2017-09-01,gas_growth,0.049947
+gas,core,10,2017-10-01,gas_growth,0.028611
+gas,core,11,2017-11-01,gas_growth,0.012934
+gas,core,12,2017-12-01,gas_growth,0.003937

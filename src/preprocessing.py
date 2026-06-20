@@ -197,7 +197,15 @@ def preprocess_core(
 
     df = load_and_parse(raw_path)
     df = audit_missing(df, "core")
-    df = add_calendar_features(df) # Add calendar features before outlier detection and ADF check to test stationarity of the original series without calendar effects removed
+
+    # Winsorise carbon_growth at ±200%: the 2007 EU ETS Phase I→II transition
+    # produced price crashes to near-zero followed by large recoveries, creating
+    # YoY growth rates of −670% to +735% that are structural one-time artifacts.
+    # These values corrupt LSTM's MinMaxScaler range and inflate Prophet std.
+    if "carbon_growth" in df.columns:
+        df["carbon_growth"] = df["carbon_growth"].clip(-200, 200)
+
+    df = add_calendar_features(df)
     df = add_stl_features(df, "gas_growth") # Add STL decomposition features to capture trend and seasonality, which can improve model performance and interpretability by separating underlying patterns from noise
     df = add_stl_features(df, "electricity_growth") # Add STL decomposition features to capture trend and seasonality, which can improve model performance and interpretability by separating underlying patterns from noise
     df["gas_growth_stable"] = signed_log1p(df["gas_growth"]) # Apply signed log transformation to stabilize variance and reduce skewness, improving stationarity for ADF test and model performance
@@ -255,6 +263,8 @@ def preprocess_macro(
         "pump_storage_pumping_mean_yoy_growth_lag1",
         "interconnector_net_flow_mean_yoy_growth_lag1",
         "holiday_share_lag1",
+        "gbp_eur_yoy_change_lag1",
+        "gbp_eur_mom_change_lag1",
         "post_2016_electricity_regime",
     ]
 

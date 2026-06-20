@@ -78,6 +78,13 @@ LATENT_TABLES  = LATENT_OUT / "tables"
 LATENT_FIGURES = LATENT_OUT / "figures"
 
 # =============================================================================
+# Outputs — unsupervised latent scores (per-household, for ML input)
+# =============================================================================
+LATENT_SCORES_PCA = LATENT_TABLES / "pca_scores.csv"
+LATENT_SCORES_EFA = LATENT_TABLES / "efa_scores.csv"
+LATENT_SCORES_AE  = LATENT_TABLES / "ae_scores.csv"
+
+# =============================================================================
 # Outputs — supervised ML classification
 # =============================================================================
 ML_OUT     = OUTPUTS_DIR / "ml_classification"

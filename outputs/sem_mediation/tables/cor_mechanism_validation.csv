@@ -1,0 +1,6 @@
+pathway,predictor,outcome,expected_direction,coef,p_value,significant,direction_consistent,note
+a-path,fcp_score,aemc_score,negative,0.25,0.0,True,False,Higher financial pressure → lower adaptive capacity (COR: threat depletes resources)
+b-path,aemc_score,aev_score,negative,-0.25,0.0,True,True,Higher adaptive capacity → lower AEV (protective effect)
+c'-path,fcp_score,aev_score,positive,0.25,0.0,True,True,Higher financial pressure → higher AEV (direct stress pathway)
+d-path,bli_score,aev_score,positive,0.25,0.0,True,True,Higher lock-in → higher AEV (habitual constraint)
+e-path,tcr_score,aev_score,positive,0.25,0.0,True,True,Higher transition resistance → higher AEV (cost-sensitivity barrier)

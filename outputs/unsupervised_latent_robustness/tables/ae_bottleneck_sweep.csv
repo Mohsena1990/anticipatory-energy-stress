@@ -1,0 +1,4 @@
+n_latent,mean_recon_mse,sd_recon_mse,mean_alignment,sd_alignment
+3,0.60835,0.01295,0.6605,0.0485
+4,0.54573,0.0097,0.5972,0.0579
+5,0.49472,0.01092,0.6404,0.0294
