@@ -1,0 +1,2 @@
+model,dof,chi2,chi2_p_value,cfi,tli,rmsea,gfi,aic,bic,srmr,cfi_ok,tli_ok,rmsea_ok,srmr_ok
+structural_model_2A,248.0,1385.31549,0.0,0.68645,0.65104,0.09558,0.64508,98.49179,317.96248,0.09972,False,False,False,False

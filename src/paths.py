@@ -49,6 +49,17 @@ FES_MONTHLY_FILE  = FES_DIR / "fes_monthly_2017.csv"
 FES_SUMMARY_FILE  = FES_DIR / "fes_annual_context.csv"
 FES_COMP_FILE     = FES_DIR / "fes_component_decomposition.csv"
 
+# FES scenario-based signal simulation (9 named scenarios — see src/fes_scenarios.py)
+FES_SCENARIO_SUMMARY_FILE   = FES_DIR / "fes_scenario_summary.csv"
+FES_SCENARIO_MONTHLY_FILE   = FES_DIR / "fes_scenario_monthly_states.csv"
+FES_SCENARIO_COMPARISON_FILE = FES_DIR / "fes_scenario_forecast_vs_actual_matrix.csv"
+FES_SCENARIO_NOTES_FILE     = FES_DIR / "fes_scenario_interpretation_notes.csv"
+
+# Scenario-conditioned interpretation of FES against HighAEV (interpretive
+# only — never a household-level prediction, see src/fes_scenarios.py)
+FES_HIGHAEV_OUT     = OUTPUTS_DIR / "fes_highaev_interpretation"
+FES_HIGHAEV_MATRIX  = FES_HIGHAEV_OUT / "scenario_highaev_interpretation_matrix.csv"
+
 # =============================================================================
 # Outputs — ENABLE household stream
 # =============================================================================
@@ -85,6 +96,29 @@ LATENT_SCORES_EFA = LATENT_TABLES / "efa_scores.csv"
 LATENT_SCORES_AE  = LATENT_TABLES / "ae_scores.csv"
 
 # =============================================================================
+# Outputs — Route 2: COR-Informed SEM (CFA + structural model)
+# =============================================================================
+COR_SEM_OUT     = OUTPUTS_DIR / "cor_sem"
+COR_SEM_TABLES  = COR_SEM_OUT / "tables"
+COR_SEM_FIGURES = COR_SEM_OUT / "figures"
+LATENT_SCORES_ROUTE2_SEM = COR_SEM_TABLES / "route2_factor_scores.csv"
+
+# =============================================================================
+# Outputs — Route 3: COR-Informed VAE
+# =============================================================================
+COR_VAE_OUT     = OUTPUTS_DIR / "cor_vae"
+COR_VAE_TABLES  = COR_VAE_OUT / "tables"
+COR_VAE_FIGURES = COR_VAE_OUT / "figures"
+LATENT_SCORES_ROUTE3_VAE = COR_VAE_TABLES / "route3_vae_scores.csv"
+
+# =============================================================================
+# Outputs — cross-route comparison
+# =============================================================================
+ROUTE_COMPARISON_OUT     = OUTPUTS_DIR / "route_comparison"
+ROUTE_COMPARISON_TABLES  = ROUTE_COMPARISON_OUT / "tables"
+ROUTE_COMPARISON_FIGURES = ROUTE_COMPARISON_OUT / "figures"
+
+# =============================================================================
 # Outputs — supervised ML classification
 # =============================================================================
 ML_OUT     = OUTPUTS_DIR / "ml_classification"
@@ -113,10 +147,14 @@ def ensure_dirs() -> None:
     dirs = [
         PROCESSED_DIR,
         FORECAST_DIR, FES_DIR,
+        FES_HIGHAEV_OUT,
         ENABLE_OUT,
         CV_TABLES, CV_FIGURES,
         SEM_TABLES, SEM_FIGURES,
         LATENT_TABLES, LATENT_FIGURES,
+        COR_SEM_TABLES, COR_SEM_FIGURES,
+        COR_VAE_TABLES, COR_VAE_FIGURES,
+        ROUTE_COMPARISON_TABLES, ROUTE_COMPARISON_FIGURES,
         ML_TABLES, ML_FIGURES,
         SHAP_TABLES, SHAP_FIGURES,
         FIGURES_DIR, TABLES_DIR, LOGS_DIR,

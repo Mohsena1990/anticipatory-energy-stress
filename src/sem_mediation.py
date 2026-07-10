@@ -1,8 +1,9 @@
 """
 sem_mediation.py
 ────────────────
-Revised COR path analysis: Financial–Energy Cost Pressure →
-Adaptive Energy-Management Capacity → High Adaptive Energy Vulnerability.
+Route 1 (COR Composite Route) — path analysis on the formative composite
+scores: Financial–Energy Cost Pressure → Adaptive Energy-Management Capacity
+→ High Adaptive Energy Vulnerability.
 
 Methodology note
 ────────────────
@@ -10,6 +11,13 @@ All path estimates are OLS-based directional associations consistent with
 Conservation of Resources theory (Hobfoll 1989).  These estimates do NOT
 prove causal relationships.  They test whether the data are consistent with
 the theoretically specified COR-consistent directional associations.
+
+This module estimates paths between Route 1's formative COMPOSITE scores
+(row-means of normalized items) via OLS — it is deliberately NOT a latent-
+variable SEM.  A true CFA/structural measurement model with global fit
+indices (CFI/TLI/RMSEA/SRMR) is estimated separately as Route 2, see
+`src.cor_sem`.  `ols_path()` below is reused by Route 2's Option 2B
+(circular observed-outcome robustness check).
 
 FES context
 ───────────
@@ -95,7 +103,7 @@ def _save_fig(fig: plt.Figure, name: str) -> None:
 # OLS path estimation
 # =============================================================================
 
-def _ols_path(
+def ols_path(
     df: pd.DataFrame,
     y_col: str,
     x_cols: list[str],
@@ -390,7 +398,7 @@ def run(df: pd.DataFrame) -> None:
     all_path_rows = []
 
     if "fcp_score" in df.columns and "aemc_score" in df.columns:
-        r = _ols_path(df, "aemc_score", ["fcp_score"], label="a: FCP→AEMC")
+        r = ols_path(df, "aemc_score", ["fcp_score"], label="a: FCP→AEMC")
         all_path_rows.extend(r.get("rows", []))
 
     # ── Path 2: AEMC, FCP, BLI, TCR → AEV (b, c', d, e paths) ──────────────
@@ -398,7 +406,7 @@ def run(df: pd.DataFrame) -> None:
                       ["fcp_score", "aemc_score", "bli_score", "tcr_score"]
                       if c in df.columns]
     if "aev_score" in df.columns and aev_predictors:
-        r2 = _ols_path(df, "aev_score", aev_predictors, label="b/c'/d/e: → AEV")
+        r2 = ols_path(df, "aev_score", aev_predictors, label="b/c'/d/e: → AEV")
         all_path_rows.extend(r2.get("rows", []))
 
     path_df = pd.DataFrame(all_path_rows)

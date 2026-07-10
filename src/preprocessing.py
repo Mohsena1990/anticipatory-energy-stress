@@ -27,7 +27,6 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional, Tuple
 
-from sympy import series
 from statsmodels.tsa.seasonal import STL
 
 from src.logging_utils import get_logger

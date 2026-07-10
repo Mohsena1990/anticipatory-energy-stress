@@ -1,8 +1,10 @@
 # Anticipatory Energy–Carbon Stress — Full Results Report
 
-**Pipeline version reviewed:** June 2026  
-**Forecast horizon:** January–December 2017  
+**Pipeline version reviewed:** July 2026
+**Forecast horizon:** January–December 2017
 **UK ENABLE sample:** n = 1,015 households
+
+> **Framing note.** FES is a macro-level **scenario-based signal simulation** (9 named scenarios: 6 forecasted + 3 realised benchmarks — see `src/fes_scenarios.py` and the README's "FES Scenario-Based Signal Simulation" section), not a household-level predictor. HighAEV is estimated independently by three COR routes. The two are linked only through **scenario-conditioned interpretation** (`outputs/fes_highaev_interpretation/`), never as a causal or predictive claim. This report also reflects the current 5-variant CatBoost/SHAP structure (Controls_Only, Route1_Composite, Route2_SEM, Route3_VAE, AllRoutes_Hybrid) and the household-side sample-size and feature fixes described in Section 6.
 
 ---
 
@@ -12,72 +14,82 @@
 
 The best model per series and mode was chosen by composite rank-aggregation score across MAE, RMSE, SMAPE, MASE, quantile loss, Winkler score, and MSIS on the 2016 hold-out year, confirmed by lowest forecast-vs-actual error over 2017.
 
-| Series | Mode | Selected Model | Val MAE | Forecast MAE | Forecast SMAPE |
-|--------|------|----------------|---------|--------------|----------------|
-| Gas | Core | TFT | 27.6 | **1.03** | 106% |
-| Gas | Macro | LSTM | 1.74 | 3.85 | 200% |
-| Electricity | Core | TFT | 11.1 | **3.85** | 93.8% |
-| Electricity | Macro | LSTM | 0.82 | 4.22 | 92.3% |
-| Carbon | Core | LSTM | 34.1 | 15.75 | 88.3% |
-| Carbon | Macro | TFT | 55.9 | **15.96** | 76.6% |
+| Series | Mode | Selected Model | Val Rank Score | Forecast MAE | Forecast SMAPE | PI Coverage |
+|--------|------|----------------|:--------------:|:------------:|:---------------:|:-----------:|
+| Gas | Core | TFT | 4.00 | **1.03** | 106.2% | 8.3% |
+| Gas | Macro | Prophet | 3.43 | **2.44** | 197.0% | 100.0% |
+| Electricity | Core | TFT | 3.95 | **3.85** | 93.8% | 16.7% |
+| Electricity | Macro | LSTM | 1.13 | **4.22** | 92.3% | 66.7% |
+| Carbon | Core | LSTM | 1.45 | **15.75** | 88.3% | **0.0% ⚠** |
+| Carbon | Macro | TFT | 3.13 | **15.96** | 76.6% | **0.0% ⚠** |
 
-**Economic interpretation — Gas:** The UK domestic gas market in 2017 was experiencing mild price deflation relative to trend, reflecting high LNG import availability and a warmer-than-average winter. The TFT-core model captured this correctly (forecast: −3 to +2 p.p. growth, actual: −5 to 0 p.p.). SMAPE of 106% on gas (core) reflects near-zero actual growth rates making the denominator unstable — the directional signal is correct.
+*Source: `outputs/tables/model_metrics_comparison.csv`.*
 
-**Economic interpretation — Electricity:** UK household electricity prices showed near-zero real-terms growth in 2017 (Ofgem price cap not yet in effect; market rates relatively stable). The LSTM-macro model achieves 92% SMAPE driven by the fact that actual electricity growth hovers near zero (≈ −0.2 p.p. YoY), making percentage error metrics uninformative. The absolute prediction interval from LSTM-macro (−0.2 to +5.0 p.p.) captures most actuals.
+**Economic interpretation — Gas:** Gas-core (TFT) correctly captures the 2017 upward drift out of deflation (forecast: −3.2 to +2.2 p.p.). Gas-macro (Prophet) now carries a **large, systematic positive bias**: it forecasts rising growth (0.36 p.p. in January to a 2.35 p.p. peak in July) while actual gas growth stayed negative all year (−5.3 p.p. in January, easing only to −0.1 p.p. by November/December). The error is largest in Q1 (5.4–5.7 p.p.) and shrinks through the year as the actual series itself converges toward zero — not because the forecast corrects. TS-SHAP attribution shows why: Prophet's `trend` component is positive in every single month (+2.56 in Jan declining to +1.78 in Dec, never crossing zero), directly producing the bias; `inflation_growth_lag1` is the main (but far smaller) negative counterweight.
 
-**Economic interpretation — Carbon:** This is the most problematic series. The LSTM-core model systematically predicted a continuation of 2015–2016 EUA price declines (forecasting −35 to −8% log-returns) while actuals showed a recovery (+11 to +55% log-return from mid-2017 onward). The model was trained on the 2014–2016 EUA price collapse and had no signal of the 2017 recovery. **Prediction interval coverage = 0%** — a critical failure. The TFT-macro model does better (Theil U = 0.077 vs. 0.088 for LSTM-core) and should be treated as the primary carbon component in the FES.
+**Economic interpretation — Electricity:** Both electricity models are unaffected by the above and remain well-calibrated in direction: TFT-core (MAE 3.85 p.p.) and LSTM-macro (MAE 4.22 p.p., the best macro-mode fit of any series) both under-anticipate the H2 tariff pass-through rise but track the broad shape correctly.
+
+**Economic interpretation — Carbon:** LSTM-core systematically predicted continued 2015–2016 EUA declines (−35% to −8% log-return) while actuals recovered (+11% to +55% from mid-2017). **Prediction interval coverage = 0%** — a critical failure, discussed further in Section 1.2. TFT-macro is materially better calibrated in direction (SMAPE 76.6% vs. 88.3%) and is used as the primary carbon component for FES_macro.
 
 ### 1.2 Issues Identified
 
-- **SARIMA MAPE on electricity: 1,348%** — near-zero electricity growth rates cause MAPE explosion. This is why MAPE is excluded from the rank-aggregation metric (as documented), but the raw value flags the scale problem.
-- **LSTM-core on carbon: 0% prediction interval coverage** — model failed to anticipate EUA price recovery.
-- **Gas macro SMAPE = 200%** for SARIMA and LSTM (both) — same near-zero denominator problem.
-- **TFT-core on gas: 0% PI coverage** — despite low absolute error, PI bounds are too narrow given actual variance.
+- **SARIMA MAPE on electricity: up to 1,348%** — near-zero electricity growth rates cause MAPE explosion; this is why MAPE is excluded from the rank-aggregation metric.
+- **LSTM-core on carbon: 0% prediction interval coverage** — model failed to anticipate the 2017 EUA recovery.
+- **Prophet-macro on gas: systematic positive bias throughout 2017**, driven by a persistently positive Prophet `trend` term that never adapts to the actually-deflationary series (Section 1.1). Prophet-macro is not perfectly seed-stable — its own decomposition and fit quality have varied materially across independent runs of this pipeline, which is itself a documented caveat (Chapter 4, Section 4.2.2).
+- **TFT-core on gas/electricity: PI coverage 8.3%/16.7%** — despite low absolute error, PI bounds are too narrow given actual variance.
 
 ---
 
-## 2. Forecast Energy Stress Index — FES 2017 (Stage 4)
+## 2. FES Scenario-Based Signal Simulation (Stage 4)
 
-### 2.1 Annual FES Summary
+FES is now framed as 9 named scenarios (6 forecasted signal constructions + 3 realised benchmarks; `src/fes_scenarios.py`), reported descriptively as macro context — never as a household-level predictor or a simulation of household behaviour (see README, "FES Scenario-Based Signal Simulation" and "Linking FES Scenarios and HighAEV").
 
-| Variant | Gas z | Electricity z | Carbon z | Uncertainty z | **FES Total** |
-|---------|-------|---------------|----------|---------------|--------------|
-| Core (forecast) | −0.555 | −0.336 | +0.113 | −0.151 | **−0.929** |
-| Macro (forecast) | −0.520 | −0.244 | +0.150 | +0.112 | **−0.503** |
-| Actual | −0.600 | +0.012 | +0.155 | −0.394 | **−0.827** |
-| VW-Core | — | — | — | — | −0.328 |
-| Bayes-Core | — | — | — | — | −0.281 |
+### 2.1 Annual FES Summary — All 9 Scenarios
 
-### 2.2 Economic Interpretation
+| Scenario | Gas z | Electricity z | Carbon z | Uncertainty z | **FES Total** | Historical state |
+|----------|-------|---------------|----------|---------------|--------------|-------------------|
+| equal_core | −0.555 | −0.336 | +0.113 | −0.151 | **−0.929** | low |
+| equal_macro | −0.450 | −0.244 | +0.150 | +0.072 | **−0.472** | low |
+| vw_core | — | — | — | — | −0.328 | low |
+| vw_macro | — | — | — | — | −0.233 | low |
+| bayesian_core | — | — | — | — | −0.281 | low |
+| bayesian_macro | — | — | — | — | −0.190 | moderate_neutral |
+| actual_A | −0.600 | +0.012 | +0.155 | −0.394 | −1.674 | low |
+| actual_B (actual_CrossComp) | −0.600 | +0.012 | +0.155 | −0.394 | **−0.827** | low |
+| actual_C | −0.600 | +0.012 | +0.155 | −0.394 | −2.923 | low |
 
-**All three variants agree: 2017 was a year of below-average energy stress for UK households**, ranging from 0.5 to 0.93 standard deviations below the 2005–2016 historical mean. This places 2017 in the lower quartile of the study period's stress distribution.
+*Source: `outputs/fes/fes_summary_2017.csv`, `outputs/fes/fes_scenario_summary.csv`. All z-scores relative to the 2005–2016 reference period; historical-baseline classification per `classify_historical_fes_state` (FES ≤ −0.50 low, −0.50 to +0.50 moderate/neutral, ≥ +0.50 high). actual_A/B/C share the same gas/electricity/carbon z-scores and differ only in the realised-volatility proxy replacing the uncertainty term.*
 
-The result is consistent with the macroeconomic record:
-- **Gas prices** fell in real terms in 2016–2017 following the 2014 oil price collapse, reducing household fuel bills. The z-score of −0.55 (core) reflects forecasted continuation of this low-gas-price environment.
-- **Electricity prices** showed minimal growth (z ≈ −0.34 core, +0.01 actual) — Ofgem's price cap was not yet introduced (2019) but retail market competition held prices near flat.
-- **Carbon costs** showed slight upward drift (z ≈ +0.11–0.15) as the EUA price began recovering from its 2016 low, but the magnitude was small and net negative across the other components.
-- **Uncertainty (forecast PI half-width)** was below average for the core variant (z = −0.15), meaning forecasters were relatively confident in the low-stress environment.
+**All 9 scenarios agree on the direction**: 2017 reads as below-average energy-carbon stress under every construction (`low` on the historical-baseline scale for 8 of 9; `bayesian_macro` alone reads `moderate_neutral`, at −0.190, just inside the ±0.50 band). This is consistent with falling gas prices, a stable electricity market until H2, and a carbon market only beginning its 2017 recovery.
 
-**Policy implication:** A FES of −0.9 in 2017 should not be interpreted as energy poverty being resolved. It means the 2017 macro environment was less stressful than the 2005–2014 average — a period that included the 2008 energy price spike and the 2010–2014 sustained high-gas-price regime. The 2021–2022 energy crisis (outside this study's horizon) would register a strongly positive FES, providing the counterfactual benchmark.
+**Does the interpretation change across constructions?** Materially, yes, for the macro-mode gas-driven scenarios (Section 1's Prophet-macro bias propagates into `equal_macro`, `vw_macro`, `bayesian_macro`), but the *direction* of the finding (low stress) is robust across every one of the 9 scenarios — the robustness question this scenario layer is designed to test.
 
-### 2.3 Variant Comparison
+### 2.2 Component Decomposition
 
-| FES Variant | vs Actual (CrossComp) Pearson r | R² | vs Actual (RollingVol) Pearson r | R² |
-|-------------|--------------------------------|-----|----------------------------------|----|
-| Equal_Core | **0.970** | **0.804** | 0.923 | −0.588 |
-| Equal_Macro | 0.903 | 0.197 | 0.913 | −2.920 |
-| VW_Core | 0.962 | −0.001 | 0.885 | −3.941 |
-| Bayes_Core | 0.965 | −0.289 | 0.880 | −4.436 |
+The gas z-score is the largest negative contributor across all scenarios (−0.45 to −0.60). Carbon is the only consistently positive component (+0.11 to +0.16). Electricity is near zero in the realised benchmark (+0.012) but negative in both forecast scenarios (−0.24 to −0.34), reflecting under-anticipation of the H2 tariff rise. The uncertainty component is now the single largest driver of the gap between `equal_core` (−0.929) and `equal_macro` (−0.472): 0.223 of the 0.457 SD total gap, versus 0.105 SD from gas and 0.092 SD from electricity.
 
-**Best-tracking variant:** Equal_Core vs Actual_CrossComp achieves Pearson r = 0.97 and R² = 0.80 — the monthly shape of the index closely follows realised cross-component dispersion. This means the equal-weight, core-forecast variant is not only simplest but best at reproducing the actual stress signal.
+**Policy framing:** A FES of roughly −0.5 to −0.9 in 2017 does not mean energy poverty was resolved — it means the 2017 macro environment was less stressful than the 2005–2014 average (which includes the 2008 spike and 2010–2014 high-gas-price regime). It also does not mean, or imply, that households changed their behaviour because of this macro reading — see the scenario-conditioned interpretation framing in Section 2.4.
 
-The negative R² values against Actual_RollingVol reflect a level mismatch: all four forecasted FES variants systematically predict a lower absolute stress level than what rolling-window realised volatility suggests. This is expected — realised volatility incorporates short-term price noise that forecasts smooth out. The Pearson r remains high (0.88–0.92), confirming the direction is tracked but not the level.
+### 2.3 Forecast-vs-Actual Robustness
 
-**VW and Bayes variants** lose R² relative to Equal_Core against CrossComp, suggesting that for this sample the inverse-volatility weighting and Kalman smoothing add complexity without improving accuracy against the dominant benchmark.
+| Forecast scenario | vs actual_B (CrossComp) Pearson r | R² | MAE |
+|---|:---:|:---:|:---:|
+| equal_core | **0.970** | **0.804** | 0.288 |
+| equal_macro | 0.887 | 0.204 | 0.535 |
+| vw_core | 0.962 | −0.001 | 0.544 |
+| bayesian_core | 0.965 | −0.289 | 0.623 |
+
+*Source: `outputs/fes/fes_scenario_forecast_vs_actual_matrix.csv`, `outputs/fes/fes_comparison_metrics.csv`.*
+
+`equal_core` is both the simplest and the best-tracking scenario against the dominant realised benchmark (r = 0.970, R² = 0.804). In the current run, `equal_macro` **no longer improves** on `equal_core` for either level calibration or trajectory tracking (Chapter 4, Section 4.10.1 discusses the reversal from earlier pipeline iterations in detail) — `equal_core`'s absolute distance from the realised benchmark (0.102 SD) is now more than three times smaller than `equal_macro`'s (0.355 SD), driven by Prophet-macro's gas bias. `vw_core` and `bayesian_core` do not improve on `equal_core` against any benchmark; their reweighting shifts the level (−0.328, −0.281) away from the realised benchmark despite maintaining high Pearson r.
+
+### 2.4 Linking FES Scenarios and HighAEV
+
+FES scenarios do not change household labels and are never entered as household-level predictors. `outputs/fes_highaev_interpretation/scenario_highaev_interpretation_matrix.csv` links each of the 9 scenarios to the **same** already-estimated HighAEV prevalence (Route 1: 25.0%, n=254/1015), varying only the macro-context interpretation text (e.g. "under this low-stress macro scenario, the HighAEV group represents households with structurally high adaptive vulnerability, not households made vulnerable by macro conditions"). See README, "Linking FES Scenarios and HighAEV".
 
 ---
 
-## 3. Construct Validation (Stage 6)
+## 3. Construct Validation (Stage 6, Route 1)
 
 ### 3.1 Reliability and Convergent Validity
 
@@ -88,32 +100,13 @@ The negative R² values against Actual_RollingVol reflect a level mismatch: all 
 | BLI (Behavioural Lock-in) | 5 | 1,015 | **0.860** | **0.081** | 0.303 | ✓ | ✗ |
 | TCR (Transition Resistance) | 5 | 673 | **0.710** | **0.041** | 0.165 | ✓ | ✗ |
 
-**All four constructs fail the AVE ≥ 0.50 convergent-validity threshold** by a wide margin (max AVE = 0.081, target = 0.500). Maximum factor loading across all 21 items is 0.38 (E6A2, AEMC) — none exceed the standard 0.40 threshold.
+**All four constructs fail the AVE ≥ 0.50 convergent-validity threshold** (max AVE = 0.081, BLI). Maximum factor loading across all items is 0.383 (E6A2, AEMC). This is unchanged from earlier iterations of this pipeline, as expected — the engineered ML controls added in Section 6 (`has_insulation`, `heating_gas_share`, `has_smart_meter`) are dwelling/administrative variables, not COR construct items, so they have no bearing on construct psychometrics.
 
 ### 3.2 Discriminant Validity (HTMT)
 
-| Pair | HTMT | Pass (< 0.85)? |
-|------|------|----------------|
-| FCP–AEMC | 0.523 | ✓ |
-| FCP–BLI | 0.100 | ✓ |
-| FCP–TCR | 0.177 | ✓ |
-| AEMC–BLI | 0.534 | ✓ |
-| AEMC–TCR | 0.781 | ✓ |
-| BLI–TCR | 0.319 | ✓ |
+All six pairwise HTMT ratios are below the 0.85 threshold (FCP–AEMC 0.523, FCP–BLI 0.100, FCP–TCR 0.177, AEMC–BLI 0.534, AEMC–TCR 0.781, BLI–TCR 0.319) — discriminant validity is acceptable despite the convergent-validity failure. See Chapter 5 for full discussion.
 
-**Discriminant validity is acceptable:** all HTMT ratios are below 0.85. The constructs measure genuinely different dimensions (they are not correlated enough to be considered the same latent variable). AEMC–TCR shows the highest correlation (0.78), which is theoretically plausible — households with lower adaptive capacity also tend to resist transition costs.
-
-### 3.3 Economic Interpretation
-
-The low AVE and CR values indicate that the ENABLE survey items do not cohere well within their COR-specified constructs in the UK sub-sample. This is not a computational error — it reflects genuine psychometric heterogeneity:
-
-- **AEMC items** (E5A, E6A series) span behaviours ranging from reminder use to routine establishment. These are weakly intercorrelated (α = 0.29), suggesting UK households vary considerably in which adaptive behaviours they adopt — some use timers, others use tariff-switching, rarely both.
-- **FCP items** (S8 income + E2A/E2B bill concern) blend an objective indicator (income bracket) with subjective perception (concern). The weak convergence reflects that low-income households do not always perceive high financial pressure, and vice versa.
-- **BLI and TCR** achieve acceptable internal consistency (α = 0.86, 0.71) but still fail AVE because even well-correlated items explain less than 10% of item variance through the common factor — much of the inter-item variation is item-specific.
-
-**Implication for construct validity:** The COR constructs should be treated as formative composites (additively combining items regardless of their intercorrelation) rather than reflective scales (where high AVE would indicate items are interchangeable manifestations of a latent trait). The formative interpretation is more appropriate for ENABLE survey items that represent distinct behavioural or attitudinal facets rather than exchangeable indicators of one underlying trait.
-
-### 3.4 Construct Score Distributions
+### 3.3 Construct Score Distributions
 
 | Score | Mean | Std | Median | P25 | P75 | Missing |
 |-------|------|-----|--------|-----|-----|---------|
@@ -121,49 +114,40 @@ The low AVE and CR values indicate that the ENABLE survey items do not cohere we
 | AEMC | 0.221 | 0.092 | 0.208 | 0.167 | 0.292 | 0% |
 | BLI | 0.418 | 0.283 | 0.500 | 0.150 | 0.600 | 0% |
 | TCR | 0.474 | 0.178 | 0.467 | 0.333 | 0.600 | 4.3% |
-| AEV | 0.539 | 0.111 | 0.542 | 0.458 | 0.615 | 0% |
+| AEV | 0.539 | 0.111 | 0.542 | 0.458 | **0.615 (P75 threshold)** | 0% |
 
-**Economic interpretation:**
-- The average UK household has moderate financial pressure (FCP = 0.48/1.0) and very low adaptive energy-management capacity (AEMC = 0.22) — fewer than one in four behavioural adaptation strategies are in use on average.
-- BLI (0.42) shows high variance (σ = 0.28) — behavioural lock-in is bimodal: some households have almost no lock-in (BLI near 0), others are strongly habituated (BLI near 1).
-- TCR (0.47) is nearly symmetric around the midpoint — roughly half of UK respondents show above-average resistance to energy transition costs.
+*Source: `outputs/enable_cleaned/construct_score_summary.csv`. AEV = mean(FCP, BLI, TCR, 1−AEMC). HighAEV = 1 if AEV ≥ 0.615 → 254 households (25.0%); 761 LowAEV (75.0%).*
 
 ---
 
-## 4. SEM / COR Mediation (Stage 7)
+## 4. COR Path Analysis and Mediation (Stage 6, Route 1)
 
 ### 4.1 Path Estimates
 
-| Path | β | p | Significant | Direction Consistent with COR? |
-|------|---|---|-------------|-------------------------------|
-| a: FCP → AEMC | −0.024 | 0.14 | ✗ | ✗ (positive sign would be expected given result) |
-| b: AEMC → AEV | −0.25 | 0.00 | ✓ (artefact) | ✓ |
-| c': FCP → AEV | +0.25 | 0.00 | ✓ (artefact) | ✓ |
-| d: BLI → AEV | +0.25 | 0.00 | ✓ (artefact) | ✓ |
-| e: TCR → AEV | +0.25 | 0.00 | ✓ (artefact) | ✓ |
+| Path | β | p | Significant | Direction consistent with COR? |
+|------|---|---|:---:|:---:|
+| a: FCP → AEMC | −0.024 | 0.141 | ✗ | ✓ (negative, as predicted, but n.s.) |
+| b, c′, d, e: {AEMC, FCP, BLI, TCR} → AEV | ±0.25 | <0.001 | (artefact) | (artefact) |
 
-**⚠ Critical note:** Paths b, c', d, e all show R² = 1.0 and t-statistics of order 10¹⁵ — numerical artefacts caused by the fact that AEV_score = FCP + BLI + TCR + (1−AEMC) by algebraic definition. Regressing AEV on its own components recovers a perfect fit, not a behavioural finding. Only the **a-path** (FCP → AEMC) and the **mediation bootstrap CI** contain genuine behavioural information.
+**Critical note:** paths b/c′/d/e show R² = 1.0 and t-statistics of order 10¹⁵ — a numerical artefact of AEV_score = mean(FCP, BLI, TCR, 1−AEMC) by algebraic definition (not a sum, as in earlier documentation of this project — see Chapter 5/6 for the corrected formula). Only the **a-path** and the **mediation bootstrap CI** carry independent behavioural information.
 
 ### 4.2 Mediation Analysis
 
 | Effect | Estimate | Bootstrap 95% CI | Significant? |
-|--------|----------|-----------------|--------------|
+|--------|----------|-------------------|:---:|
 | Indirect (a×b) | 0.012 | [−0.003, 0.027] | ✗ |
-| Direct (c') | 0.260 | — | (artefact) |
+| Direct (c′) | 0.260 | — | (artefact) |
 | Total | 0.271 | — | (artefact) |
 
-**The indirect pathway (FCP → AEMC → AEV) is not statistically significant** (CI includes zero). The theoretical COR mechanism — financial pressure depletes adaptive capacity, which then raises vulnerability — is not supported by this cross-sectional UK sample at conventional significance levels.
+The indirect pathway (FCP → AEMC → AEV) is not statistically significant. As discussed in Chapter 6, this is attributable to the cross-sectional design, UK welfare-state attenuation of the financial-pressure→capacity link, and construct measurement noise — not a refutation of COR theory.
 
-**Economic interpretation:** This non-significance does not contradict COR theory; it reflects several plausible explanations:
-1. **Cross-sectional design**: COR is a dynamic theory of resource depletion over time. A single-wave survey cannot capture the temporal process by which financial stress erodes adaptive reserves.
-2. **UK-specific context**: The UK welfare state (means-tested energy-efficiency grants, Warm Homes Discount) may partially break the theoretical link between financial pressure and adaptive capacity by providing external resources that offset personal resource depletion.
-3. **Construct validity issue**: The weak AVE values mean FCP and AEMC are measured with substantial noise, reducing statistical power to detect the indirect effect.
-
-The direct path (FCP → AEV positive) and the BLI/TCR paths all align directionally with COR theory, supporting the composite index even where the mediation is not statistically confirmed.
+**FES context (Section 2) is reported alongside these results as macro-level background only** — it carries zero within-sample variance and is excluded from every regression.
 
 ---
 
-## 5. Unsupervised Latent Robustness (Stage 8)
+## 5. Unsupervised Latent Robustness (Stage 6, Route 1 empirical-recovery check)
+
+PCA, EFA, and the linear autoencoder are **Route 1's own empirical-recovery robustness checks** — not a fourth route, and not separate CatBoost model variants (Section 6).
 
 ### 5.1 PCA Explained Variance
 
@@ -174,174 +158,205 @@ The direct path (FCP → AEV positive) and the BLI/TCR paths all align direction
 | PC3 | 9.0% | 37.8% |
 | PC4 | 6.5% | 44.3% |
 
-Four components explain only **44% of total item variance** — well below the 70%+ often sought in psychometric applications. This reflects the same weak factor structure identified in construct validation: ENABLE items span genuinely heterogeneous behaviours with substantial item-specific variance.
+Four components explain only 44.3% of total item variance, consistent with the weak factor structure identified in construct validation.
 
 ### 5.2 Alignment of Latent Dimensions with COR Constructs
 
-| Construct | PCA best match | r (Pearson) | EFA best match | r | AE best match | r | Stable? |
-|-----------|---------------|------------|----------------|---|---------------|---|---------|
-| BLI | PC1 | **0.807** | EFA1 | **0.807** | AE4 | 0.638 | ✓ |
-| TCR | PC1 | 0.638 | EFA1 | 0.638 | AE4 | 0.715 | ✓ |
-| AEMC | PC4 | 0.465 | EFA4 | 0.465 | AE4 | −0.435 | ✓ (mod.) |
-| FCP | PC2 | 0.285 | EFA2 | 0.285 | AE3 | 0.306 | ✗ |
+| Construct | PCA/EFA best match | r | AE best match | mean \|r\| (30 seeds) | Stable? |
+|-----------|---------------|:---:|----------------|:---:|:---:|
+| BLI | PC1/EFA1 | **0.807** | AE4 | 0.816 | ✓ |
+| TCR | PC1/EFA1 | 0.638 | AE4 | 0.701 | ✓ |
+| AEMC | PC4/EFA4 | 0.465 | AE4 (sign-reversed) | 0.513 | Moderate |
+| FCP | PC2/EFA2 | 0.285 | AE3 | 0.248 | ✗ Unstable |
 
-**Economic interpretation:**
-
-- **BLI is the most data-recoverable construct** (r = 0.81 with PC1). This makes economic sense: behavioural lock-in (sticking to inefficient appliances, resisting habit change) produces consistent response patterns across E7A–E7E items that any dimensionality-reduction method can recover.
-- **TCR is well-aligned** (r = 0.64 with PC1/AE4). Transition-cost resistance loads onto the same principal component as BLI — households that are behaviourally locked in also tend to resist paying the upfront costs of switching. This overlap is economically coherent: both capture inertia, one behavioural, one financial.
-- **AEMC shows moderate alignment** (r = 0.46 with PC4) — the fourth component captures a distinct adaptive capacity dimension not loaded on the dominant variance axes. The AE captures it with opposite sign (r = −0.44), reflecting that the AE axis is flipped.
-- **FCP is the weakest** (r ≤ 0.31) — financial–energy cost pressure is not well-represented in the item space. This is because S8 (income) is categorical and contributes a different type of variance than E2A/E2B (subjective bill concern). No single latent dimension bridges the objective-financial and subjective-perceptual aspects of FCP.
-
-**AE Seed Stability** (30 seeds):
-- BLI: mean |r| = 0.82 ± 0.11 — very stable
-- TCR: mean |r| = 0.70 ± 0.09 — stable
-- AEMC: mean |r| = 0.51 ± 0.14 — moderate
-- FCP: mean |r| = 0.25 ± 0.10 — **unstable** (high seed-to-seed variance, low signal)
-
-The AE reconstruction MSE is consistent across seeds (0.54 ± 0.009) despite FCP instability — the AE reliably reconstructs the overall item space but inconsistently captures the FCP dimension specifically.
+**BLI is the most data-recoverable construct** (r ≈ 0.81), TCR next (r ≈ 0.64–0.72, co-loading with BLI on PC1/AE4 — a joint "energy-transition-reluctance" dimension). AEMC is moderately and unstably recoverable (split across reminder-based and routine-based sub-clusters). **FCP is not recoverable by any method** (best r = 0.31, unstable across AE seeds) — its objective (S8) and subjective (E2A/E2B) facets share limited common variance, confirming the formative rather than reflective specification adopted throughout. EFA converges to the same solution as PCA in this sample (no item exceeds communality 0.146) — there is no rotatable common-factor structure beyond what PCA already captures. See Chapter 7 for full discussion.
 
 ---
 
-## 6. CatBoost Classification — High AEV Prediction (Stages 9–10)
+## 6. Household ML Stream: Sample-Size and Feature Fixes
 
-### 6.1 Primary Model: Controls-Only (Generalizable Predictor)
+Two targeted fixes were applied to `src/ml_classification.py` and `src/enable_preprocessing.py` since the previous version of this report, verified by 5-fold CV before being kept:
+
+1. **Controls_Only / Route1_Composite no longer lose ~15% of the sample to unnecessary listwise deletion.** `_prepare_features_for_model()` previously applied the same complete-case restriction needed by Route 2 (CFA)/Route 3 (VAE) to Controls_Only and Route1_Composite too, which don't need it — their few missing values (mainly H2 at ~15%) are now imputed, matching the primary `prepare_features()` path. Sample size for these two variants rose from n≈855 to the full n=1,015.
+2. **Three new energy-efficiency controls were added**: `has_insulation`, `heating_gas_share`, `has_smart_meter`, engineered in `enable_preprocessing.build_efficiency_controls()` from ENABLE's granular per-option sub-items (H5A1-3, H6A3, H13A/H13C) — the bare `H5`/`H6`/`H13` columns referenced by earlier documentation do not exist in the UK sub-sample, but this underlying dwelling-efficiency data does. `heating_gas_share` is now the single most important Controls_Only feature (Section 7).
+3. `l2_leaf_reg` was raised from 8 to 10 after re-validating by 5-fold CV across 3 seeds: same mean test AUC, consistently smaller train/test overfit gap. `depth=4` was tried and rejected (marginal AUC gain, much larger overfit gap).
+4. A CatBoost `eval_metric` bug was fixed (`AUC:hints=skip_train~false`) so `learning_curve_controls_only.png` — a required output that was previously never generated — now renders correctly.
+
+Net effect (5-fold CV, the reliable estimate): Controls_Only mean test AUC rose from 0.577 to **0.612**, and the mean overfit gap fell from 0.078 to **0.044**. Full detail in Chapter 8.
+
+---
+
+## 7. CatBoost Classification — HighAEV Prediction (Stages 10)
+
+### 7.1 Primary Model: Controls-Only (Generalizable Predictor)
 
 | Metric | Value |
 |--------|-------|
-| ROC-AUC (test) | **0.647** |
-| Train ROC-AUC | 0.659 |
-| Overfit gap | 0.011 ✓ |
-| Balanced accuracy | 0.623 |
-| Precision (HighAEV) | 35.0% |
-| Recall (HighAEV) | 65.6% |
+| ROC-AUC (test) | **0.638** |
+| Train ROC-AUC | 0.703 |
+| Overfit gap | 0.065 |
+| Balanced accuracy | 0.594 |
+| Precision (HighAEV) | 32.1% |
+| Recall (HighAEV) | 79.7% |
 | F1 (HighAEV) | 0.457 |
-| PR-AUC | 0.378 |
-| Best iteration | 30 / 600 |
-| Decision threshold | 0.50 |
+| PR-AUC | 0.376 |
+| Best iteration | 106 / 600 |
+| Decision threshold | 0.465 |
 | n train / n test | 761 / 254 |
 
-**Overfit gap = 0.011 — within acceptable range** after regularization tightening (depth 3, l2=8, min_leaf=20). The model is not overfitting; the low performance is a genuine signal about the limited information in observable household controls.
+CV mean test AUC = 0.612 (SD = 0.041) — see Section 6 for what changed and why.
 
-### 6.2 Cross-Validation Stability
-
-| Fold | Train AUC | Test AUC | Gap | Best iter |
-|------|-----------|----------|-----|-----------|
-| 1 | 0.694 | 0.571 | 0.122 ⚠ | 13 |
-| 2 | 0.632 | 0.573 | 0.059 ✓ | 3 |
-| 3 | 0.636 | 0.537 | 0.100 ⚠ | 2 |
-| 4 | 0.693 | 0.630 | 0.063 ✓ | 20 |
-| 5 | 0.619 | 0.575 | 0.044 ✓ | 4 |
-| **Mean** | **0.655** | **0.577** | **0.078** | **8** |
-
-CV mean test AUC = 0.577 (σ = 0.033). The gap between the held-out performance (0.647 on a single 75/25 split) and 5-fold CV mean (0.577) is partly explained by stratification variance with a small dataset — the 75/25 split may produce a slightly easier test fold. Folds 1 and 3 still show concerning gaps (0.12 and 0.10), and the very early stopping (2–20 iterations) across all folds indicates the model exhausts its learning capacity very quickly — a signal that the features contain limited discriminative information for this target.
-
-### 6.3 Confusion Matrix
+### 7.2 Confusion Matrix (decision threshold 0.465)
 
 | | Predicted: Low AEV | Predicted: High AEV |
 |--|-------------------|---------------------|
-| **True: Low AEV** | 112 (TN) | 78 (FP) |
-| **True: High AEV** | 22 (FN) | 42 (TP) |
+| **True: Low AEV** (n=190) | 82 (TN) | 108 (FP) |
+| **True: High AEV** (n=64) | 13 (FN) | 51 (TP) |
 
-At the optimal threshold (0.50), the model achieves 65.6% recall of High AEV households. In absolute terms:
-- **42 of 64 true High AEV households are correctly identified** (true positives)
-- **22 High AEV households are missed** (false negatives — the more costly error)
-- **78 Low AEV households are incorrectly flagged** (false positives)
+51 of 64 true HighAEV households are correctly identified (recall 79.7%) at 32.1% precision — for every 3 households flagged, roughly 1 is genuinely HighAEV. This is a materially better recall than the 65.6% reported in earlier iterations of this pipeline, traded against a higher false-positive rate.
 
-For a policy targeting programme (e.g., energy efficiency grants, hardship tariff eligibility), the recall of 66% with 35% precision means: if this model were used to allocate support, for every 3 households selected, approximately 1 would genuinely need support and 2 would not. This is better than random (baseline precision = 25%) but far from actionable at current performance.
+### 7.3 Feature Importance
 
-### 6.4 Feature Importance
-
-| Rank | Feature | CatBoost Importance | SHAP mean |abs| | Economic meaning |
+| Rank | Feature | CatBoost Importance | SHAP mean \|abs\| | Note |
 |------|---------|--------------------|--------------------|-----------------|
-| 1 | S8 | 31.9% | 0.0104 | **Household income bracket** |
-| 2 | H3 | 22.8% | 0.0045 | **Year of property construction** |
-| 3 | H2 | 12.1% | 0.0012 | Number of rooms (dwelling size) |
-| 4 | risk_category | 6.9% | 0.0028 | Energy poverty proxy (combined flag) |
-| 5 | H1 | 5.7% | 0.000 | Dwelling type (flat / terraced / detached) |
-| 6 | S3 | 5.5% | 0.0018 | Household size (number of occupants) |
-| 7 | S5 | 4.4% | 0.0023 | Tenure (rent / own) |
-| 8 | high_cost_flag | 4.0% | 0.000 | High energy cost relative to income |
-| 9 | S6 | 3.2% | 0.0006 | Age of main respondent |
-| 10 | S2 | 3.2% | 0.0022 | Employment status |
-| 11 | low_income_flag | 0.3% | 0.000 | Low income threshold flag |
+| 1 | **heating_gas_share** | 21.2% | 0.1194 | Engineered (Section 6) |
+| 2 | S8 | 20.7% | 0.0717 | Household income bracket |
+| 3 | H3 | 16.3% | 0.0587 | Year of property construction |
+| 4 | H2 | 7.4% | 0.0266 | Number of rooms |
+| 5 | has_insulation | 4.0% | 0.0230 | Engineered (Section 6) |
+| 6 | risk_category | 7.9% | 0.0067 | Energy poverty proxy |
+| 7 | H1 | 4.9% | 0.0171 | Dwelling type |
+| 8 | S2 | 4.4% | 0.0160 | Employment status |
+| 9 | S3 | 5.7% | 0.0115 | Household size |
+| 10 | S6 | 2.9% | 0.0097 | Age of respondent |
+| 11 | has_smart_meter | 1.7% | 0.0083 | Engineered (Section 6) |
+| 12 | S5 | 1.9% | 0.0043 | Tenure |
+| 13 | low_income_flag | 0.3% | 0.0013 | — |
+| 14 | high_cost_flag | 0.7% | 0.0009 | — |
 
-**S8 (income) and H3 (building age) together account for 55% of CatBoost feature importance.** This is the central economic finding of the ML stream:
+**`heating_gas_share`, S8, and H3 together account for 58.2%** of CatBoost feature importance — the central finding of the ML stream, updated from earlier iterations of this pipeline (which found S8+H3 alone at 54.7%, with no heating-fuel signal available). Two of the top five features (`heating_gas_share`, `has_insulation`) are the newly engineered energy-efficiency controls, confirming that ENABLE's granular dwelling sub-items carried real, previously unused predictive signal.
 
-**Income is the dominant predictor.** Low-income households have fewer financial resources to buffer energy cost volatility, fewer options to invest in efficiency improvements, and less bargaining power with energy retailers. This is consistent with the energy poverty literature (Boardman 1991, Hills 2012).
+### 7.4 Multi-Model Comparison
 
-**Building age (H3) is the second-strongest predictor.** Older UK dwellings (pre-1940 and pre-1970 stock) have systematically poorer thermal efficiency — solid walls, single glazing, no cavity insulation — meaning occupants must spend more on heating to maintain comfort, increasing their adaptive burden. The SHAP analysis shows H3 pushes high-AEV predictions particularly for households in properties built before 1965.
+| Model | n train/test | Test AUC | Train AUC | Gap | PR-AUC | Interpretation |
+|-------|:---:|:---:|:---:|:---:|:---:|----------------|
+| Controls_Only | 761/254 | 0.638 | 0.703 | 0.065 | 0.376 | **Generalizable** |
+| Route1_Composite | 761/254 | 0.992 | 0.999 | 0.006 | 0.982 | Circular (AEV ≡ f(scores)) |
+| Route2_SEM | 303/101 | 0.978 | 0.966 | −0.012 | 0.908 | Construct-overlap, not fully generalizable |
+| Route3_VAE | 303/101 | 0.72–0.74* | 0.83–0.85* | 0.10–0.11* | 0.40* | Construct-overlap, `high_aev` in own loss |
+| AllRoutes_Hybrid | 303/101 | 0.975–0.989* | 0.960–0.998* | −0.014 to 0.008* | 0.89–0.96* | Not generalizable — multiple circular components |
 
-**risk_category and S5 (tenure) contribute modest additional signal.** Private renters are constrained by split incentives (landlords own the building, tenants pay bills) — a well-documented structural barrier to energy adaptation. S2 (employment) adds signal because unemployment reduces both income and the capacity to engage with energy-switching or retrofit schemes.
+*Route3_VAE and AllRoutes_Hybrid vary between independent runs of this pipeline (two runs measured 0.717 and 0.744 for Route3_VAE) because their CatBoost variant refits a small VAE encoder within each train/test split, and that per-split fit is not perfectly seed-stable — unlike Controls_Only, Route1_Composite, and Route2_SEM, which reproduce bit-identically. The qualitative ranking is stable across runs even though the exact AUC is not.
 
-**low_income_flag and H1 contribute near-zero SHAP** despite their intuitive relevance — likely because their information is already captured by S8 and S5 respectively.
-
-### 6.5 Multi-Model Comparison
-
-| Model | Test AUC | Train AUC | Gap | PR-AUC | Interpretation |
-|-------|----------|-----------|-----|--------|----------------|
-| Controls_Only | 0.658 | 0.633 | −0.025 | 0.347 | **Generalizable** |
-| SEM_COR | **0.996** | 0.999 | 0.003 | 0.985 | Circular (AEV ≡ f(scores)) |
-| Linear_AE | 0.919 | 0.950 | 0.031 | 0.601 | Structurally circular |
-| EFA | 0.924 | 0.923 | −0.001 | 0.741 | Structurally circular |
-| PCA | 0.924 | 0.923 | −0.001 | 0.741 | Structurally circular |
-| Hybrid_SEM_AE | 0.969 | 0.993 | 0.024 | 0.914 | Partially circular |
-
-The 0.27-point gap between Controls_Only (0.658) and AE/EFA/PCA (0.92+) quantifies the information content in the survey's behavioural items that is not captured by administrative-style household controls. However, this gap is **not a causal estimate** — it reflects structural circularity (the latent dimensions compress the same survey items that define AEV) rather than the genuine predictive value of latent features beyond controls.
-
-**Negative overfit gap for Controls_Only (−0.025):** train AUC (0.633) is slightly lower than test AUC (0.658). This is unusual but can occur with stratified splits and class weights — the model is not overfitting; the test fold happened to be slightly easier to discriminate than the training set.
+Route2_SEM (n=503 complete-case, split 303/101) and Route3_VAE did not exist in earlier iterations of this pipeline reviewed by this report; they are new to this version. Route1_Composite remains the ceiling of circular prediction (AUC ≈ 0.99). Route2_SEM comes close (0.978) via CFA factor scores drawn from the same item pool as the target. Route3_VAE is the outlier at AUC ≈ 0.72–0.74 — notably lower than Route1/Route2 despite `high_aev` entering its own training loss, because the VAE's joint reconstruction/KL/alignment/prediction objective dilutes the label signal across a 4-D bottleneck. **None of these four should be read as demonstrating generalizable predictive power** — Controls_Only remains the only variant that does.
 
 ---
 
-## 7. SHAP Explainability — Key Household Narratives
+## 8. Route 2 (SEM/CFA) and Route 3 (VAE) — Own Fit Quality
 
-The SHAP analysis on the Controls_Only model identifies four prototypical vulnerability pathways:
+*(New in this version of the report — these routes did not exist in earlier reviews.)*
 
-**Pathway 1 — Low income + old property** (highest AEV probability): S8 pushes strongly toward high AEV; H3 (pre-1965 build) amplifies the prediction. These households combine financial constraint with a structurally energy-inefficient home — they cannot afford to heat it adequately, cannot afford to retrofit it, and cannot afford to move.
+### 8.1 Route 2 — CFA Measurement and Structural Fit
 
-**Pathway 2 — Risk category + private renter** (moderate-high AEV): risk_category and S5 both push toward high AEV. Private renters in the energy-cost-high bracket face the split incentive trap — landlord has no incentive to install insulation; tenant bears the cost of inefficiency.
+| Model | df | χ² | CFI | TLI | RMSEA | SRMR | All pass? |
+|-------|:--:|:--:|:---:|:---:|:-----:|:----:|:---:|
+| Measurement model | 246 | 1364.4 | 0.692 | 0.654 | 0.095 | 0.095 | ✗ (all four indices fail conventional thresholds) |
+| Structural model (2A) | 248 | 1385.3 | 0.686 | 0.651 | 0.096 | 0.100 | ✗ |
 
-**Pathway 3 — Large household, moderate income** (mixed AEV): S3 (household size) interacts with S8 in a non-linear way — larger households with moderate income are exposed to higher absolute energy costs but may benefit from economies of scale in heating. SHAP values for this group are near-zero, reflecting genuine model uncertainty.
+| Construct | n items | Cronbach α | ω | CR | AVE | AVE pass? |
+|-----------|:--:|:--:|:--:|:--:|:--:|:--:|
+| FCP | 3 | 0.471 | 0.638 | 0.638 | 0.450 | ✗ (just below 0.50) |
+| AEMC | 10 | 0.470 | 0.446 | 0.446 | 0.211 | ✗ |
+| BLI | 5 | 0.856 | 0.857 | 0.857 | **0.547** | ✓ |
+| TCR | 6 | 0.702 | 0.711 | 0.711 | 0.313 | ✗ |
 
-**Pathway 4 — Single-person, low income** (high AEV probability): S3 pushes toward low AEV (fewer people, smaller absolute consumption) but this is more than offset by S8. Single-person low-income households are a key policy target — they often occupy small but thermally inefficient properties with no ability to share costs.
+*Source: `outputs/cor_sem/tables/cfa_fit_indices.csv`, `cfa_reliability_validity.csv`, `structural_fit_indices_2A.csv`.*
+
+Route 2's CFA reproduces the same substantive picture as Route 1's formative composites: global model fit fails conventional thresholds (CFI/TLI < 0.90, RMSEA/SRMR > 0.08), and only BLI clears the AVE ≥ 0.50 convergent-validity bar under a reflective specification — consistent with, and independently corroborating, Chapter 5's conclusion that these four constructs are better treated as formative than reflective. FCP's AVE under CFA loadings (0.450) is notably closer to the 0.50 threshold than under Route 1's composite treatment (0.038), because CFA loadings are fit to maximise shared variance directly — but it still falls short.
+
+### 8.2 Route 3 — VAE Reconstruction and Alignment
+
+| Metric | Value |
+|--------|-------|
+| n (complete-case) | 503 |
+| Epochs trained | 300 |
+| Reconstruction MSE / MAE | 0.961 / 0.692 |
+| KL divergence | 0.050 |
+| COR-alignment loss | 0.358 |
+| Prediction BCE | 0.521 |
+| Prediction-head ROC-AUC (val) | 0.524 |
+| Prediction-head recall (val) | 0.0 |
+
+*Source: `outputs/cor_vae/tables/vae_reconstruction_metrics.csv`, `vae_prediction_metrics.csv`.*
+
+The VAE's own prediction head performs close to chance on a held-out validation split (ROC-AUC 0.524, recall 0.0 at the default threshold) — a materially weaker signal than its CatBoost-embedded AUC of ≈0.72–0.74 (Section 7.4), because the two are measuring different things: the prediction-head metric is the VAE's own single small MLP head evaluated in isolation, while Section 7.4's figure is a full CatBoost model trained on the VAE's 4 latent means plus all Controls_Only features. This reconstruction/alignment/prediction-BCE table reproduces bit-identically across runs (unlike the CatBoost-embedded Route3_VAE variant — see Section 7.4's note). Per-dimension alignment with Route 1's composites (Hungarian-unassigned, raw correlations) shows z2 aligning with AEMC (r=−0.669) and BLI (r=0.504), z3 with BLI (r=−0.731) and AEMC (r=0.449), z4 with TCR (r=0.693), and z1 with FCP (r=−0.476) — a similar qualitative pattern to Route 1's own PCA/AE robustness check (Section 5.2): BLI/TCR are the most strongly represented constructs, FCP the weakest.
+
+### 8.3 Cross-Route Comparison
+
+| Route pair | Construct-level agreement | AEV Pearson r | HighAEV Cohen's κ | Agreement rate |
+|---|---|:---:|:---:|:---:|
+| Route 1 vs Route 2 | BLI/TCR strong (r=0.93–1.00), FCP strong (r=0.60), AEMC weak (r=0.28) | 0.841 | 0.581 | 85.7% |
+| Route 1 vs Route 3 | BLI/AEMC/TCR strong (r=0.67–0.73), FCP moderate (r=0.48) | 0.782 | 0.535 | 84.1% |
+| Route 2 vs Route 3 | BLI/TCR strong (r=0.70–0.73), FCP strong (r=0.53), AEMC weak (r=0.06) | 0.683 | 0.386 | 76.9% |
+
+*Source: `outputs/route_comparison/tables/cross_route_construct_agreement.csv`, `cross_route_outcome_agreement.csv`. n=503 (complete-case, all three routes).*
+
+All three route pairs show moderate-to-strong AEV-level agreement (Pearson r 0.68–0.84) and fair-to-moderate HighAEV classification agreement (κ 0.39–0.58, 77–86% raw agreement) — the three estimation methods broadly agree on *which* households are vulnerable even though they are built through genuinely different statistical machinery (formative composite / reflective CFA / deep generative latent). AEMC is the one construct where all three routes disagree most (r as low as 0.06 between Route 2 and Route 3), echoing Section 5.2's finding that AEMC splits across two empirically distinct sub-clusters (reminder-based, routine-based) that different methods can capture differently.
 
 ---
 
-## 8. Cross-Stream Consistency Check
+## 9. SHAP Explainability — Key Household Narratives
+
+The SHAP analysis on the Controls_Only model (Section 7.3) identifies:
+
+**Highest-probability profile (0.607, a false positive):** high income difficulty (S8 SHAP ≈ +0.24), high mains-gas heating share (`heating_gas_share` SHAP ≈ +0.12), older building (H3 SHAP ≈ +0.05).
+
+**Lowest-probability profile (0.329):** low income difficulty (S8 SHAP ≈ −0.16), low mains-gas dependence (`heating_gas_share` SHAP ≈ −0.20, the single largest-magnitude SHAP contribution observed), newer building (H3 SHAP ≈ −0.17).
+
+The predicted-probability spread across household examples (0.329–0.607) is now substantially wider than the 0.49–0.52 compression reported in earlier iterations of this pipeline — direct evidence that `heating_gas_share` gives the model real room to separate cases rather than clustering predictions near the decision boundary.
+
+---
+
+## 10. Cross-Stream Consistency Check
 
 | Finding | Consistent across streams? |
 |---------|--------------------------|
-| Income (S8) drives High AEV risk | ✓ Feature importance + SHAP + COR c'-path (higher FCP → higher AEV) |
-| Low adaptive capacity (AEMC) weakly measured | ✓ AVE = 0.035, α = 0.29, FCP best r = 0.31 |
-| BLI is the most data-recoverable COR construct | ✓ PCA r = 0.81, α = 0.86, AE seed stability = 0.82 |
-| 2017 macro environment was below-average stress | ✓ All three FES variants (core/macro/actual) negative |
-| Carbon forecast is structurally unreliable | ✓ 0% PI coverage, 88% SMAPE, systematic direction reversal in LSTM-core |
-| Mediation FCP→AEMC→AEV not confirmed | ✓ a-path β = −0.024, p = 0.14; bootstrap CI includes zero |
+| Income (S8) and heating-gas exposure jointly drive High AEV risk | ✓ Feature importance + SHAP (Section 7), consistent with COR c′-path (higher FCP → higher AEV, Section 4) |
+| Low adaptive capacity (AEMC) weakly measured across all 3 routes | ✓ Route 1 AVE=0.035 (Section 3); Route 2 AVE=0.211 (Section 8.1); Route 3 alignment weakest for FCP, most divergent for AEMC across routes (Section 8.3) |
+| BLI is the most data-recoverable COR construct | ✓ PCA r=0.81 (Section 5); Route 2 AVE=0.547, the only construct passing (Section 8.1); highest cross-route agreement (Section 8.3) |
+| 2017 macro environment was below-average stress under every FES scenario | ✓ All 9 scenarios read `low` or `moderate_neutral` (Section 2) |
+| Gas-macro (Prophet) forecast is not stable across pipeline runs | ✓ MAE/SMAPE/trend-decomposition all changed materially between reviewed runs (Sections 1, 2.1) |
+| Carbon forecast is structurally unreliable | ✓ 0% PI coverage on both core and macro selected models, 76–88% SMAPE (Section 1) |
+| Mediation FCP→AEMC→AEV not confirmed | ✓ a-path β=−0.024, p=0.141; bootstrap CI includes zero (Section 4) |
+| Route 1/2/3 broadly agree on which households are HighAEV | ✓ κ 0.39–0.58, 77–86% raw agreement (Section 8.3) |
 
 ---
 
-## 9. Summary of Issues and Recommendations
+## 11. Summary of Issues and Recommendations
 
 ### Resolved in This Version
-- ✅ CatBoost overfitting tightened (depth 4→3, l2 3→8, min_leaf 10→20, random_strength 1.5)
-- ✅ `use_best_model=True` prevents early-stopping misfire
-- ✅ Optimal decision threshold (F1-maximising sweep)
-- ✅ Feature importance now saved and plotted
-- ✅ Within-split encoding for AE/EFA/PCA (transductive leakage eliminated)
-- ✅ Missing preferred-features warning added
-- ✅ AE/EFA/PCA structural circularity clearly documented
 
-### Remaining Issues to Address in Future Work
+- ✅ FES reframed as a 9-scenario macro signal-simulation layer (not a household predictor or behavioural simulation) — `src/fes_scenarios.py`
+- ✅ AEV formula corrected to `mean(FCP, BLI, TCR, 1−AEMC)` everywhere (was previously documented inconsistently as a sum in some places)
+- ✅ CatBoost model variants aligned to the 5 real routes (Controls_Only, Route1_Composite, Route2_SEM, Route3_VAE, AllRoutes_Hybrid) — legacy PCA/EFA/Linear_AE/SEM_COR/Hybrid_SEM_AE variant names retired
+- ✅ **H5/H6/H13 "missing from ML" issue resolved** — reconstructed as `has_insulation`/`heating_gas_share`/`has_smart_meter` from ENABLE's granular sub-items; `heating_gas_share` is now the #1 Controls_Only feature
+- ✅ Controls_Only/Route1_Composite sample-size bug fixed (n≈855 → full n=1,015)
+- ✅ `l2_leaf_reg` re-tuned (8→10) and validated by CV across 3 seeds
+- ✅ `learning_curve_controls_only.png` generation bug fixed (CatBoost `eval_metric` hint)
+- ✅ `exclude_fes_columns` extended to cover all 9 FES scenario columns + underlying z-score components
+- ✅ Dead `from sympy import series` import removed; `joblib`/`factor_analyzer` added to `requirements.txt`
+
+### Remaining Issues / Open for Future Work
 
 | Issue | Severity | Recommendation |
 |-------|----------|----------------|
-| AVE < 0.05 for all constructs | High | Reframe as formative composites; report α only (not CR/AVE) in the main text |
-| SEM circular path estimates | High | Remove b/c'/d/e paths from SEM table or clearly label as identities; report a-path and mediation only |
-| Carbon LSTM-core 0% PI coverage | High | Demote LSTM-core; promote TFT-macro as primary carbon FES component |
-| H5, H6, H13 missing from ML | Medium | Investigate ENABLE UK data availability for smart-meter, heating-fuel variables |
-| CV mean AUC 0.577 vs. hold-out 0.647 | Medium | Report CV mean as the primary performance estimate |
-| FCP not recoverable from latent methods | Low | Document as a feature of the item space; no remediation needed |
-| Gas/electricity SMAPE = 200% in some models | Low | Expected near-zero growth rates; continue to exclude MAPE from rank-aggregation |
+| AVE < 0.55 for all constructs under both Route 1 (formative) and Route 2 (reflective CFA) treatment | High | Continue reporting as formative composites; Route 2's CFA independently corroborates this rather than resolving it |
+| Route 2/Route 3 restricted to n=503 (complete-case) vs. Controls_Only/Route1's n=1,015 | Medium | Consider FIML (semopy), multiple imputation, or a masked VAE reconstruction loss to recover the ~50% of the sample lost to listwise deletion on E2A/E2B and the H15 battery (see prior conversation's missing-data diagnostic) |
+| Carbon LSTM-core / TFT-macro 0% PI coverage on both modes | High | Both carbon models remain structurally unreliable; treat carbon's forecast-interval component as descriptive only |
+| Prophet-macro (gas) not seed-stable across pipeline runs | Medium | Treat `equal_macro`/`vw_macro`/`bayesian_macro` FES scenarios as a sensitivity check, not a co-equal primary reading, until Prophet's macro gas fit is stabilised (e.g. fixed MCMC seed, MAP estimation) |
+| Route 3 VAE prediction head near-chance on held-out validation (ROC-AUC 0.524) despite `high_aev` in its own loss | Medium | Document as a genuine finding (the joint objective dilutes label signal) rather than a bug; do not tune away without re-examining the loss-term weighting |
+| FCP not recoverable from any latent method (Route 1 PCA/EFA/AE or Route 2 CFA or Route 3 VAE) | Low | Consistent, well-documented feature of the item space across all three estimation routes; no remediation needed, treat as a robustness finding in its own right |
 
 ---
 
-*Anticipatory Energy–Carbon Stress Pipeline · June 2026 report*
+*Anticipatory Energy–Carbon Stress Pipeline · July 2026 report*

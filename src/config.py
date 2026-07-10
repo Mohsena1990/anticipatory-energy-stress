@@ -83,6 +83,30 @@ PCA_COMPONENTS: int          = 4
 EFA_FACTORS: int             = 4
 
 # =============================================================================
+# Route 2 — COR-Informed SEM (semopy CFA + structural model)
+# =============================================================================
+CFA_ESTIMATOR: str = "MLW"   # semopy default continuous ML estimator
+MIN_CFI: float      = 0.90
+MIN_TLI: float      = 0.90
+MAX_RMSEA: float    = 0.08
+MAX_SRMR: float     = 0.08
+SEM_BOOT_N: int      = 2000   # bootstrap resamples for Route 2 mediation (mirrors sem_mediation.py)
+
+# =============================================================================
+# Route 3 — COR-Informed VAE
+# =============================================================================
+VAE_HIDDEN_DIMS: tuple  = (16, 8)   # encoder/decoder hidden layer widths
+VAE_BETA: float         = 1.0       # KL divergence weight
+VAE_LAMBDA_ALIGN: float = 1.0       # COR-alignment loss weight
+VAE_GAMMA_PRED: float   = 1.0       # HighAEV prediction-head loss weight
+VAE_EPOCHS: int         = 300
+VAE_EPOCHS_FAST: int    = 60        # used with --skip-vae / --fast dev mode
+VAE_LEARNING_RATE: float = 1e-3
+VAE_VAL_SPLIT: float    = 0.20
+VAE_N_SEEDS: int        = 10        # seed-stability runs (fewer than AE_N_SEEDS: costlier joint loss)
+# VAE_LATENT_DIMS reuses N_LATENT_DIMS (4) above — not duplicated.
+
+# =============================================================================
 # Output
 # =============================================================================
 DPI: int = 150

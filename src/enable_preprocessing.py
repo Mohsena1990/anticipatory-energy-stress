@@ -267,9 +267,12 @@ def build_aev(df: pd.DataFrame, quantile: float = None) -> pd.DataFrame:
     Compute High Adaptive Energy Vulnerability composite and binary target.
 
     Formula:
-      AEV_i = FCP_i + BLI_i + TCR_i + (1 − AEMC_i)
+      AEV_i = mean(FCP_i, BLI_i, TCR_i, 1 − AEMC_i)
 
-    All component scores are in [0, 1]; the composite is on [0, 4].
+    All component scores are in [0, 1]; the row-wise mean keeps the
+    composite on the same [0, 1] scale and is missing-aware (mean over
+    whichever components are available). Routes 2 and 3 apply this same
+    formula via `src.route_utils.compute_route_aev`.
     HighAEV = 1 if AEV ≥ 75th percentile, else 0.
     """
     if quantile is None:
@@ -304,17 +307,24 @@ def build_aev(df: pd.DataFrame, quantile: float = None) -> pd.DataFrame:
 
 
 # =============================================================================
-# STEP 7 — Attach annual FES context
+# STEP 7 — Attach annual FES scenario context (equal-weight variant)
 # =============================================================================
 
 def attach_fes_context(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Attach annual FES 2017 values to every UK household as contextual constants.
+    Attach the equal-weight annual FES scenario values to every UK household
+    as contextual constants (metadata, not a feature).
 
-    FES is a UK-level macro indicator.  All UK households receive the same
-    annual value.  FES is NOT used as a household-level predictor in any
-    regression or classification model.  It is retained for descriptive
-    context and methodological transparency only.
+    FES is a macro-level scenario-based signal simulation (see
+    `src.fes_scenarios` for the full nine-scenario robustness layer), not a
+    household-level predictor: all UK households receive the same annual
+    value, so it carries zero within-sample variation and cannot causally
+    explain or predict any single household's outcome. It is retained here
+    for descriptive context/methodological transparency only; the full
+    scenario-conditioned interpretation against HighAEV is built separately
+    in `outputs/fes_highaev_interpretation/` once the household routes have
+    run. `src.route_utils.exclude_fes_columns` is the enforcement point that
+    keeps these columns out of every household-level model.
     """
     variants = {"fes_core": np.nan, "fes_macro": np.nan, "fes_actual": np.nan}
 
@@ -374,6 +384,73 @@ def assign_energy_poverty(df: pd.DataFrame) -> pd.DataFrame:
              counts.get("at_risk", 0),
              counts.get("not_poor", 0))
     return df
+
+
+# =============================================================================
+# STEP 8b — Household energy-efficiency controls (smart meter, insulation,
+# heating fuel) — NOT part of the COR construct item pool, safe as ML
+# controls
+# =============================================================================
+
+def build_efficiency_controls(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build household energy-efficiency control features from ENABLE's
+    granular multi-select batteries.
+
+    The bare `H5`/`H6`/`H13` columns referenced by earlier ML feature lists
+    do not exist in the UK sub-sample — but the underlying survey questions
+    (insulation type, heating fuel mix, smart meter ownership) were captured
+    as per-option sub-items and are well populated:
+
+      has_smart_meter    : 1 if electricity (H13A) or heating (H13C) smart
+                            meter = Yes, 0 if both = No, NaN if only
+                            "don't know" (99) responses are available.
+                            H13A/H13C are 0% missing (raw) in the UK sample.
+      has_insulation      : 1 if any of attic/roof, cavity-wall or
+                            external-wall insulation (H5A1-3) is selected.
+                            H5A1-3 are 0% missing in the UK sample.
+      heating_gas_share   : % of home heating from mains gas (H6A3, 0-100).
+                            ~17% missing (a single skipped battery for that
+                            subgroup) — left as NaN; CatBoost handles
+                            missing numeric values natively rather than
+                            requiring imputation. Note: `load_enable_uk()`'s
+                            global MISSING_CODES replacement also zeroes out
+                            genuine 98%/99% answers on this item (a handful
+                            of rows) since 98/99 double as survey-wide
+                            "don't know" sentinels elsewhere; negligible at
+                            this prevalence but not literally exact.
+
+    These are observable household/dwelling characteristics, not COR survey
+    items, so they carry no circularity risk for the HighAEV target.
+    """
+    out = df.copy()
+
+    def _yesno(col: str) -> pd.Series:
+        if col not in out.columns:
+            return pd.Series(np.nan, index=out.index)
+        return out[col].map({1: 1.0, 2: 0.0})  # 99 ("don't know") -> NaN
+
+    elec_sm = _yesno("H13A")
+    heat_sm = _yesno("H13C")
+    both_sm = pd.concat([elec_sm, heat_sm], axis=1)
+    has_smart_meter = both_sm.max(axis=1, skipna=True)
+    has_smart_meter[both_sm.isna().all(axis=1)] = np.nan
+    out["has_smart_meter"] = has_smart_meter
+
+    insul_cols = [c for c in ["H5A1", "H5A2", "H5A3"] if c in out.columns]
+    if insul_cols:
+        out["has_insulation"] = (out[insul_cols].fillna(0).max(axis=1) > 0).astype(float)
+
+    if "H6A3" in out.columns:
+        out["heating_gas_share"] = pd.to_numeric(out["H6A3"], errors="coerce")
+
+    log.info(
+        "Efficiency controls: has_smart_meter n=%d, has_insulation n=%d, heating_gas_share n=%d",
+        int(out["has_smart_meter"].notna().sum()) if "has_smart_meter" in out.columns else 0,
+        int(out["has_insulation"].notna().sum()) if "has_insulation" in out.columns else 0,
+        int(out["heating_gas_share"].notna().sum()) if "heating_gas_share" in out.columns else 0,
+    )
+    return out
 
 
 # =============================================================================
@@ -538,6 +615,9 @@ def run(
 
     # 10. Energy poverty
     df = assign_energy_poverty(df)
+
+    # 10b. Energy-efficiency controls (smart meter, insulation, heating fuel)
+    df = build_efficiency_controls(df)
 
     # 11. FES context (optional: depends on macro pipeline having run)
     if attach_fes:

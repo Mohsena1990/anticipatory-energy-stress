@@ -1,7 +1,6 @@
 model_key,model_label,interpretation,n_train,n_test,roc_auc,train_roc_auc,overfit_gap,pr_auc,balanced_accuracy,recall_highAEV,precision,f1,accuracy,best_iteration
-Controls_Only,Controls only,Generalizable prediction (no construct scores),641,214,0.6582,0.633,-0.0252,0.347,0.6176,0.54,0.3506,0.4252,0.6589,6
-SEM_COR,SEM/COR scores,Theory validation (circular: scores define target),619,207,0.9957,0.9987,0.003,0.9849,0.961,0.9773,0.8269,0.8958,0.9517,331
-Linear_AE,Linear AE latents,Data-driven robustness,342,114,0.9194,0.9503,0.0309,0.6011,0.8633,0.9524,0.4878,0.6452,0.807,16
-EFA,EFA latents,Factor-analytic compression,342,114,0.9237,0.923,-0.0007,0.7408,0.861,0.9048,0.5278,0.6667,0.8333,7
-PCA,PCA latents,Noise-robust compression,342,114,0.9237,0.923,-0.0007,0.7408,0.861,0.9048,0.5278,0.6667,0.8333,7
-Hybrid_SEM_AE,Hybrid SEM + AE,Added-value test (circular component present),342,114,0.9693,0.993,0.0237,0.914,0.8986,0.9048,0.6552,0.76,0.8947,194
+Controls_Only,Controls only,Generalizable prediction (no construct/latent features),761,254,0.6377,0.7026,0.0649,0.3758,0.5942,0.5938,0.3304,0.4246,0.5945,106
+Route1_Composite,Route 1: COR composites,Theory validation (circular: composites define target),761,254,0.9923,0.9986,0.0063,0.9818,0.9475,0.9688,0.8158,0.8857,0.937,423
+Route2_SEM,Route 2: CFA factor scores,Construct-overlap / representation-validation model — not fully generalizable (CFA scores estimated from the same item pool as the target),303,101,0.9779,0.966,-0.0119,0.9079,0.924,0.9444,0.68,0.7907,0.9109,57
+Route3_VAE,Route 3: VAE latent means,Construct-overlap / representation-validation model — not fully generalizable (HighAEV is in the VAE's own training loss),303,101,0.7172,0.8263,0.1091,0.4054,0.6767,0.6667,0.3158,0.4286,0.6832,5
+AllRoutes_Hybrid,All routes combined,Not generalizable prediction — multiple overlapping/circular components present,303,101,0.9746,0.9603,-0.0143,0.892,0.9203,0.8889,0.8,0.8421,0.9406,6

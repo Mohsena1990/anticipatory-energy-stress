@@ -25,6 +25,15 @@ AEV composite (all components normalized to [0, 1]):
 
 HighAEV = 1 if AEV ≥ 75th percentile, else 0
 
+Shared vocabulary across all three estimation routes
+─────────────────────────────────────────────────────
+The item lists, recoding rules, and construct registry defined here are the
+single shared theoretical vocabulary used by all three COR estimation
+routes: Route 1 (formative composites, `src.enable_preprocessing`), Route 2
+(CFA/SEM latent variables, `src.cor_sem`), and Route 3 (theory-informed VAE,
+`src.cor_vae`). Each route estimates FCP/AEMC/BLI/TCR differently from the
+same items defined below; do not duplicate this item vocabulary elsewhere.
+
 Variable-naming conventions
 ────────────────────────────
 ENABLE column names follow the pattern S8, E2A, H9, etc.

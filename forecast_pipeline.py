@@ -12,7 +12,11 @@ Stages
               macro — multivariate (target + exogenous macro variables)
             4 models × 2 modes × 3 series = 24 model runs
   Stage 3 : Rank-aggregate models; select best per (series, mode)
-  Stage 4 : Compute FES_core / FES_macro / FES_actual; save CSVs + figures
+  Stage 4 : FES construction and scenario-based signal simulation — computes
+            FES_core / FES_macro / FES_actual (+ VW/Bayesian robustness
+            variants), then treats all 9 resulting variants as named
+            macro-context scenarios (never household-level predictors);
+            saves CSVs + figures
   Stage 4b: TS-SHAP attribution (run as post-FES step within this pipeline)
 
 Usage
@@ -354,7 +358,7 @@ def run(
     _, ranked_df, best = stage3_evaluation(results, selection_basis)
     _print_best(best)
 
-    _stage(4, "FES computation (core / macro / actual + robustness variants)")
+    _stage(4, "FES construction and scenario-based signal simulation (9 scenarios)")
     stage4_compute_fes(ranked_df)
 
     print("\n[STAGE 4b] TS-SHAP attribution (selected models per stream)")

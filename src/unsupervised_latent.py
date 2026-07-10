@@ -1,13 +1,23 @@
 """
 unsupervised_latent.py
 ───────────────────────
-Robustness stream: data-driven latent structure vs. theory-driven COR constructs.
+Route 1 (COR Composite Route) — empirical recovery check: does the
+data-driven latent structure of the survey items recover the same four
+dimensions as Route 1's formative composite scores?
 
 Purpose
 ───────
 The COR-derived household vulnerability dimensions are theory-specified.
 This stream asks: are those same dimensions recoverable from the empirical
 structure of the item-level data, without imposing the COR framework?
+
+This is Route 1's own internal robustness check, not an alternative latent-
+variable "route" in its own right — Route 2 (`src.cor_sem`, true CFA/SEM)
+and Route 3 (`src.cor_vae`, theory-informed VAE) are the two genuinely
+different estimation routes compared against Route 1 in
+`src.route_comparison`. `build_item_matrix()` and `fit_encode_train_test()`
+below are also reused by `src.ml_classification` for leakage-free PCA/EFA/
+linear-AE feature fitting.
 
 Methods
 ───────

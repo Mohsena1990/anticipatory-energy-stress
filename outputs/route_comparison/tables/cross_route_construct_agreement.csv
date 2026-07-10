@@ -1,0 +1,13 @@
+route_a,route_b,construct,n,pearson_r,pearson_p,spearman_r,spearman_p,agreement
+Route 1: Composite,Route 2: SEM,FCP,503,0.5952,0.0,0.5367,0.0,strong
+Route 1: Composite,Route 2: SEM,AEMC,503,0.2782,0.0,0.13,0.0035,weak
+Route 1: Composite,Route 2: SEM,BLI,503,0.9997,0.0,0.9985,0.0,strong
+Route 1: Composite,Route 2: SEM,TCR,503,0.9296,0.0,0.9337,0.0,strong
+Route 1: Composite,Route 3: VAE,FCP,503,0.4761,0.0,0.4273,0.0,moderate
+Route 1: Composite,Route 3: VAE,AEMC,503,0.6693,0.0,0.7063,0.0,strong
+Route 1: Composite,Route 3: VAE,BLI,503,0.731,0.0,0.723,0.0,strong
+Route 1: Composite,Route 3: VAE,TCR,503,0.6929,0.0,0.6593,0.0,strong
+Route 2: SEM,Route 3: VAE,FCP,503,0.5344,0.0,0.4747,0.0,strong
+Route 2: SEM,Route 3: VAE,AEMC,503,0.063,0.1583,0.1137,0.0107,weak
+Route 2: SEM,Route 3: VAE,BLI,503,0.7303,0.0,0.7205,0.0,strong
+Route 2: SEM,Route 3: VAE,TCR,503,0.7045,0.0,0.6684,0.0,strong

@@ -35,6 +35,15 @@ Outputs (CSV only)
   outputs/figures/fes_monthly_2017.png   — FES time-series (3 variants)
   outputs/figures/fes_components_2017.png — component breakdown bars
   outputs/figures/forecast_vs_actual_{series}.png  — per-series forecast plot
+
+FES scenario-based signal simulation
+─────────────────────────────────────
+The monthly DataFrame returned here (`fes_core`, `fes_macro`, the VW/Bayesian
+robustness variants, and the three `fes_actual_{A,B,C}` benchmarks) is also
+handed to `src.fes_scenarios.run_fes_scenario_simulation`, which treats all
+nine variants as named scenarios in a macro-level scenario-simulation layer
+— not household-level predictors. See `src/fes_scenarios.py` for the
+scenario tables and figures this produces.
 """
 
 from __future__ import annotations
@@ -718,6 +727,16 @@ def compute_fes(
         log.info("Interactive timeline figures complete")
     except Exception as e:
         log.warning(f"Interactive timeline figures failed: {e}")
+
+    # ── FES scenario-based signal simulation (9 named scenarios) ──────────────
+    # Macro-context robustness/interpretation layer only — never a household
+    # feature (see src.route_utils.exclude_fes_columns).
+    try:
+        from src.fes_scenarios import run_fes_scenario_simulation
+        run_fes_scenario_simulation(monthly_df, out_dir=out_dir, figures_dir=figures_dir)
+        log.info("FES scenario-based signal simulation complete")
+    except Exception as e:
+        log.warning(f"FES scenario simulation failed: {e}")
 
     return monthly_df
 

@@ -10,23 +10,45 @@ Target
 
 Leakage prevention
 ──────────────────
-  • aev_score is ALWAYS excluded (direct target leakage).
-  • fcp_score / aemc_score / bli_score / tcr_score are the COR construct
-    scores.  When include_construct_scores=False they are excluded (controls-
-    only generalizable model).  When True they are included for theoretical
-    construct validation — but note that high_aev IS a deterministic function
-    of these four scores, so near-perfect performance is by construction.
-  • FES variables are EXCLUDED (constant within UK sample → zero variance).
+  • aev_score/high_aev (Route 1) and each route's own outcome proxy
+    (sem_aev_score/sem_high_aev, vae_aev_score/vae_high_aev) are ALWAYS
+    excluded — see `_LEAKAGE_COLS` and `src.route_utils.exclude_fes_columns`,
+    which is also called defensively on every feature list assembled here.
+  • fcp_score / aemc_score / bli_score / tcr_score are Route 1's formative
+    composite scores (NOT latent variables — Route 1 does not perform
+    latent-variable extraction).  When include_construct_scores=False they
+    are excluded (controls-only generalizable model).  When True they are
+    included for theoretical construct validation — but note that high_aev
+    IS a deterministic function of these four scores, so near-perfect
+    performance is by construction.
+  • FES columns (fes_core/fes_macro/fes_actual) are ALWAYS excluded. FES is
+    macro-level contextual background — the UK-only ENABLE sample has one
+    annual value shared by every household — and must never be a
+    household-level model feature (see `src.route_utils`).
 
-Model variants (multi-model comparison)
-─────────────────────────────────────────
-  Controls_Only — household controls, energy-poverty proxies (NO construct
-                  scores).  This is the only truly generalizable predictor.
-  SEM_COR       — COR construct scores + controls (circular by construction).
-  Linear_AE     — autoencoder latents + controls.
-  EFA           — EFA factor scores + controls.
-  PCA           — PCA scores + controls.
-  Hybrid_SEM_AE — SEM scores + AE latents + controls.
+Model variants (multi-model comparison, one per COR estimation route)
+────────────────────────────────────────────────────────────────────
+  Controls_Only    — household controls, energy-poverty proxies (NO
+                      construct/latent features).  The only fully
+                      generalizable predictor.
+  Route1_Composite — Route 1's formative FCP/AEMC/BLI/TCR composite scores +
+                      controls (circular by construction — see
+                      src.enable_preprocessing).
+  Route2_SEM       — Route 2's reflective CFA factor scores + controls
+                      (src.cor_sem.fit_cfa_train_test).  Construct-overlap /
+                      representation-validation model, not fully
+                      generalizable (same item pool as the target).
+  Route3_VAE       — Route 3's COR-aligned deep VAE latent means + controls
+                      (src.cor_vae.fit_vae_train_test).  Construct-overlap /
+                      representation-validation model, not fully
+                      generalizable (HighAEV is in its own training loss).
+  AllRoutes_Hybrid — Route 1 composites + Route 2 factor scores + Route 3
+                      latents + controls.  Not generalizable prediction —
+                      multiple overlapping/circular components present.
+
+PCA / EFA / plain linear-autoencoder latents are NOT separate model
+variants here — they remain Route 1's internal empirical-recovery check
+(src.unsupervised_latent), not standalone ML feature sets.
 
 Overfitting diagnostics
 ───────────────────────
@@ -50,20 +72,25 @@ import pandas as pd
 warnings.filterwarnings("ignore")
 
 from src import config, paths
+from src.route_utils import exclude_fes_columns, FES_COLUMNS as _FES_COLS
 
 log = logging.getLogger(__name__)
 
-# Only the raw composite and the binary target are true leakage.
-# Construct scores (fcp/aemc/bli/tcr) are controlled via include_construct_scores.
+# The raw AEV composites/binary targets — Route 1's own plus each route's
+# outcome proxy (sem_*/vae_*) — are all target leakage and must never be
+# used as ML features, regardless of which route's high_aev is the target.
 _LEAKAGE_COLS: set[str] = {
-    "aev_score",   # raw AEV composite — deterministically maps to high_aev
-    "high_aev",    # the binary target itself
+    "aev_score", "high_aev",              # Route 1: raw composite + target
+    "sem_aev_score", "sem_high_aev",      # Route 2 outcome proxy
+    "vae_aev_score", "vae_high_aev",      # Route 3 outcome proxy
 }
 
-# FES is constant across UK sample — excluded from ML features
-_FES_COLS: set[str] = {"fes_core", "fes_macro", "fes_actual"}
-
 # Preferred feature order (subset selected by availability)
+# NOTE: the bare H5/H6/H13 columns do not exist in the UK sub-sample — the
+# underlying insulation/heating-fuel/smart-meter data is instead captured in
+# ENABLE's per-option sub-items, aggregated by
+# enable_preprocessing.build_efficiency_controls() into has_insulation /
+# heating_gas_share / has_smart_meter (0% / ~17% / 0% missing respectively).
 _PREFERRED_FEATURES = [
     # Construct-level scores (theory-driven; circular when predicting high_aev)
     "fcp_score", "aemc_score", "bli_score", "tcr_score",
@@ -71,8 +98,8 @@ _PREFERRED_FEATURES = [
     "risk_category", "low_income_flag", "high_cost_flag",
     # Household controls
     "S8", "H1", "H2", "H3", "S2", "S3", "S5", "S6",
-    # Energy-related household variables
-    "H5", "H6", "H13",
+    # Energy-efficiency household controls (see note above)
+    "has_insulation", "heating_gas_share", "has_smart_meter",
 ]
 
 # ── Multi-model comparison constants ─────────────────────────────────────────
@@ -81,7 +108,7 @@ _SEM_SCORES   = ["fcp_score", "aemc_score", "bli_score", "tcr_score"]
 _CONTROL_COLS = [
     "risk_category", "low_income_flag", "high_cost_flag",
     "S8", "H1", "H2", "H3", "S2", "S3", "S5", "S6",
-    "H5", "H6", "H13",
+    "has_insulation", "heating_gas_share", "has_smart_meter",
 ]
 
 _MODEL_META: dict[str, dict] = {
@@ -89,57 +116,65 @@ _MODEL_META: dict[str, dict] = {
         "label":          "Controls only",
         "include_sem":    False,
         "latent_source":  None,
-        "interpretation": "Generalizable prediction (no construct scores)",
+        "interpretation": "Generalizable prediction (no construct/latent features)",
     },
-    "SEM_COR": {
-        "label":          "SEM/COR scores",
+    "Route1_Composite": {
+        "label":          "Route 1: COR composites",
         "include_sem":    True,
         "latent_source":  None,
-        "interpretation": "Theory validation (circular: scores define target)",
+        "interpretation": "Theory validation (circular: composites define target)",
     },
-    "Linear_AE": {
-        "label":          "Linear AE latents",
+    "Route2_SEM": {
+        "label":          "Route 2: CFA factor scores",
         "include_sem":    False,
-        "latent_source":  "ae",
-        "interpretation": "Data-driven robustness",
+        "latent_source":  "route2_sem",
+        "interpretation": "Construct-overlap / representation-validation model — not "
+                           "fully generalizable (CFA scores estimated from the same item pool as the target)",
     },
-    "EFA": {
-        "label":          "EFA latents",
+    "Route3_VAE": {
+        "label":          "Route 3: VAE latent means",
         "include_sem":    False,
-        "latent_source":  "efa",
-        "interpretation": "Factor-analytic compression",
+        "latent_source":  "route3_vae",
+        "interpretation": "Construct-overlap / representation-validation model — not "
+                           "fully generalizable (HighAEV is in the VAE's own training loss)",
     },
-    "PCA": {
-        "label":          "PCA latents",
-        "include_sem":    False,
-        "latent_source":  "pca",
-        "interpretation": "Noise-robust compression",
-    },
-    "Hybrid_SEM_AE": {
-        "label":          "Hybrid SEM + AE",
+    "AllRoutes_Hybrid": {
+        "label":          "All routes combined",
         "include_sem":    True,
-        "latent_source":  "ae",
-        "interpretation": "Added-value test (circular component present)",
+        "latent_source":  "route23_hybrid",
+        "interpretation": "Not generalizable prediction — multiple overlapping/circular components present",
     },
 }
 
 # Shared CatBoost hyperparameters — applied consistently across all variants.
 # Regularization tuned for ~800-sample datasets to prevent overfitting:
-#   depth 3 (vs 4) and l2_leaf_reg 8 (vs 3) are the strongest levers.
+#   depth 3 (vs 4) and l2_leaf_reg 10 (vs 3) are the strongest levers.
 #   min_data_in_leaf 20 prevents splits on tiny subgroups.
 #   random_strength adds Bayesian noise to split scoring (extra regularization).
 #   Lower learning_rate + more iterations compensate for depth reduction.
+#   l2_leaf_reg raised from 8 to 10: re-validated by 5-fold CV across 3 seeds
+#   after the sample-size and feature changes below — same mean test AUC as
+#   l2=8, consistently smaller train/test overfit gap. depth=4 was also
+#   tried and rejected: a marginal AUC gain (~+0.004-0.005) came with a
+#   much larger overfit gap (~0.077-0.081 vs ~0.043-0.053), which conflicts
+#   with this project's stated preference for generalisation over training
+#   accuracy at this sample size.
 _CB_PARAMS: dict = dict(
     iterations=600,
     learning_rate=0.02,
     depth=3,
-    l2_leaf_reg=8,
+    l2_leaf_reg=10,
     subsample=0.75,
     colsample_bylevel=0.7,
     min_data_in_leaf=20,
     random_strength=1.5,
     loss_function="Logloss",
-    eval_metric="AUC",
+    # "skip_train~false" also computes AUC on the learn set (CatBoost only
+    # tracks the loss function on learn by default), which is what
+    # plot_learning_curve() needs to draw the train-vs-validation AUC curve —
+    # without it, get_evals_result()["learn"] never has an "AUC" key and the
+    # required learning_curve_controls_only.png silently never gets drawn.
+    eval_metric="AUC:hints=skip_train~false",
     verbose=False,
     early_stopping_rounds=40,
 )
@@ -226,6 +261,10 @@ def prepare_features(
         )
 
     feature_cols = list(dict.fromkeys(candidate))
+    # Defensive safeguard: strip any FES / leakage column that slipped through,
+    # in case _PREFERRED_FEATURES is ever extended carelessly.
+    feature_cols = exclude_fes_columns(feature_cols)
+    feature_cols = [c for c in feature_cols if c not in _LEAKAGE_COLS]
 
     X = df_clean[feature_cols].copy()
     y = df_clean[target_col].copy()
@@ -704,40 +743,64 @@ def save_full_predictions(
 # Multi-model comparison helpers
 # =============================================================================
 
-def _load_latent_scores(source: str) -> Optional[pd.DataFrame]:
-    """Load per-household latent scores saved by unsupervised_latent.run()."""
-    path_map = {
-        "ae":  paths.LATENT_SCORES_AE,
-        "pca": paths.LATENT_SCORES_PCA,
-        "efa": paths.LATENT_SCORES_EFA,
-    }
-    p = path_map.get(source)
-    if p is None or not p.exists():
-        log.warning("Latent scores not found for source='%s' (expected: %s)", source, p)
-        return None
-    df_lat = pd.read_csv(p, index_col=0)
-    log.info("Loaded %s latent scores: %d rows × %d dims", source, *df_lat.shape)
-    return df_lat
+def _fit_latent_train_test(
+    item_mat_tr: pd.DataFrame,
+    item_mat_te: pd.DataFrame,
+    latent_source: str,
+    cor_scores_tr: Optional[pd.DataFrame] = None,
+    y_tr: Optional[pd.Series] = None,
+    seed: int = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Dispatch leakage-free within-split latent fitting to the right route
+    module. `cor_scores_tr`/`y_tr` (Route 1 composite scores / high_aev,
+    TRAINING rows only) are required for "route3_vae"/"route23_hybrid" —
+    Route 3's alignment loss and prediction head need them, and they are
+    never taken from the test split (no leakage).
+    """
+    if latent_source in ("pca", "efa", "ae"):
+        from src.unsupervised_latent import fit_encode_train_test
+        return fit_encode_train_test(item_mat_tr, item_mat_te, source=latent_source, seed=seed)
+    if latent_source == "route2_sem":
+        from src.cor_sem import fit_cfa_train_test
+        return fit_cfa_train_test(item_mat_tr, item_mat_te, seed=seed)
+    if latent_source == "route3_vae":
+        from src.cor_vae import fit_vae_train_test
+        return fit_vae_train_test(item_mat_tr, item_mat_te, cor_scores_tr, y_tr, seed=seed)
+    if latent_source == "route23_hybrid":
+        sem_tr, sem_te = _fit_latent_train_test(item_mat_tr, item_mat_te, "route2_sem", seed=seed)
+        vae_tr, vae_te = _fit_latent_train_test(
+            item_mat_tr, item_mat_te, "route3_vae", cor_scores_tr, y_tr, seed=seed
+        )
+        return (
+            pd.concat([sem_tr.reset_index(drop=True), vae_tr.reset_index(drop=True)], axis=1),
+            pd.concat([sem_te.reset_index(drop=True), vae_te.reset_index(drop=True)], axis=1),
+        )
+    raise ValueError(f"Unknown latent_source: {latent_source!r}")
 
 
 def _prepare_features_for_model(
     df: pd.DataFrame,
     include_sem: bool,
     latent_source: Optional[str],
-) -> Optional[tuple[pd.DataFrame, pd.Series, list[str], list[str], Optional[pd.DataFrame]]]:
+) -> Optional[tuple[pd.DataFrame, pd.Series, list[str], list[str], Optional[pd.DataFrame], Optional[pd.DataFrame]]]:
     """
     Build feature matrix for one model variant.
 
     Feature composition
     ───────────────────
       • Controls (energy-poverty proxies + household variables) — always included
-      • SEM/COR construct scores — when include_sem=True (circular: scores define target)
-      • Latent scores (AE/EFA/PCA) — fitted WITHIN the train split by _train_one_catboost
-        to avoid transductive leakage; the item matrix is returned as a 5th value so
-        _train_one_catboost can split it in parallel with X.
+      • Route 1 composite scores — when include_sem=True (circular: scores define target)
+      • Latent scores (PCA/EFA/AE/Route2_SEM/Route3_VAE) — fitted WITHIN the train
+        split by _train_one_catboost to avoid transductive leakage; the item matrix
+        is returned as a 5th value so _train_one_catboost can split it in parallel
+        with X.
+      • Route 1 composite scores aligned to the same rows (6th return value) — only
+        needed by "route3_vae"/"route23_hybrid" (Route 3's alignment target /
+        prediction label), sliced to TRAINING rows only downstream.
 
-    Returns (X, y, feature_cols, categorical_cols, item_mat_aligned)
-      item_mat_aligned is None when latent_source is None.
+    Returns (X, y, feature_cols, categorical_cols, item_mat_aligned, cor_scores_aligned)
+      item_mat_aligned / cor_scores_aligned are None when latent_source is None.
     """
     if "high_aev" not in df.columns:
         raise ValueError("high_aev target missing.")
@@ -771,18 +834,40 @@ def _prepare_features_for_model(
         feature_cols += [c for c in _SEM_SCORES if c in df_work.columns]
     feature_cols += [c for c in _CONTROL_COLS if c in df_work.columns]
     feature_cols = list(dict.fromkeys(feature_cols))
+    # Defensive safeguard: FES is contextual macro background, never a
+    # household-level feature, and the four *_aev_score/*_high_aev outcome
+    # proxies are leakage regardless of which route produced them.
+    feature_cols = exclude_fes_columns(feature_cols)
+    feature_cols = [c for c in feature_cols if c not in _LEAKAGE_COLS]
 
-    needed   = feature_cols + ["high_aev"]
-    df_clean = df_work[needed].dropna()
-    clean_idx = df_clean.index                        # preserve original index for item_mat alignment
-    df_clean  = df_clean.reset_index(drop=True)
+    needed = feature_cols + ["high_aev"]
+    if latent_source is not None:
+        # Route2_SEM / Route3_VAE / AllRoutes_Hybrid genuinely need row
+        # alignment with the item_mat complete-case matrix (the CFA/VAE
+        # encoders require a complete numeric item matrix), so listwise
+        # deletion here is required, not just convenient.
+        df_clean  = df_work[needed].dropna()
+        clean_idx = df_clean.index
+        df_clean  = df_clean.reset_index(drop=True)
+    else:
+        # Controls_Only / Route1_Composite have no item_mat dependency —
+        # their control features are only lightly missing (e.g. H2 ~15%)
+        # and imputable, matching the primary prepare_features() path.
+        # Dropping rows here needlessly discarded ~15% of the sample
+        # (n=641 instead of ~1015) for no accuracy benefit.
+        df_clean  = df_work[needed].dropna(subset=["high_aev"])
+        clean_idx = df_clean.index
+        df_clean  = df_clean.reset_index(drop=True)
 
     n_dropped = len(df_work) - len(df_clean)
     if n_dropped > 0:
         log.info("  Dropped %d rows with missing values", n_dropped)
 
+    cor_scores_aligned: Optional[pd.DataFrame] = None
     if latent_source is not None:
         item_mat_aligned = item_mat_full.loc[clean_idx].reset_index(drop=True)
+        if all(c in df_work.columns for c in _SEM_SCORES):
+            cor_scores_aligned = df_work.loc[clean_idx, _SEM_SCORES].reset_index(drop=True)
 
     X = df_clean[feature_cols].copy()
     y = df_clean["high_aev"].copy()
@@ -800,7 +885,7 @@ def _prepare_features_for_model(
              len(X), len(feature_cols), len(categorical_cols), 100.0 * y.mean(),
              latent_source or "none")
 
-    return X, y, feature_cols, categorical_cols, item_mat_aligned
+    return X, y, feature_cols, categorical_cols, item_mat_aligned, cor_scores_aligned
 
 
 def _eval_metrics(y_true: pd.Series, y_pred: np.ndarray, y_prob: np.ndarray) -> dict:
@@ -826,6 +911,7 @@ def _train_one_catboost(
     categorical_cols: list[str],
     item_mat: Optional[pd.DataFrame] = None,
     latent_source: Optional[str] = None,
+    cor_scores: Optional[pd.DataFrame] = None,
     seed: int = None,
 ) -> dict:
     """
@@ -833,9 +919,13 @@ def _train_one_catboost(
     Uses _CB_PARAMS for consistency with train_catboost().
     Includes train metrics so the overfit gap is visible in the comparison table.
 
-    When item_mat and latent_source are provided, the encoder (PCA/EFA/AE) is
-    fitted on the training split only and applied to the test split — eliminating
-    transductive leakage from encoders pre-fitted on the full dataset.
+    When item_mat and latent_source are provided, the corresponding route's
+    encoder (PCA/EFA/AE/Route2 CFA/Route3 VAE) is fitted on the training
+    split only and applied to the test split — eliminating transductive
+    leakage from encoders pre-fitted on the full dataset. `cor_scores`
+    (Route 1 composite scores, same row alignment as `item_mat`) is sliced
+    to training rows only and forwarded to Route 3's VAE fitting, which
+    needs it as the alignment target / prediction label.
     """
     from catboost import CatBoostClassifier, Pool
     from sklearn.model_selection import train_test_split
@@ -851,13 +941,16 @@ def _train_one_catboost(
 
     # Fit encoder on training items only, then prepend latent cols to both splits
     if item_mat is not None and latent_source is not None:
-        from src.unsupervised_latent import fit_encode_train_test
         tr_idx = X_tr.index
         te_idx = X_te.index
-        lat_tr, lat_te = fit_encode_train_test(
+        cor_scores_tr = cor_scores.iloc[tr_idx].reset_index(drop=True) if cor_scores is not None else None
+        y_tr_reset = y_tr.reset_index(drop=True)
+        lat_tr, lat_te = _fit_latent_train_test(
             item_mat.iloc[tr_idx].reset_index(drop=True),
             item_mat.iloc[te_idx].reset_index(drop=True),
-            source=latent_source,
+            latent_source,
+            cor_scores_tr=cor_scores_tr,
+            y_tr=y_tr_reset,
             seed=seed,
         )
         X_tr = pd.concat([lat_tr.set_index(X_tr.index), X_tr], axis=1)
@@ -905,15 +998,13 @@ def run_multi_model_comparison(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """
     Train all model variants and return a comparison table + per-model results.
 
-    Models
+    Models (see _MODEL_META / module docstring for the full description)
     ──────
-      Controls_Only — no construct scores (generalizable prediction baseline)
-      SEM_COR       — FCP/AEMC/BLI/TCR composite scores + controls
-                      (circular: high_aev IS a function of these scores)
-      Linear_AE     — autoencoder latents + controls
-      EFA           — EFA factor scores + controls
-      PCA           — PCA scores + controls
-      Hybrid_SEM_AE — SEM scores + AE latents + controls
+      Controls_Only    — no construct/latent features (generalizable baseline)
+      Route1_Composite — Route 1 composite scores + controls (circular)
+      Route2_SEM       — Route 2 CFA factor scores + controls
+      Route3_VAE       — Route 3 VAE latent means + controls
+      AllRoutes_Hybrid — all three routes' scores + controls
 
     Returns
     ───────
@@ -935,12 +1026,13 @@ def run_multi_model_comparison(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
             log.warning("Skipping %s — feature data unavailable", model_key)
             continue
 
-        X, y, feat_cols, cat_cols, item_mat = result
+        X, y, feat_cols, cat_cols, item_mat, cor_scores = result
         try:
             res = _train_one_catboost(
                 X, y, cat_cols,
                 item_mat=item_mat,
                 latent_source=meta["latent_source"],
+                cor_scores=cor_scores,
             )
         except Exception as e:
             log.error("Model %s failed: %s", model_key, e)
@@ -1011,7 +1103,7 @@ def _plot_model_comparison(comparison_df: pd.DataFrame) -> None:
     ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=9)
     ax.set_title(
         "HighAEV classification — feature set comparison\n"
-        "(CatBoost, same hyperparameters; SEM/COR circular by construction)",
+        "(CatBoost, same hyperparameters; Route1_Composite circular by construction)",
         fontsize=11,
     )
     fig.tight_layout()
@@ -1044,7 +1136,7 @@ def _plot_model_comparison_heatmap(comparison_df: pd.DataFrame) -> None:
     plt.colorbar(im, ax=ax, label="Score", fraction=0.03, pad=0.02)
     ax.set_title(
         "HighAEV classification: model comparison\n"
-        "(overfit gap = train_AUC − test_AUC; SEM/COR is circular by construction)",
+        "(overfit gap = train_AUC − test_AUC; Route1_Composite is circular by construction)",
         fontsize=11,
     )
     fig.tight_layout()
@@ -1065,11 +1157,18 @@ def run(df: pd.DataFrame):
       predictor.  Generates confusion matrix, ROC, PR, learning curve,
       and 5-fold cross-validation diagnostics.
 
-    Multi-model comparison
+    Multi-model comparison (one model per COR estimation route)
     ──────────────────────
-      Compares Controls_Only, SEM_COR (circular), AE, EFA, PCA, Hybrid.
-      SEM_COR is expected to perform near-perfectly because high_aev IS
-      a deterministic function of the construct scores it uses as features.
+      Compares Controls_Only, Route1_Composite (circular), Route2_SEM,
+      Route3_VAE, AllRoutes_Hybrid. Route1_Composite is expected to perform
+      near-perfectly because high_aev IS a deterministic function of the
+      composite scores it uses as features. Route2_SEM/Route3_VAE are not
+      circular by that same construction, but are not fully independent
+      either — they draw on the same item pool and/or Route 1's own scores
+      as an alignment target/label — so they are reported as
+      construct-overlap / representation-validation models, not as
+      generalizable predictors. Controls_Only remains the only fully
+      generalizable predictor.
 
     Returns
     ───────

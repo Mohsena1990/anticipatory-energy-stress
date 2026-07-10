@@ -270,13 +270,16 @@ def run(
     cat_idx: list[int],
     top_n: int = 15,
     model_label: str = "",
+    precomputed_shap_values: Optional[np.ndarray] = None,
 ) -> None:
     """
     Run SHAP explainability for the CatBoost HighAEV classifier.
 
     Parameters
     ----------
-    model        : fitted CatBoostClassifier
+    model        : fitted CatBoostClassifier.  Ignored when
+                   `precomputed_shap_values` is supplied (may be None in
+                   that case).
     X_test       : test feature matrix
     y_test       : true binary labels
     y_prob       : predicted probabilities (class 1)
@@ -284,6 +287,12 @@ def run(
     top_n        : number of top features to show in plots
     model_label  : prefix for output filenames, e.g. "sem_cor_" or "hybrid_"
                    Empty string → no prefix (backward-compatible default)
+    precomputed_shap_values : optional (n_samples, n_features) array.  When
+                   provided, `compute_shap_values()` (CatBoost/Tree-specific)
+                   is skipped and this array is used directly — lets non-
+                   CatBoost models (e.g. Route 3's Keras prediction head via
+                   `shap.DeepExplainer`/`shap.KernelExplainer`) reuse the
+                   rest of this table/plotting pipeline unchanged.
     """
     paths.SHAP_TABLES.mkdir(parents=True, exist_ok=True)
     paths.SHAP_FIGURES.mkdir(parents=True, exist_ok=True)
@@ -292,7 +301,10 @@ def run(
     log.info("Computing SHAP values [%s] (n_test=%d, n_features=%d)...",
              model_label or "default", len(X_test), X_test.shape[1])
 
-    shap_vals = compute_shap_values(model, X_test, cat_idx)
+    if precomputed_shap_values is not None:
+        shap_vals = precomputed_shap_values
+    else:
+        shap_vals = compute_shap_values(model, X_test, cat_idx)
 
     feature_names = list(X_test.columns)
 

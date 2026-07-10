@@ -10,3 +10,6 @@ S2,False
 S3,False
 S5,False
 S6,False
+has_insulation,False
+heating_gas_share,False
+has_smart_meter,False
