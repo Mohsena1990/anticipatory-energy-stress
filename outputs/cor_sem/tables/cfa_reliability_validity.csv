@@ -1,5 +1,5 @@
 construct,n_items,n_complete,cronbach_alpha,mcdonald_omega,composite_reliability,ave,mean_std_loading,ave_ok
 FCP,3,503,0.4709,0.6378,0.6378,0.4497,0.5683,False
-AEMC,10,503,0.4701,0.4464,0.4464,0.2105,0.3226,False
+AEMC,10,503,0.4701,0.4464,0.4464,0.2105,0.3225,False
 BLI,5,503,0.8558,0.8571,0.8571,0.5473,0.7369,True
-TCR,6,503,0.7019,0.7105,0.7105,0.3126,0.5303,False
+TCR,6,503,0.7019,0.7105,0.7105,0.3127,0.5303,False

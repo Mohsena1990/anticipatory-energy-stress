@@ -71,6 +71,7 @@ def _save_fig(fig: plt.Figure, dest: Path, name: str) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     p = dest / f"{name}.{config.FIGURE_FORMAT}"
     fig.savefig(p, dpi=config.DPI, bbox_inches="tight")
+    fig.savefig(p.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     log.info("Saved figure %s", p.name)
 

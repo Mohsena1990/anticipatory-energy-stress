@@ -892,6 +892,7 @@ MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun",
 def _save_fig(fig: plt.Figure, path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=_DPI, bbox_inches="tight")
+    fig.savefig(Path(path).with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     log.info(f"Figure saved → {path}")
 

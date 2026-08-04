@@ -95,6 +95,7 @@ def _save_fig(fig: plt.Figure, name: str) -> None:
     paths.SEM_FIGURES.mkdir(parents=True, exist_ok=True)
     p = paths.SEM_FIGURES / f"{name}.{config.FIGURE_FORMAT}"
     fig.savefig(p, dpi=config.DPI, bbox_inches="tight")
+    fig.savefig(p.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     log.info("Saved figure %s", p.name)
 

@@ -47,6 +47,7 @@ DPI          = 150
 def _save(fig: plt.Figure, path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=DPI, bbox_inches="tight")
+    fig.savefig(Path(path).with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     log.info(f"Figure saved → {path}")
 
