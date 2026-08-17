@@ -48,6 +48,279 @@ and [Linking FES Scenarios and HighAEV](#linking-fes-scenarios-and-highaev).
 
 ---
 
+## Results
+
+Full visual results from every pipeline stage — click any thumbnail to
+open it full-size. See [Required Figures](#required-figures) below for
+the plain filename/description reference table.
+
+### Macro-Level Forecasts (Stages 0–3)
+
+Each static PNG below has a matching **interactive Plotly HTML** file with the same name under [`outputs/figures/`](outputs/figures/) (hover for exact values, zoom, toggle series). GitHub's file viewer shows HTML source rather than executing it, so open these locally (`git clone` → double-click) or via GitHub Pages to interact with them:
+
+[gas/core](outputs/figures/interactive_gas_core.html) · [gas/macro](outputs/figures/interactive_gas_macro.html) · [electricity/core](outputs/figures/interactive_electricity_core.html) · [electricity/macro](outputs/figures/interactive_electricity_macro.html) · [carbon/core](outputs/figures/interactive_carbon_core.html) · [carbon/macro](outputs/figures/interactive_carbon_macro.html)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_gas_core.png" width="320"><br><sub>2017 gas forecast — core mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_gas_macro.png" width="320"><br><sub>2017 gas forecast — macro mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_electricity_core.png" width="320"><br><sub>2017 electricity forecast — core mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_electricity_macro.png" width="320"><br><sub>2017 electricity forecast — macro mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_carbon_core.png" width="320"><br><sub>2017 carbon forecast — core mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_2017_carbon_macro.png" width="320"><br><sub>2017 carbon forecast — macro mode (SARIMA(X)/Prophet/LSTM/TFT vs. actual)</sub></td>
+</tr>
+</table>
+
+**Model ranking and combined comparisons:**
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_gas_core.png" width="320"><br><sub>Model ranking (polar) — gas, core</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_gas_macro.png" width="320"><br><sub>Model ranking (polar) — gas, macro</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_electricity_core.png" width="320"><br><sub>Model ranking (polar) — electricity, core</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_electricity_macro.png" width="320"><br><sub>Model ranking (polar) — electricity, macro</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_carbon_core.png" width="320"><br><sub>Model ranking (polar) — carbon, core</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/model_ranking_polar_carbon_macro.png" width="320"><br><sub>Model ranking (polar) — carbon, macro</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/forecast_vs_actual_gas.png" width="320"><br><sub>Gas: full history + 2017 forecast vs. actual</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_vs_actual_electricity.png" width="320"><br><sub>Electricity: full history + 2017 forecast vs. actual</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/forecast_vs_actual_carbon.png" width="320"><br><sub>Carbon (log-return): full history + 2017 forecast vs. actual</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/forecast_vs_actual_all_series.png" width="320"><br><sub>All three series, forecast vs. actual, combined</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/prediction_intervals_2017.png" width="320"><br><sub>2017 prediction intervals across models</sub></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### TS-SHAP Attribution (Stage 4b)
+
+Which lagged macro/target features drive each best-performing forecast model's 2017 predictions:
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/shap/carbon_lstm_core_attribution.png" width="320"><br><sub>Carbon — LSTM (core): attribution (mean |value| bar)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/carbon_lstm_core_heatmap.png" width="320"><br><sub>Carbon — LSTM (core): attribution heatmap (features × month)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/carbon_tft_macro_attention.png" width="320"><br><sub>Carbon — TFT (macro): attention weights</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/shap/carbon_tft_macro_attribution.png" width="320"><br><sub>Carbon — TFT (macro): attribution (mean |value| bar)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/electricity_lstm_macro_attribution.png" width="320"><br><sub>Electricity — LSTM (macro): attribution (mean |value| bar)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/electricity_lstm_macro_heatmap.png" width="320"><br><sub>Electricity — LSTM (macro): attribution heatmap (features × month)</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/shap/electricity_tft_core_attention.png" width="320"><br><sub>Electricity — TFT (core): attention weights</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/electricity_tft_core_attribution.png" width="320"><br><sub>Electricity — TFT (core): attribution (mean |value| bar)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/gas_prophet_macro_attribution.png" width="320"><br><sub>Gas — Prophet (macro): attribution (mean |value| bar)</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/shap/gas_prophet_macro_heatmap.png" width="320"><br><sub>Gas — Prophet (macro): attribution heatmap (features × month)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/gas_tft_core_attention.png" width="320"><br><sub>Gas — TFT (core): attention weights</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/shap/gas_tft_core_attribution.png" width="320"><br><sub>Gas — TFT (core): attribution (mean |value| bar)</sub></td>
+</tr>
+</table>
+
+---
+
+### FES Scenario-Based Signal Simulation (Stage 4)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/fes_monthly_2017.png" width="320"><br><sub>Monthly FES — equal/macro-weighted + actual baselines</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_components_2017.png" width="320"><br><sub>Z-score component decomposition across baselines</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_robustness_comparison.png" width="320"><br><sub>All 6 forecasted FES scenarios + 3 actual benchmarks, overlaid</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/fes_bayesian_uncertainty.png" width="320"><br><sub>Bayesian FES posterior ± 95% band</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_metrics_rmse_heatmap.png" width="320"><br><sub>RMSE: 6 forecasted scenarios vs. 3 actual benchmarks</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_metrics_pearson_r_heatmap.png" width="320"><br><sub>Pearson r: 6 forecasted scenarios vs. 3 actual benchmarks</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/fes_scenario_trajectories.png" width="320"><br><sub>Monthly trajectories, all 9 named FES scenarios (forecasted vs. realised)</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_scenario_annual_ranking.png" width="320"><br><sub>Annual mean FES per scenario, ranked by stress state</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_component_contribution_heatmap.png" width="320"><br><sub>Annual mean z-score contribution per series × baseline</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/figures/fes_forecast_actual_distance_heatmap.png" width="320"><br><sub>RMSE distance: 6 forecasted scenarios × 3 realised benchmarks</sub></td>
+<td align="center" width="33%"><img src="outputs/figures/fes_highaev_interpretation_matrix.png" width="320"><br><sub>FES scenario × stress state × dominant signal × HighAEV prevalence</sub></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### ENABLE Construct Validation (Route 1, Stage 6)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/enable_cleaned/figures/construct_missingness.png" width="320"><br><sub>Per-item missing rate</sub></td>
+<td align="center" width="33%"><img src="outputs/enable_cleaned/figures/construct_variability.png" width="320"><br><sub>Per-item std (grey = zero variance)</sub></td>
+<td align="center" width="33%"><img src="outputs/enable_cleaned/figures/construct_score_distributions.png" width="320"><br><sub>Construct score distributions: FCP, AEMC, BLI, TCR, AEV</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/construct_validation/figures/factor_loadings.png" width="320"><br><sub>EFA loadings, per construct</sub></td>
+<td align="center" width="33%"><img src="outputs/construct_validation/figures/reliability_ave_cr.png" width="320"><br><sub>Reliability: α, ω, CR, AVE</sub></td>
+<td align="center" width="33%"><img src="outputs/construct_validation/figures/htmt_matrix.png" width="320"><br><sub>HTMT discriminant-validity heatmap</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/construct_validation/figures/construct_correlation_matrix.png" width="320"><br><sub>Construct correlation matrix (Pearson r)</sub></td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### SEM / Mediation (Route 1, Stage 6)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/sem_mediation/figures/cor_path_diagram.png" width="320"><br><sub>COR path diagram (OLS coefficients)</sub></td>
+<td align="center" width="33%"><img src="outputs/sem_mediation/figures/cor_path_coefficients.png" width="320"><br><sub>Path coefficients, bar chart</sub></td>
+<td align="center" width="33%"><img src="outputs/sem_mediation/figures/mediation_effects.png" width="320"><br><sub>Indirect / direct / total effects, with CI</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/sem_mediation/figures/fes_context_bar.png" width="320"><br><sub>FES annual values, cross-baseline comparison</sub></td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### Unsupervised Latent Robustness (Route 1, Stage 6)
+
+Internal robustness check for Route 1 — are the theory-derived constructs recoverable from the data's own empirical structure (PCA / EFA / linear autoencoder)? Not a fourth route.
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/pca_scree.png" width="320"><br><sub>PCA scree plot</sub></td>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/latent_alignment_pca.png" width="320"><br><sub>Alignment heatmap: PCA vs. COR</sub></td>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/latent_alignment_efa.png" width="320"><br><sub>Alignment heatmap: EFA vs. COR</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/latent_alignment_linear_ae.png" width="320"><br><sub>Alignment heatmap: linear autoencoder vs. COR</sub></td>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/ae_bottleneck_sweep.png" width="320"><br><sub>Linear-AE bottleneck size sweep</sub></td>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/ae_reconstruction_loss.png" width="320"><br><sub>Linear-AE training reconstruction loss</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/ae_cor_alignment_heatmap.png" width="320"><br><sub>Linear-AE latent dims vs. Route 1 composites</sub></td>
+<td align="center" width="33%"><img src="outputs/unsupervised_latent_robustness/figures/ae_seed_stability.png" width="320"><br><sub>Linear-AE |r| alignment stability across seeds</sub></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### Route 2 — COR-Informed SEM (Stage 7)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/cor_sem/figures/cfa_loadings.png" width="320"><br><sub>Standardized CFA loadings, per factor</sub></td>
+<td align="center" width="33%"><img src="outputs/cor_sem/figures/cfa_fit_indices.png" width="320"><br><sub>CFI / TLI / RMSEA / SRMR vs. threshold</sub></td>
+<td align="center" width="33%"><img src="outputs/cor_sem/figures/structural_paths_2A.png" width="320"><br><sub>Second-order AEV structural loadings (flags Heywood cases)</sub></td>
+</tr>
+</table>
+
+---
+
+### Route 3 — COR-Informed VAE (Stage 8)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/cor_vae/figures/vae_training_curves.png" width="320"><br><sub>Total / reconstruction / KL / alignment loss curves</sub></td>
+<td align="center" width="33%"><img src="outputs/cor_vae/figures/vae_cor_alignment_heatmap.png" width="320"><br><sub>VAE latent dims vs. Route 1 composites</sub></td>
+<td align="center" width="33%"><img src="outputs/cor_vae/figures/vae_seed_stability.png" width="320"><br><sub>|r| alignment stability across seeds</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/cor_vae/figures/vae_prediction_curves.png" width="320"><br><sub>Prediction-head ROC + PR curves</sub></td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+---
+
+### Cross-Route Comparison (Stage 9)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/route_comparison/figures/cross_route_construct_agreement.png" width="320"><br><sub>Route 1 vs. 2 vs. 3: per-construct Pearson r heatmap</sub></td>
+<td align="center" width="33%"><img src="outputs/route_comparison/figures/cross_route_outcome_agreement.png" width="320"><br><sub>Route pairs: AEV Pearson r + HighAEV Cohen's kappa</sub></td>
+<td align="center" width="33%"><img src="outputs/route_comparison/figures/cross_route_aev_distributions.png" width="320"><br><sub>AEV proxy distribution overlay, all 3 routes</sub></td>
+</tr>
+</table>
+
+---
+
+### CatBoost Classification (Stage 10)
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/model_comparison_bar.png" width="320"><br><sub>Model comparison across variants — bar chart</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/model_comparison_heatmap.png" width="320"><br><sub>Model comparison across variants — metric heatmap</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/confusion_matrix.png" width="320"><br><sub>HighAEV confusion matrix (Controls_Only)</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/roc_curve.png" width="320"><br><sub>ROC curve</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/pr_curve.png" width="320"><br><sub>Precision–Recall curve</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/predicted_risk_distribution.png" width="320"><br><sub>Predicted probability by true AEV class</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/feature_importance_controls_only.png" width="320"><br><sub>CatBoost feature importance (PredictionValuesChange)</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/learning_curve_controls_only.png" width="320"><br><sub>Learning curve — train vs. validation AUC</sub></td>
+<td align="center" width="33%"><img src="outputs/ml_classification/figures/cv_overfitting_diagnostics.png" width="320"><br><sub>5-fold CV: train/test AUC and overfit gap per fold</sub></td>
+</tr>
+</table>
+
+---
+
+### SHAP Explainability (Stage 11)
+
+Run primarily on **Controls_Only** (the only fully generalizable model); also run on whichever route model scored best in a given pipeline execution (excluding the circular Route1_Composite / AllRoutes_Hybrid), which is why several route variants appear below across accumulated runs.
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/controls_only_shap_bar_importance.png" width="320"><br><sub>Controls-only: mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/controls_only_shap_beeswarm.png" width="320"><br><sub>Controls-only: SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/controls_only_shap_dependence_top_features.png" width="320"><br><sub>Controls-only: SHAP dependence, top-3 features</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/linear_ae_shap_bar_importance.png" width="320"><br><sub>Linear-autoencoder latent (best-route run): mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/linear_ae_shap_beeswarm.png" width="320"><br><sub>Linear-autoencoder latent (best-route run): SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/linear_ae_shap_dependence_top_features.png" width="320"><br><sub>Linear-autoencoder latent (best-route run): SHAP dependence, top-3 features</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/pca_shap_bar_importance.png" width="320"><br><sub>PCA latent (best-route run): mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/pca_shap_beeswarm.png" width="320"><br><sub>PCA latent (best-route run): SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/pca_shap_dependence_top_features.png" width="320"><br><sub>PCA latent (best-route run): SHAP dependence, top-3 features</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/route2_sem_shap_bar_importance.png" width="320"><br><sub>Route 2: CFA factor scores (best-route run): mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/route2_sem_shap_beeswarm.png" width="320"><br><sub>Route 2: CFA factor scores (best-route run): SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/route2_sem_shap_dependence_top_features.png" width="320"><br><sub>Route 2: CFA factor scores (best-route run): SHAP dependence, top-3 features</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/route3_vae_shap_bar_importance.png" width="320"><br><sub>Route 3: VAE latent means (best-route run): mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/route3_vae_shap_beeswarm.png" width="320"><br><sub>Route 3: VAE latent means (best-route run): SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/route3_vae_shap_dependence_top_features.png" width="320"><br><sub>Route 3: VAE latent means (best-route run): SHAP dependence, top-3 features</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="outputs/shap/figures/sem_cor_shap_bar_importance.png" width="320"><br><sub>SEM-COR (best-route run): mean |SHAP| bar chart (top 15)</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/sem_cor_shap_beeswarm.png" width="320"><br><sub>SEM-COR (best-route run): SHAP beeswarm</sub></td>
+<td align="center" width="33%"><img src="outputs/shap/figures/sem_cor_shap_dependence_top_features.png" width="320"><br><sub>SEM-COR (best-route run): SHAP dependence, top-3 features</sub></td>
+</tr>
+</table>
+
+---
+
 ## How to Run
 
 ### Run Everything
@@ -1173,7 +1446,7 @@ Columns: date | model | mode | forecast | lower_bound | upper_bound | actual
 | `forecast_vs_actual_carbon.png` | Same for carbon (log-return) |
 | `fes_monthly_2017.png` | Monthly FES for the equal/macro + actual baselines |
 | `fes_components_2017.png` | Z-score component decomposition across baselines |
-| `fes_robustness_variants.png` | All 6 forecasted FES scenarios + 3 actual benchmarks overlay |
+| `fes_robustness_comparison.png` | All 6 forecasted FES scenarios + 3 actual benchmarks overlay |
 | `fes_bayesian_uncertainty_core.png` | Bayesian FES posterior ± 95% band (core) |
 | `fes_bayesian_uncertainty_macro.png` | Bayesian FES posterior ± 95% band (macro) |
 | `fes_metrics_rmse_heatmap.png` | Heatmap: RMSE of 6 forecasted scenarios vs 3 actual benchmarks |
