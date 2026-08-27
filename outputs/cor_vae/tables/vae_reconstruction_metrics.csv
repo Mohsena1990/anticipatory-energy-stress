@@ -1,2 +1,0 @@
-n_complete_case,n_epochs_trained,recon_mse,recon_mae,kl_divergence,cor_alignment_loss,prediction_bce
-503,300,0.96123,0.69206,0.04956,0.35768,0.52118

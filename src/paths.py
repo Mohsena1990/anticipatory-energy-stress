@@ -19,6 +19,8 @@ ROOT: Path = Path(__file__).parent.parent
 RAW_DIR    = ROOT / "data" / "raw"
 SOCIAL_DIR = ROOT / "data" / "social_science_data"
 
+UKHLS_RAW_DIR    = RAW_DIR / "ukhls"
+
 GAS_FILE         = RAW_DIR / "gas.csv"
 ELECTRICITY_FILE = RAW_DIR / "electricity.csv"
 CARBON_FILE      = RAW_DIR / "Carbon Emissions Futures Historical Data UK.csv"
@@ -27,7 +29,6 @@ GDP_FILE         = RAW_DIR / "mgdp.csv"
 TEMPERATURE_FILE = RAW_DIR / "monthly-temperature-anomalies.csv"
 GAS_FUTURES_FILE = RAW_DIR / "UK NBP Natural Gas Quaterly Futures Historical Data UK.csv"
 ELEC_DEMAND_FILE = RAW_DIR / "historic_demand_2009_2024.csv"
-ENABLE_FILE      = SOCIAL_DIR / "ENABLE.EU_dataset_survey of households.xlsx"
 
 # =============================================================================
 # Processed intermediate data
@@ -42,96 +43,71 @@ MACRO_PROC_CSV    = PROCESSED_DIR / "macro_processed.csv"
 # Outputs — macro forecasting stream
 # =============================================================================
 OUTPUTS_DIR  = ROOT / "outputs"
-FORECAST_DIR = OUTPUTS_DIR / "macro_forecasts"   # renamed from outputs/forecasts
 FES_DIR      = OUTPUTS_DIR / "fes"
 
 FES_MONTHLY_FILE  = FES_DIR / "fes_monthly_2017.csv"
 FES_SUMMARY_FILE  = FES_DIR / "fes_annual_context.csv"
 FES_COMP_FILE     = FES_DIR / "fes_component_decomposition.csv"
-
-# FES scenario-based signal simulation (9 named scenarios — see src/fes_scenarios.py)
-FES_SCENARIO_SUMMARY_FILE   = FES_DIR / "fes_scenario_summary.csv"
-FES_SCENARIO_MONTHLY_FILE   = FES_DIR / "fes_scenario_monthly_states.csv"
-FES_SCENARIO_COMPARISON_FILE = FES_DIR / "fes_scenario_forecast_vs_actual_matrix.csv"
-FES_SCENARIO_NOTES_FILE     = FES_DIR / "fes_scenario_interpretation_notes.csv"
-
-# Scenario-conditioned interpretation of FES against HighAEV (interpretive
-# only — never a household-level prediction, see src/fes_scenarios.py)
-FES_HIGHAEV_OUT     = OUTPUTS_DIR / "fes_highaev_interpretation"
-FES_HIGHAEV_MATRIX  = FES_HIGHAEV_OUT / "scenario_highaev_interpretation_matrix.csv"
-
-# =============================================================================
-# Outputs — ENABLE household stream
-# =============================================================================
-ENABLE_OUT   = OUTPUTS_DIR / "enable_cleaned"
-ENABLE_CLEAN = ENABLE_OUT / "enable_uk_cleaned.csv"
-ENABLE_SCORED = ENABLE_OUT / "enable_aev_scored.csv"
+# Rolling walk-forward FES (forecast_pipeline.run_rolling): one row per
+# (as_of_year, target_year) -- consumed by
+# src.ukhls_preprocessing.attach_fes_delta to give each household-wave a
+# genuinely year-varying FES Magnitude instead of one fixed constant.
+FES_ROLLING_FILE  = FES_DIR / "fes_rolling_yearly.csv"
+# Same rolling walk-forward run, kept at its native 12-month-per-year
+# resolution instead of collapsed to one annual mean -- one row per
+# (as_of_year, target_year, target_month). Preferred over FES_ROLLING_FILE
+# when present, since UKHLS interview_month has ~100% coverage and this
+# gives each household-wave a FES Magnitude specific to its own interview
+# month rather than a single value shared by every wave in the same year.
+FES_ROLLING_MONTHLY_FILE = FES_DIR / "fes_rolling_monthly.csv"
+# Which of fes_core/fes_macro to use exclusively (lowest mean RMSE vs
+# realised FES across every rolling year) -- see
+# forecast_pipeline._select_best_fes_variant.
+FES_VARIANT_SELECTION_FILE = FES_DIR / "fes_variant_selection.csv"
 
 # =============================================================================
-# Outputs — construct validation
+# Outputs — UKHLS household panel stream (Study 6614, waves a-o)
 # =============================================================================
-CONSTRUCT_VAL   = OUTPUTS_DIR / "construct_validation"
-CV_TABLES       = CONSTRUCT_VAL / "tables"
-CV_FIGURES      = CONSTRUCT_VAL / "figures"
+UKHLS_OUT    = OUTPUTS_DIR / "ukhls_cleaned"
+UKHLS_PANEL  = UKHLS_OUT / "ukhls_panel.csv"
+
+# Stage 2a(ii) — dataset-overview/introduction figures (panel composition,
+# missingness, key-variable distributions) -- descriptive only, no modeling
+UKHLS_OVERVIEW_OUT     = OUTPUTS_DIR / "ukhls_dataset_overview"
+UKHLS_OVERVIEW_TABLES  = UKHLS_OVERVIEW_OUT / "tables"
+UKHLS_OVERVIEW_FIGURES = UKHLS_OVERVIEW_OUT / "figures"
+
+# Stage 2b — COR-SEM (Object/Condition/Personal/Energy -> Baseline Resource Stock)
+UKHLS_SEM_OUT     = OUTPUTS_DIR / "ukhls_cor_sem"
+UKHLS_SEM_TABLES  = UKHLS_SEM_OUT / "tables"
+UKHLS_SEM_FIGURES = UKHLS_SEM_OUT / "figures"
+
+# Stage 2c — FES-conditioned COR-CVAE
+UKHLS_CVAE_OUT     = OUTPUTS_DIR / "ukhls_cor_cvae"
+UKHLS_CVAE_TABLES  = UKHLS_CVAE_OUT / "tables"
+UKHLS_CVAE_FIGURES = UKHLS_CVAE_OUT / "figures"
+
+# Stage 3 — vulnerability identification (fuzzy c-means / one-class / CatBoost)
+UKHLS_VULN_OUT     = OUTPUTS_DIR / "ukhls_vulnerability"
+UKHLS_VULN_TABLES  = UKHLS_VULN_OUT / "tables"
+UKHLS_VULN_FIGURES = UKHLS_VULN_OUT / "figures"
+
+# Stage 4 — policy geography maps (real UK region boundaries, 12 GOR regions)
+UKHLS_POLICY_MAPS_OUT     = OUTPUTS_DIR / "ukhls_policy_maps"
+UKHLS_POLICY_MAPS_TABLES  = UKHLS_POLICY_MAPS_OUT / "tables"
+UKHLS_POLICY_MAPS_FIGURES = UKHLS_POLICY_MAPS_OUT / "figures"
 
 # =============================================================================
-# Outputs — SEM / mediation
+# Outputs — SEM / mediation. Only `ols_path` is actually imported/called from
+# src.sem_mediation (by src.ukhls_cor_sem); the other functions that reference
+# these paths (bootstrap_mediation, run(), plot_path_diagram, ...) are dead
+# code -- nothing currently reachable ever writes here. Not eagerly created
+# by ensure_dirs() any more (outputs/sem_mediation/ was confirmed empty and
+# removed); the constants stay only so src/sem_mediation.py's own
+# _save_csv/_save_fig helpers don't break if that dead code is ever revived.
 # =============================================================================
-SEM_OUT     = OUTPUTS_DIR / "sem_mediation"
-SEM_TABLES  = SEM_OUT / "tables"
-SEM_FIGURES = SEM_OUT / "figures"
-
-# =============================================================================
-# Outputs — unsupervised latent robustness
-# =============================================================================
-LATENT_OUT     = OUTPUTS_DIR / "unsupervised_latent_robustness"
-LATENT_TABLES  = LATENT_OUT / "tables"
-LATENT_FIGURES = LATENT_OUT / "figures"
-
-# =============================================================================
-# Outputs — unsupervised latent scores (per-household, for ML input)
-# =============================================================================
-LATENT_SCORES_PCA = LATENT_TABLES / "pca_scores.csv"
-LATENT_SCORES_EFA = LATENT_TABLES / "efa_scores.csv"
-LATENT_SCORES_AE  = LATENT_TABLES / "ae_scores.csv"
-
-# =============================================================================
-# Outputs — Route 2: COR-Informed SEM (CFA + structural model)
-# =============================================================================
-COR_SEM_OUT     = OUTPUTS_DIR / "cor_sem"
-COR_SEM_TABLES  = COR_SEM_OUT / "tables"
-COR_SEM_FIGURES = COR_SEM_OUT / "figures"
-LATENT_SCORES_ROUTE2_SEM = COR_SEM_TABLES / "route2_factor_scores.csv"
-
-# =============================================================================
-# Outputs — Route 3: COR-Informed VAE
-# =============================================================================
-COR_VAE_OUT     = OUTPUTS_DIR / "cor_vae"
-COR_VAE_TABLES  = COR_VAE_OUT / "tables"
-COR_VAE_FIGURES = COR_VAE_OUT / "figures"
-LATENT_SCORES_ROUTE3_VAE = COR_VAE_TABLES / "route3_vae_scores.csv"
-
-# =============================================================================
-# Outputs — cross-route comparison
-# =============================================================================
-ROUTE_COMPARISON_OUT     = OUTPUTS_DIR / "route_comparison"
-ROUTE_COMPARISON_TABLES  = ROUTE_COMPARISON_OUT / "tables"
-ROUTE_COMPARISON_FIGURES = ROUTE_COMPARISON_OUT / "figures"
-
-# =============================================================================
-# Outputs — supervised ML classification
-# =============================================================================
-ML_OUT     = OUTPUTS_DIR / "ml_classification"
-ML_TABLES  = ML_OUT / "tables"
-ML_FIGURES = ML_OUT / "figures"
-ML_PREDS   = ML_OUT / "enable_ml_predictions.csv"
-
-# =============================================================================
-# Outputs — SHAP explainability
-# =============================================================================
-SHAP_OUT     = OUTPUTS_DIR / "shap"
-SHAP_TABLES  = SHAP_OUT / "tables"
-SHAP_FIGURES = SHAP_OUT / "figures"
+SEM_TABLES  = OUTPUTS_DIR / "sem_mediation" / "tables"
+SEM_FIGURES = OUTPUTS_DIR / "sem_mediation" / "figures"
 
 # =============================================================================
 # Shared outputs
@@ -146,17 +122,13 @@ def ensure_dirs() -> None:
     """Create all output directories that do not already exist."""
     dirs = [
         PROCESSED_DIR,
-        FORECAST_DIR, FES_DIR,
-        FES_HIGHAEV_OUT,
-        ENABLE_OUT,
-        CV_TABLES, CV_FIGURES,
-        SEM_TABLES, SEM_FIGURES,
-        LATENT_TABLES, LATENT_FIGURES,
-        COR_SEM_TABLES, COR_SEM_FIGURES,
-        COR_VAE_TABLES, COR_VAE_FIGURES,
-        ROUTE_COMPARISON_TABLES, ROUTE_COMPARISON_FIGURES,
-        ML_TABLES, ML_FIGURES,
-        SHAP_TABLES, SHAP_FIGURES,
+        FES_DIR,
+        UKHLS_OUT,
+        UKHLS_OVERVIEW_TABLES, UKHLS_OVERVIEW_FIGURES,
+        UKHLS_SEM_TABLES, UKHLS_SEM_FIGURES,
+        UKHLS_CVAE_TABLES, UKHLS_CVAE_FIGURES,
+        UKHLS_VULN_TABLES, UKHLS_VULN_FIGURES,
+        UKHLS_POLICY_MAPS_TABLES, UKHLS_POLICY_MAPS_FIGURES,
         FIGURES_DIR, TABLES_DIR, LOGS_DIR,
     ]
     for d in dirs:

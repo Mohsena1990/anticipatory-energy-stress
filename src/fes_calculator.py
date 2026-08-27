@@ -1,10 +1,11 @@
 """
 fes_calculator.py
 ─────────────────
-Compute three Forecasted Energy-Carbon Stress (FES) indices for 2017.
+Compute the equal-weighted Forecasted Energy-Carbon Stress (FES) index for
+2017.
 
-Three analytical baselines
-──────────────────────────
+Two analytical baselines
+─────────────────────────
   FES_core   — built from core-only model forecasts (target series only)
   FES_macro  — built from macro-augmented model forecasts (core + exogenous)
   FES_actual — built from realised 2017 values (benchmark)
@@ -32,18 +33,16 @@ Outputs (CSV only)
   outputs/fes/fes_monthly_2017.csv       — 12 rows × all z-components + FES
   outputs/fes/fes_summary_2017.csv       — annual mean FES and components
   outputs/fes/fes_components_table.csv   — cross-baseline comparison table
-  outputs/figures/fes_monthly_2017.png   — FES time-series (3 variants)
+  outputs/figures/fes_monthly_2017.png   — FES time-series (equal-weight variants)
   outputs/figures/fes_components_2017.png — component breakdown bars
   outputs/figures/forecast_vs_actual_{series}.png  — per-series forecast plot
 
-FES scenario-based signal simulation
-─────────────────────────────────────
-The monthly DataFrame returned here (`fes_core`, `fes_macro`, the VW/Bayesian
-robustness variants, and the three `fes_actual_{A,B,C}` benchmarks) is also
-handed to `src.fes_scenarios.run_fes_scenario_simulation`, which treats all
-nine variants as named scenarios in a macro-level scenario-simulation layer
-— not household-level predictors. See `src/fes_scenarios.py` for the
-scenario tables and figures this produces.
+Simplified from an earlier version that also computed volatility-weighted
+(VW) and Bayesian-Kalman-filtered FES variants, plus a downstream 9-scenario
+simulation (`src/fes_scenarios.py`) and TS-SHAP attribution
+(`src/ts_shap.py`) — dropped as unused overhead; only the equal-weighted
+FES_core/FES_macro/FES_actual are produced now. `fes_scenarios.py` and
+`ts_shap.py` remain in the repo, unused, for reference.
 """
 
 from __future__ import annotations
@@ -96,9 +95,13 @@ def _load_forecast(
         return None
 
 
-def _training_stats(core_df: pd.DataFrame) -> dict:
+def _training_stats(
+    core_df: pd.DataFrame, train_start: str = TRAIN_START, train_end: str = TRAIN_END,
+) -> dict:
     """
-    Per-series training-period (2005-2017) statistics for z-scoring.
+    Per-series training-period statistics for z-scoring. Defaults reproduce
+    the original single-year window; a rolling walk-forward caller passes
+    a different (train_start, train_end) per year.
 
     Returns
     -------
@@ -108,7 +111,7 @@ def _training_stats(core_df: pd.DataFrame) -> dict:
     (used as the reference for forecast PI half-width z-scores).
     """
     train = core_df[
-        (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+        (core_df["date"] >= train_start) & (core_df["date"] <= train_end)
     ].set_index("date")
 
     stats: dict = {}
@@ -163,113 +166,6 @@ def _zscore_array(x: np.ndarray, mean: float, std: float) -> np.ndarray:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Robustness: Volatility-Weighted FES
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _vw_weights(stats: dict) -> dict:
-    """
-    Inverse-volatility weights: w_j = (1/σ_j) / Σ_k (1/σ_k).
-    Less volatile series receive a higher weight — prevents high-σ series
-    (e.g. carbon) from dominating the equal-weight index.
-    """
-    inv = {s: 1.0 / max(stats[s]["std"], 1e-10) for s in SERIES}
-    total = sum(inv.values())
-    return {s: v / total for s, v in inv.items()}
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Robustness: Bayesian FES (scalar Kalman filter state-space model)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _estimate_kalman_params(z_matrix: np.ndarray) -> tuple:
-    """
-    Estimate Kalman process and observation noise from a training z-score matrix.
-
-    Parameters
-    ----------
-    z_matrix : (T, n_series) — training-period z-scored component values
-
-    Returns
-    -------
-    (sigma_process, sigma_obs) — noise standard deviations
-    """
-    mean_z = np.nanmean(z_matrix, axis=1)          # common-signal proxy (T,)
-    valid  = ~np.isnan(mean_z)
-    if valid.sum() > 2:
-        diffs    = np.diff(mean_z[valid])
-        sigma_Q  = float(np.std(diffs, ddof=1))
-    else:
-        sigma_Q  = 0.3
-
-    residuals = z_matrix - mean_z[:, None]
-    flat_res  = residuals[~np.all(np.isnan(residuals), axis=1)].ravel()
-    sigma_R   = float(np.nanstd(flat_res)) if flat_res.size > 0 else 0.5
-
-    return max(sigma_Q, 0.05), max(sigma_R, 0.05)
-
-
-def _kalman_filter_fes(
-    observations: np.ndarray,
-    sigma_process: float = 0.3,
-    sigma_obs: float     = 0.5,
-) -> tuple:
-    """
-    Scalar Kalman filter for a latent FES state observed through n noisy signals.
-
-    State-space model
-    -----------------
-      FES_t   = FES_{t-1} + w_t,   w_t ~ N(0, σ_Q²)   [random walk]
-      z_j,t   = FES_t + v_j,t,     v_j,t ~ N(0, σ_R²)  [per-series noise]
-
-    With n_v valid observations at time t the effective obs noise is σ_R²/n_v
-    (information pooling: averaging n_v independent signals).
-
-    Parameters
-    ----------
-    observations  : (T, n_series) z-scored values; NaN = series missing
-    sigma_process : process noise std (magnitude of month-to-month FES change)
-    sigma_obs     : per-series observation noise std
-
-    Returns
-    -------
-    (filtered_means, filtered_stds) — posterior FES estimates, each shape (T,)
-    """
-    T, _ = observations.shape
-    Q    = sigma_process ** 2
-    R    = sigma_obs ** 2
-
-    x_t = 0.0   # diffuse prior: neutral FES level
-    P_t = 1.0   # high initial uncertainty
-
-    x_filt = np.zeros(T)
-    P_filt = np.zeros(T)
-
-    for t in range(T):
-        y   = observations[t]
-        n_v = int((~np.isnan(y)).sum())
-
-        # Predict
-        x_pred = x_t
-        P_pred = P_t + Q
-
-        # Update
-        if n_v > 0:
-            y_mean  = float(np.nanmean(y))
-            eff_R   = R / n_v                          # pooled obs noise
-            K       = P_pred / (P_pred + eff_R)        # Kalman gain ∈ (0,1)
-            x_t     = x_pred + K * (y_mean - x_pred)  # posterior mean
-            P_t     = max((1.0 - K) * P_pred, 1e-8)   # posterior variance
-        else:
-            x_t = x_pred
-            P_t = P_pred
-
-        x_filt[t] = x_t
-        P_filt[t] = P_t
-
-    return x_filt, np.sqrt(P_filt)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # Three actual FES benchmarks (options A / B / C)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -277,6 +173,8 @@ def _compute_actual_fes_variants(
     monthly_df: pd.DataFrame,
     stats: dict,
     core_df: pd.DataFrame,
+    train_start: str = TRAIN_START,
+    train_end: str = TRAIN_END,
 ) -> pd.DataFrame:
     """
     Compute three alternative volatility proxies for the uncertainty term in
@@ -313,7 +211,7 @@ def _compute_actual_fes_variants(
 
     # Option C: absolute shock vs training distribution
     train = core_df[
-        (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+        (core_df["date"] >= train_start) & (core_df["date"] <= train_end)
     ].set_index("date")
     z_train_parts = []
     for s in SERIES:
@@ -365,10 +263,6 @@ def _compare_fes_variants(monthly_df: pd.DataFrame) -> pd.DataFrame:
     forecasted = {
         "Equal_Core":   "fes_core",
         "Equal_Macro":  "fes_macro",
-        "VW_Core":      "fes_vw_core",
-        "VW_Macro":     "fes_vw_macro",
-        "Bayes_Core":   "fes_bayes_core",
-        "Bayes_Macro":  "fes_bayes_macro",
     }
     actuals = {
         "Actual_RollingVol": "fes_actual_A",
@@ -441,17 +335,34 @@ def compute_fes(
     forecast_dir: str = "outputs/forecasts",
     out_dir: str = "outputs/fes",
     figures_dir: str = "outputs/figures",
+    train_start: str = TRAIN_START,
+    train_end: str = TRAIN_END,
+    forecast_dates: pd.DatetimeIndex = FORECAST_DATES,
+    skip_diagnostics: bool = False,
 ) -> pd.DataFrame:
     """
-    Compute FES_core, FES_macro, FES_actual for each month of 2017.
+    Compute FES_core, FES_macro, FES_actual for each month of the forecast
+    target window.
 
     Parameters
     ----------
-    ranked_df    : model_evaluation output (used to pick best model per series/mode)
-    core_csv     : path to Dataset A (2005-2017 actual values)
-    forecast_dir : directory containing per-model-mode forecast CSVs
-    out_dir      : where to save FES CSVs
-    figures_dir  : where to save PNG figures
+    ranked_df       : model_evaluation output (used to pick best model per series/mode)
+    core_csv        : path to Dataset A (realised values)
+    forecast_dir    : directory containing per-model-mode forecast CSVs
+    out_dir         : where to save FES CSVs
+    figures_dir     : where to save PNG figures
+    train_start/train_end : z-scoring reference window (defaults reproduce
+                      the original 2005-2016 single-year window)
+    forecast_dates  : the 12-month target window (default: 2017); a rolling
+                      walk-forward caller passes a different window per year
+    skip_diagnostics : if True, skip all figure generation and the
+                      summary/component tables -- still computes and saves
+                      the monthly z-score DataFrame AND the cross-baseline
+                      comparison metrics (cheap, no plotting; needed by the
+                      rolling loop's FES-variant selection). Used by the
+                      rolling walk-forward loop (run_rolling), where
+                      generating the full ~15-figure diagnostic set once
+                      per year x ~15 years would be excessive output volume.
 
     Returns
     -------
@@ -463,36 +374,7 @@ def compute_fes(
     # ── Load data ─────────────────────────────────────────────────────────────
     core_df = pd.read_csv(core_csv, parse_dates=["date"])
     best    = _find_best_models(ranked_df)
-    stats   = _training_stats(core_df)
-
-    # ── VW weights ────────────────────────────────────────────────────────────
-    vw_weights_map = _vw_weights(stats)
-    log.info("VW weights: %s", {s: round(w, 4) for s, w in vw_weights_map.items()})
-
-    # ── Training z-matrix for Kalman parameter estimation ────────────────────
-    _train_sub = core_df[
-        (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
-    ].set_index("date")
-    _z_parts = []
-    for _s in SERIES:
-        _col = f"{_s}_growth"
-        if _col in _train_sub.columns:
-            _z_parts.append(
-                _zscore_array(
-                    _train_sub[_col].ffill().fillna(0.0).values.astype(float),
-                    stats[_s]["mean"], stats[_s]["std"],
-                )
-            )
-    _lens = [len(a) for a in _z_parts]
-    if _z_parts and len(set(_lens)) == 1:
-        _z_train_mat = np.column_stack(_z_parts)
-    else:
-        _z_train_mat = np.zeros((max(_lens or [144]), max(len(_z_parts), 3)))
-    _sigma_Q, _sigma_R = _estimate_kalman_params(_z_train_mat)
-    log.info("Kalman params: σ_process=%.4f, σ_obs=%.4f", _sigma_Q, _sigma_R)
-
-    # ── Storage for Bayesian z-matrices (filled in monthly loop) ─────────────
-    _z_fc_matrices: dict = {m: np.full((12, len(SERIES)), np.nan) for m in MODES}
+    stats   = _training_stats(core_df, train_start, train_end)
 
     # ── Build per-series forecast arrays ─────────────────────────────────────
     # Storage: {(series, mode): DataFrame}
@@ -507,15 +389,16 @@ def compute_fes(
             if df is not None:
                 forecasts[(series, mode)] = df
 
-    # ── Extract actual 2017 values ────────────────────────────────────────────
+    # ── Extract actual target-window values ───────────────────────────────────
     actual_2017: dict = {}
+    target_start, target_end = forecast_dates.min(), forecast_dates.max()
     for series in SERIES:
         col = f"{series}_growth"
         sub = core_df[
-            (core_df["date"] >= "2017-01-01") & (core_df["date"] <= "2017-12-01")
+            (core_df["date"] >= target_start) & (core_df["date"] <= target_end)
         ].set_index("date")
         if col in sub.columns:
-            actual_2017[series] = sub[col].reindex(FORECAST_DATES).values
+            actual_2017[series] = sub[col].reindex(forecast_dates).values
         else:
             # Try to get from forecast CSV actual column
             for mode in MODES:
@@ -523,17 +406,17 @@ def compute_fes(
                 if key in forecasts and "actual" in forecasts[key].columns:
                     actual_2017[series] = (
                         forecasts[key].set_index("date")["actual"]
-                        .reindex(FORECAST_DATES).values
+                        .reindex(forecast_dates).values
                     )
                     break
             else:
-                log.warning(f"No actual 2017 data for {series}; using NaN")
+                log.warning(f"No actual target-window data for {series}; using NaN")
                 actual_2017[series] = np.full(12, np.nan)
 
     # ── Compute z-scores for each component and variant ───────────────────────
     monthly_rows = []
 
-    for i, date in enumerate(FORECAST_DATES):
+    for i, date in enumerate(forecast_dates):
         row: dict = {"date": date}
 
         # ── FES_core and FES_macro ────────────────────────────────────────────
@@ -582,33 +465,6 @@ def compute_fes(
             fes_val = float(np.nansum(z_vals) + z_unc_agg)
             row[f"fes_{mode}"] = round(fes_val, 5)
 
-            # ── VW-FES ───────────────────────────────────────────────────────
-            _wts  = np.array([vw_weights_map[s] for s in SERIES], dtype=float)
-            _zv   = np.array(z_vals, dtype=float)
-            _zu   = np.array(z_unc,  dtype=float)
-            _ok_z = ~np.isnan(_zv)
-            _ok_u = ~np.isnan(_zu)
-            if _ok_z.sum() > 0:
-                _w_z       = _wts[_ok_z] / _wts[_ok_z].sum()
-                _z_vw_val  = float(np.dot(_w_z, _zv[_ok_z]))
-            else:
-                _z_vw_val  = np.nan
-            if _ok_u.sum() > 0:
-                _w_u       = _wts[_ok_u] / _wts[_ok_u].sum()
-                _z_vw_unc  = float(np.dot(_w_u, _zu[_ok_u]))
-            else:
-                _z_vw_unc  = 0.0
-            _fes_vw = _z_vw_val + _z_vw_unc if not np.isnan(_z_vw_val) else np.nan
-            row[f"fes_vw_{mode}"] = (
-                round(_fes_vw, 5) if not np.isnan(_fes_vw) else np.nan
-            )
-
-            # ── Store z-scores for Bayesian filter ───────────────────────────
-            for _j in range(len(SERIES)):
-                _z_fc_matrices[mode][i, _j] = (
-                    float(_zv[_j]) if not np.isnan(_zv[_j]) else np.nan
-                )
-
         # ── FES_actual ────────────────────────────────────────────────────────
         z_actual = []
         for series in SERIES:
@@ -642,29 +498,18 @@ def compute_fes(
 
     monthly_df = pd.DataFrame(monthly_rows)
 
-    # ── Bayesian FES (Kalman filter on forecasted z-score matrices) ───────────
-    for _mode in MODES:
-        _x_filt, _std_filt = _kalman_filter_fes(
-            _z_fc_matrices[_mode], _sigma_Q, _sigma_R
-        )
-        monthly_df[f"fes_bayes_{_mode}"]     = np.round(_x_filt, 5)
-        monthly_df[f"fes_bayes_{_mode}_std"] = np.round(_std_filt, 5)
-        monthly_df[f"fes_bayes_{_mode}_lb"]  = np.round(_x_filt - 1.96 * _std_filt, 5)
-        monthly_df[f"fes_bayes_{_mode}_ub"]  = np.round(_x_filt + 1.96 * _std_filt, 5)
-        log.info(
-            "[Bayesian FES %s] mean=%.4f, mean_CI_half=%.4f",
-            _mode, float(_x_filt.mean()), float((1.96 * _std_filt).mean()),
-        )
-
     # ── Three actual FES variants ─────────────────────────────────────────────
-    monthly_df = _compute_actual_fes_variants(monthly_df, stats, core_df)
+    monthly_df = _compute_actual_fes_variants(monthly_df, stats, core_df, train_start, train_end)
 
     # ── Save monthly CSV ──────────────────────────────────────────────────────
-    monthly_path = f"{out_dir}/fes_monthly_2017.csv"
+    target_year = int(forecast_dates[0].year)
+    monthly_path = f"{out_dir}/fes_monthly_{target_year}.csv"
     monthly_df.to_csv(monthly_path, index=False)
     log.info(f"Monthly FES saved → {monthly_path}")
 
-    # ── Comparison metrics ────────────────────────────────────────────────────
+    # ── Comparison metrics (cheap, no plotting -- kept even under
+    # skip_diagnostics since the rolling walk-forward's FES-variant
+    # selection needs these numbers per year) ─────────────────────────────────
     comparison_df = _compare_fes_variants(monthly_df)
     comp_path = f"{out_dir}/fes_comparison_metrics.csv"
     comparison_df.to_csv(comp_path, index=False)
@@ -673,6 +518,9 @@ def compute_fes(
         best_rmse = comparison_df.groupby("FES_variant")["RMSE"].min()
         log.info("Best RMSE per variant:\n%s", best_rmse.to_string())
 
+    if skip_diagnostics:
+        return monthly_df
+
     # ── Build summary / component table ──────────────────────────────────────
     _save_summary(monthly_df, out_dir)
     _save_component_table(monthly_df, best, out_dir)
@@ -680,17 +528,11 @@ def compute_fes(
     # ── Generate figures ──────────────────────────────────────────────────────
     _plot_fes_comparison(monthly_df, figures_dir)
     _plot_fes_components(monthly_df, figures_dir)
-    _plot_forecasts_vs_actual(forecasts, actual_2017, core_df, best, figures_dir)
+    _plot_forecasts_vs_actual(
+        forecasts, actual_2017, core_df, best, figures_dir,
+        train_start=train_start, train_end=train_end, forecast_dates=forecast_dates,
+    )
 
-    # Robustness comparison plots
-    try:
-        _plot_fes_robustness(monthly_df, figures_dir)
-    except Exception as e:
-        log.warning(f"Robustness plot failed: {e}")
-    try:
-        _plot_bayesian_uncertainty(monthly_df, figures_dir)
-    except Exception as e:
-        log.warning(f"Bayesian uncertainty plot failed: {e}")
     try:
         _plot_metrics_heatmap(comparison_df, figures_dir)
     except Exception as e:
@@ -708,18 +550,18 @@ def compute_fes(
         from src.plotting_utils import plot_prediction_intervals
         plot_prediction_intervals(
             forecast_dir=forecast_dir,
-            out_path=f"{figures_dir}/prediction_intervals_2017.png",
+            out_path=f"{figures_dir}/prediction_intervals_{target_year}.png",
         )
     except Exception as e:
         log.warning(f"PI figure failed: {e}")
 
-    # ── 6 static 2017 model-comparison figures (3 series × 2 modes) ──────────
+    # ── 6 static target-year model-comparison figures (3 series × 2 modes) ───
     try:
         from src.plotting_utils import plot_all_2017_comparisons
         plot_all_2017_comparisons(forecast_dir, figures_dir)
-        log.info("Static 2017 comparison figures complete")
+        log.info("Static target-year comparison figures complete")
     except Exception as e:
-        log.warning(f"Static 2017 comparison figures failed: {e}")
+        log.warning(f"Static target-year comparison figures failed: {e}")
     # ── 6 interactive HTML timeline figures (3 series × 2 modes) ─────────────
     try:
         from src.plotting_utils import plot_all_interactive_forecasts
@@ -727,16 +569,6 @@ def compute_fes(
         log.info("Interactive timeline figures complete")
     except Exception as e:
         log.warning(f"Interactive timeline figures failed: {e}")
-
-    # ── FES scenario-based signal simulation (9 named scenarios) ──────────────
-    # Macro-context robustness/interpretation layer only — never a household
-    # feature (see src.route_utils.exclude_fes_columns).
-    try:
-        from src.fes_scenarios import run_fes_scenario_simulation
-        run_fes_scenario_simulation(monthly_df, out_dir=out_dir, figures_dir=figures_dir)
-        log.info("FES scenario-based signal simulation complete")
-    except Exception as e:
-        log.warning(f"FES scenario simulation failed: {e}")
 
     return monthly_df
 
@@ -779,20 +611,6 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
             "component": "FES_TOTAL",
             "z_mean":    round(float(np.nanmean(fes_vals)), 5),
         })
-
-    # VW and Bayesian variants (FES total only — no per-component z columns)
-    for variant_col, variant_label in [
-        ("fes_vw_core",    "vw_core"),
-        ("fes_vw_macro",   "vw_macro"),
-        ("fes_bayes_core", "bayes_core"),
-        ("fes_bayes_macro","bayes_macro"),
-    ]:
-        if variant_col in monthly_df.columns:
-            rows.append({
-                "variant":   variant_label,
-                "component": "FES_TOTAL",
-                "z_mean":    round(float(np.nanmean(monthly_df[variant_col].values)), 5),
-            })
 
     summary_df = pd.DataFrame(rows)
     path = f"{out_dir}/fes_summary_2017.csv"
@@ -1011,30 +829,34 @@ def _plot_forecasts_vs_actual(
     core_df: pd.DataFrame,
     best: dict,
     figures_dir: str,
+    train_start: str = TRAIN_START,
+    train_end: str = TRAIN_END,
+    forecast_dates: pd.DatetimeIndex = FORECAST_DATES,
 ) -> None:
     """
     One 3-panel figure showing all three series, core and macro forecasts,
-    actual 2017 values, plus the historical 2005-2017 baseline.
+    actual target-year values, plus the historical training-window baseline.
     """
     fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=False)
     fig.patch.set_facecolor("white")
 
     months = MONTHS_SHORT
+    target_year = int(forecast_dates[0].year)
 
     for ax, series in zip(axes, SERIES):
         ax.set_facecolor("white")
         col = f"{series}_growth"
 
-        # Historical 2005-2017
+        # Historical training window
         hist = core_df[
-            (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+            (core_df["date"] >= train_start) & (core_df["date"] <= train_end)
         ].set_index("date")[col]
         if not hist.empty:
             ax.plot(hist.index, hist.values, color=_PALETTE[series],
-                    linewidth=1.5, alpha=0.6, label="Historical 2005–2016")
+                    linewidth=1.5, alpha=0.6, label=f"Historical {train_start[:4]}–{train_end[:4]}")
 
         x = np.arange(12)
-        fc_dates = FORECAST_DATES
+        fc_dates = forecast_dates
 
         for mode, ls, col_mode in [("core", "-", _PALETTE["core"]),
                                     ("macro", "--", _PALETTE["macro"])]:
@@ -1050,14 +872,14 @@ def _plot_forecasts_vs_actual(
                         label=f"Forecast {mode} ({model})")
                 ax.fill_between(fc_dates, lb, ub, alpha=0.12, color=col_mode)
 
-        # Actual 2017
+        # Actual target-year values
         act = actual_2017.get(series, np.full(12, np.nan))
         if not np.all(np.isnan(act)):
             ax.plot(fc_dates, act, color="#2C3E50", linestyle="none",
                     marker="o", markersize=5, zorder=5,
-                    label="Actual 2017")
+                    label=f"Actual {target_year}")
 
-        ax.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
+        ax.axvline(fc_dates.min(), color="#BDC3C7",
                    linewidth=1.0, linestyle=":")
         ax.set_title(f"{series.capitalize()} Growth (% YoY)",
                      fontsize=12, fontweight="bold")
@@ -1068,7 +890,7 @@ def _plot_forecasts_vs_actual(
         ax.axhline(0, color="#BDC3C7", linewidth=0.7)
 
     fig.suptitle(
-        "UK Energy–Carbon Forecast vs Actual 2017  "
+        f"UK Energy–Carbon Forecast vs Actual {target_year}  "
         "(core-only | macro-augmented | realised values)",
         fontsize=13, fontweight="bold", y=1.01,
     )
@@ -1079,7 +901,7 @@ def _plot_forecasts_vs_actual(
     for series in SERIES:
         col = f"{series}_growth"
         hist = core_df[
-            (core_df["date"] >= TRAIN_START) & (core_df["date"] <= TRAIN_END)
+            (core_df["date"] >= train_start) & (core_df["date"] <= train_end)
         ].set_index("date")[col]
         act  = actual_2017.get(series, np.full(12, np.nan))
 
@@ -1089,27 +911,27 @@ def _plot_forecasts_vs_actual(
 
         if not hist.empty:
             ax2.plot(hist.index, hist.values, color=_PALETTE[series],
-                     linewidth=1.8, label="Historical 2005–2016")
+                     linewidth=1.8, label=f"Historical {train_start[:4]}–{train_end[:4]}")
 
         for mode, ls, col_mode in [("core", "-", _PALETTE["core"]),
                                     ("macro", "--", _PALETTE["macro"])]:
             key = (series, mode)
             if key in forecasts:
                 df_fc = forecasts[key].set_index("date")
-                fc = df_fc["forecast"].reindex(FORECAST_DATES).values
-                lb = df_fc["lower_bound"].reindex(FORECAST_DATES).values
-                ub = df_fc["upper_bound"].reindex(FORECAST_DATES).values
+                fc = df_fc["forecast"].reindex(forecast_dates).values
+                lb = df_fc["lower_bound"].reindex(forecast_dates).values
+                ub = df_fc["upper_bound"].reindex(forecast_dates).values
                 model = best.get(key, "?")
-                ax2.plot(FORECAST_DATES, fc, color=col_mode, linestyle=ls,
+                ax2.plot(forecast_dates, fc, color=col_mode, linestyle=ls,
                          linewidth=2, marker="o", markersize=5,
                          label=f"Forecast {mode} ({model})")
-                ax2.fill_between(FORECAST_DATES, lb, ub, alpha=0.15, color=col_mode)
+                ax2.fill_between(forecast_dates, lb, ub, alpha=0.15, color=col_mode)
 
         if not np.all(np.isnan(act)):
-            ax2.plot(FORECAST_DATES, act, color="#2C3E50", linestyle="none",
-                     marker="o", markersize=5, zorder=5, label="Actual 2017")
+            ax2.plot(forecast_dates, act, color="#2C3E50", linestyle="none",
+                     marker="o", markersize=5, zorder=5, label=f"Actual {target_year}")
 
-        ax2.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7",
+        ax2.axvline(forecast_dates.min(), color="#BDC3C7",
                     linewidth=1.0, linestyle=":")
         ax2.axhline(0, color="#BDC3C7", linewidth=0.7)
         ax2.set_title(
@@ -1126,107 +948,6 @@ def _plot_forecasts_vs_actual(
 # ══════════════════════════════════════════════════════════════════════════════
 # Robustness figures
 # ══════════════════════════════════════════════════════════════════════════════
-
-def _plot_fes_robustness(monthly_df: pd.DataFrame, figures_dir: str) -> None:
-    """Two-panel chart: all forecasted FES variants (top) and actual benchmarks (bottom)."""
-    fig, axes = plt.subplots(2, 1, figsize=(14, 11), sharex=True)
-    fig.patch.set_facecolor("white")
-    months = MONTHS_SHORT[:len(monthly_df)]
-
-    # ── Top: forecasted variants ──────────────────────────────────────────────
-    ax = axes[0]
-    ax.set_facecolor("white")
-    top_series = [
-        ("fes_core",        "Equal-Weight Core",  _PALETTE["core"],   "-",  "o"),
-        ("fes_macro",       "Equal-Weight Macro",  _PALETTE["macro"],  "--", "s"),
-        ("fes_vw_core",     "VW Core",            "#9B59B6",           "-",  "^"),
-        ("fes_vw_macro",    "VW Macro",           "#E91E63",           "--", "v"),
-        ("fes_bayes_core",  "Bayesian Core",      "#00ACC1",           "-.", "D"),
-        ("fes_bayes_macro", "Bayesian Macro",     "#FF6F00",           ":",  "P"),
-    ]
-    for col, label, colour, ls, marker in top_series:
-        if col in monthly_df.columns:
-            ax.plot(months, monthly_df[col].values, color=colour, linestyle=ls,
-                    linewidth=2.0, marker=marker, markersize=5, label=label)
-    for _mode, _c in [("core", "#00ACC1"), ("macro", "#FF6F00")]:
-        lb_c = f"fes_bayes_{_mode}_lb"
-        ub_c = f"fes_bayes_{_mode}_ub"
-        if lb_c in monthly_df.columns and ub_c in monthly_df.columns:
-            ax.fill_between(months, monthly_df[lb_c].values, monthly_df[ub_c].values,
-                            alpha=0.09, color=_c)
-    ax.axhline(0, color="#95A5A6", linewidth=0.9)
-    ax.set_title("Forecasted FES Robustness Variants — 2017 Monthly", fontsize=12, fontweight="bold")
-    ax.set_ylabel("FES (z-score sum)", fontsize=10)
-    ax.legend(fontsize=8, loc="upper left", ncol=2)
-    ax.grid(True, color=_PALETTE["grid"], linewidth=0.7)
-
-    # ── Bottom: actual FES benchmarks ────────────────────────────────────────
-    ax2 = axes[1]
-    ax2.set_facecolor("white")
-    bot_series = [
-        ("fes_actual_A", "Actual A — Rolling Volatility",  "#2C3E50", "-",  "o"),
-        ("fes_actual_B", "Actual B — Cross-Component Std", "#E74C3C", "--", "s"),
-        ("fes_actual_C", "Actual C — Absolute Shock",      "#27AE60", "-.", "^"),
-    ]
-    for col, label, colour, ls, marker in bot_series:
-        if col in monthly_df.columns:
-            ax2.plot(months, monthly_df[col].values, color=colour, linestyle=ls,
-                     linewidth=2.0, marker=marker, markersize=5, label=label)
-    ax2.axhline(0, color="#95A5A6", linewidth=0.9)
-    ax2.set_title("Actual FES Benchmarks — Three Volatility Options (2017)", fontsize=12, fontweight="bold")
-    ax2.set_xlabel("Month (2017)", fontsize=10)
-    ax2.set_ylabel("FES (z-score sum)", fontsize=10)
-    ax2.legend(fontsize=9, loc="upper left")
-    ax2.grid(True, color=_PALETTE["grid"], linewidth=0.7)
-
-    fig.suptitle("FES Robustness Analysis — All Variants and Benchmarks",
-                 fontsize=14, fontweight="bold", y=1.01)
-    plt.tight_layout()
-    _save_fig(fig, f"{figures_dir}/fes_robustness_comparison.png")
-
-
-def _plot_bayesian_uncertainty(monthly_df: pd.DataFrame, figures_dir: str) -> None:
-    """Bayesian FES with 95% posterior credible intervals."""
-    fig, ax = plt.subplots(figsize=(13, 5))
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-    months = MONTHS_SHORT[:len(monthly_df)]
-
-    bayes_styles = {"core": ("#00ACC1", "-", "D"), "macro": ("#FF6F00", "--", "P")}
-    for _mode, (_c, _ls, _mk) in bayes_styles.items():
-        col = f"fes_bayes_{_mode}"
-        lb  = f"fes_bayes_{_mode}_lb"
-        ub  = f"fes_bayes_{_mode}_ub"
-        if col in monthly_df.columns:
-            ax.plot(months, monthly_df[col].values, color=_c, linestyle=_ls,
-                    linewidth=2.2, marker=_mk, markersize=5,
-                    label=f"Bayesian FES ({_mode})")
-            if lb in monthly_df.columns and ub in monthly_df.columns:
-                ax.fill_between(months, monthly_df[lb].values, monthly_df[ub].values,
-                                alpha=0.18, color=_c, label=f"95 % CI ({_mode})")
-
-    # Reference equal-weight lines
-    for _mode, _c, _ls in [("core", _PALETTE["core"], "-"),
-                            ("macro", _PALETTE["macro"], "--")]:
-        col = f"fes_{_mode}"
-        if col in monthly_df.columns:
-            ax.plot(months, monthly_df[col].values, color=_c, linestyle=_ls,
-                    linewidth=1.2, alpha=0.4, label=f"Equal-Weight ({_mode})")
-
-    if "fes_actual_B" in monthly_df.columns:
-        ax.plot(months, monthly_df["fes_actual_B"].values, color=_PALETTE["actual"],
-                linestyle=":", linewidth=1.5, marker="o", markersize=4,
-                label="Actual FES (cross-component)")
-
-    ax.axhline(0, color="#95A5A6", linewidth=0.9)
-    ax.set_title("Bayesian FES — Posterior Estimates with 95 % Credible Intervals (2017)",
-                 fontsize=13, fontweight="bold", pad=12)
-    ax.set_xlabel("Month (2017)", fontsize=11)
-    ax.set_ylabel("Latent FES (z-score)", fontsize=11)
-    ax.legend(fontsize=9, loc="upper left", ncol=2)
-    ax.grid(True, color=_PALETTE["grid"], linewidth=0.7)
-    _save_fig(fig, f"{figures_dir}/fes_bayesian_uncertainty.png")
-
 
 def _plot_metrics_heatmap(comparison_df: pd.DataFrame, figures_dir: str) -> None:
     """Heatmaps of RMSE and Pearson r for each forecasted FES × actual benchmark."""

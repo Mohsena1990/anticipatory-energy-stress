@@ -552,7 +552,7 @@ def run_lstm(
         seed_data = full_target_scaled
 
     seed_window = seed_data[-lookback:].astype(np.float32)
-    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+    forecast_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=12, freq="MS")
 
     if use_macro:
         future_macro_scaled = _transform_macro(

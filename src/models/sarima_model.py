@@ -149,7 +149,9 @@ def run_sarima(
         exog_test  = _align_macro(macro_full,  test.index, series_name)
         exog_full  = _align_macro(macro_full,  full.index, series_name)
 
-        dates_2017 = pd.date_range("2017-01-01", periods=12, freq="MS")
+        dates_2017 = pd.date_range(
+            full.index.max() + pd.DateOffset(months=1), periods=FORECAST_PERIODS, freq="MS"
+        )
         exog_2017  = _align_macro(macro_full, dates_2017, series_name)
         log.info(f"[SARIMA-MACRO] Using exogenous: {_exog_col_names}")
 
@@ -195,7 +197,9 @@ def run_sarima(
     ci_2017    = fcast_2017.conf_int(alpha=ALPHA).values
     lb_2017    = ci_2017[:, 0]
     ub_2017    = ci_2017[:, 1]
-    forecast_dates = pd.date_range("2017-01-01", periods=FORECAST_PERIODS, freq="MS")
+    forecast_dates = pd.date_range(
+        full.index.max() + pd.DateOffset(months=1), periods=FORECAST_PERIODS, freq="MS"
+    )
     if is_electricity(series_name):
         fc_2017 = index_forecast_to_yoy_growth(fc_2017, forecast_dates, full)
         lb_2017 = index_forecast_to_yoy_growth(lb_2017, forecast_dates, full)

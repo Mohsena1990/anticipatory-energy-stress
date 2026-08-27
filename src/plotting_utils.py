@@ -9,7 +9,7 @@ Figures produced
   B. growth_components_bar.png              – GasGrowth / ElecGrowth / CarbonGrowth bars
   C. uncertainty_components_bar.png         – per-series uncertainty + average
   D. step6_pipeline_diagram.png             – flowchart of Step 6 stages
-  E. model_ranking_polar_{series}_{mode}.png – polar/radar chart of normalised model metrics
+  E. model_ranking_polar_{series}_{mode}.png – stacked polar bar chart of normalised model metrics
   F. prediction_intervals_2017.png          – PI width comparison: core vs macro, all series
   G. fes_monthly_2017.png                   – FES timeline: core vs macro vs actual (Jan-Dec)
 """
@@ -314,11 +314,16 @@ def plot_model_ranking_polar(
     out_path: str,
 ) -> None:
     """
-    Polar / radar chart showing normalised metric values for each model.
+    Stacked polar bar chart showing each model's full normalised-metric
+    composition -- replaces the earlier overlapping-line radar chart.
 
-    Each spoke = one ranking metric.
-    Each coloured line = one model.
-    Closer to centre = better performance.
+    Each radial slice (a bar with a visible gap on either side, not a
+    solid ring) = one model. Within a slice, the metrics are stacked from
+    the centre (r=0) outward, each metric its own colour band in a warm
+    dark-purple -> rose -> peach gradient -- a slice's total height shows
+    overall model quality (shorter = better, since every metric is
+    normalised 0=best/1=worst), and its colour composition shows which
+    metrics drive that.
 
     Parameters
     ----------
@@ -358,50 +363,73 @@ def plot_model_ranking_polar(
         else:
             normed[col] = (sub[col] - col_min) / rng
 
-    N = len(cols_avail)
-    angles = [n / float(N) * 2 * np.pi for n in range(N)]
-    angles += angles[:1]                                  # close the loop
-
-    MODEL_COLOURS = [
-        "#8E44AD", "#E74C3C", "#2980B9", "#27AE60",
-        "#F39C12", "#16A085", "#C0392B",
-    ]
-
-    fig, ax = plt.subplots(figsize=(7, 7), subplot_kw={"projection": "polar"})
-    fig.patch.set_facecolor("white")
+    models   = list(normed.index)
+    n_models = len(models)
 
     short_labels = {
         "MAE": "MAE", "RMSE": "RMSE", "SMAPE": "SMAPE", "MASE": "MASE",
-        "QuantileLoss": "QL", "WinklerScore": "Winkler", "MSIS": "MSIS",
-        "PredictionIntervalCoverage": "PIC",
+        "QuantileLoss": "Quantile Loss", "WinklerScore": "Winkler Score",
+        "MSIS": "MSIS", "PredictionIntervalCoverage": "PI Coverage",
     }
-    spoke_labels = [short_labels.get(c, c) for c in cols_avail]
+    # Warm dark-purple -> magenta -> orange -> gold, sampled from
+    # matplotlib's "inferno" for strong, clearly distinct steps (the
+    # earlier hand-picked muted-rose palette had too little contrast
+    # between adjacent bands to read at a glance).
+    n_stack = len(cols_avail)
+    stack_cmap = plt.get_cmap("inferno")
+    STACK_COLORS = [
+        matplotlib.colors.to_hex(stack_cmap(0.12 + 0.76 * i / max(n_stack - 1, 1)))
+        for i in range(n_stack)
+    ]
+    colors = {c: STACK_COLORS[i % len(STACK_COLORS)] for i, c in enumerate(cols_avail)}
+
+    fig, ax = plt.subplots(figsize=(9, 8), subplot_kw={"projection": "polar"})
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+
+    angles      = np.array([i * 2 * np.pi / n_models for i in range(n_models)])
+    slice_width = (2 * np.pi / n_models) * 0.72   # < full width -> visible gaps
+
+    for angle, model_name in zip(angles, models):
+        bottom = 0.0
+        for col in cols_avail:
+            val = float(normed.loc[model_name, col])
+            bars = ax.bar(
+                angle, val, width=slice_width, bottom=bottom,
+                color=colors[col], edgecolor="white", linewidth=1.3,
+                align="center", zorder=3,
+            )
+            bars[0].set_path_effects([
+                pe.SimpleLineShadow(offset=(0.8, -0.8), alpha=0.18),
+                pe.Normal(),
+            ])
+            bottom += val
+
+    stack_totals = normed.sum(axis=1)
+    r_max = float(stack_totals.max()) * 1.15 if not stack_totals.empty else 1.0
 
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(spoke_labels, fontsize=10, fontweight="bold")
-    ax.set_ylim(0, 1.05)
-    ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-    ax.set_yticklabels(["25%", "50%", "75%", "worst"], fontsize=8, color="#7F8C8D")
-    ax.grid(color="#EAECEE", linewidth=0.8)
-    ax.spines["polar"].set_color("#BDC3C7")
+    ax.set_xticks(angles)
+    ax.set_xticklabels(models, fontsize=11, fontweight="bold")
+    ax.set_ylim(0, r_max)
+    ax.set_yticklabels([])
+    ax.grid(color="#EAECEE", linewidth=0.9, zorder=0)
+    ax.spines["polar"].set_visible(False)
 
-    for i, (model_name, row) in enumerate(normed.iterrows()):
-        values = row.tolist() + row.tolist()[:1]
-        colour = MODEL_COLOURS[i % len(MODEL_COLOURS)]
-        ax.plot(angles, values, "o-", linewidth=2.0, color=colour,
-                markersize=5, label=model_name)
-        ax.fill(angles, values, alpha=0.06, color=colour)
-
+    legend_handles = [
+        mpatches.Patch(facecolor=colors[col], edgecolor="white", label=short_labels.get(col, col))
+        for col in cols_avail
+    ]
     ax.legend(
-        loc="upper right", bbox_to_anchor=(1.35, 1.15),
-        fontsize=9, framealpha=0.9,
+        handles=legend_handles, loc="center left", bbox_to_anchor=(1.12, 0.5),
+        fontsize=9, framealpha=0.95, title="Metric (stacked, centre outward)",
+        title_fontsize=9.5,
     )
     ax.set_title(
         f"{series_name.capitalize()} [{mode}]\n"
-        f"Model Ranking Radar  (centre = best)",
-        fontsize=12, fontweight="bold", pad=18,
+        f"Model Ranking — Stacked Metric Composition (shorter bar = better)",
+        fontsize=12, fontweight="bold", pad=20,
     )
 
     _save(fig, out_path)

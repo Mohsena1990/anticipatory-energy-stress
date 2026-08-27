@@ -1,4 +1,0 @@
-fes_variant,annual_mean,interpretation,methodological_note
-fes_core,-0.92916,Main forecast — core-only model stress,Constant for all UK households (UK-level macro indicator). NOT entered as a predictor in any path regression. Reported as contextual macro-stress background only.
-fes_macro,-0.46062,Robustness 1 — macro-augmented forecast stress,Constant for all UK households (UK-level macro indicator). NOT entered as a predictor in any path regression. Reported as contextual macro-stress background only.
-fes_actual,-0.82732,Robustness 2 — realised 2017 price benchmark,Constant for all UK households (UK-level macro indicator). NOT entered as a predictor in any path regression. Reported as contextual macro-stress background only.

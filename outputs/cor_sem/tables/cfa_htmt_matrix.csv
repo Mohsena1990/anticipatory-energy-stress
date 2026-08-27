@@ -1,7 +1,0 @@
-construct_i,construct_j,htmt,htmt_ok
-FCP,AEMC,0.4229,True
-FCP,BLI,0.1202,True
-FCP,TCR,0.234,True
-AEMC,BLI,0.479,True
-AEMC,TCR,0.559,True
-BLI,TCR,0.3232,True

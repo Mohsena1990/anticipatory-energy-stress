@@ -159,11 +159,19 @@ def add_features(
 
 # ── Step 8: Train / test split ────────────────────────────────────────────────
 
-def split(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Return (train 2005-2015, test 2016)."""
-    train = df.loc[:TRAIN_END].copy()
-    test  = df.loc[TEST_START:TEST_END].copy()
-    log.info(f"Train: {len(train)} rows | Test: {len(test)} rows")
+def split(
+    df: pd.DataFrame,
+    train_end: str = TRAIN_END,
+    test_start: str = TEST_START,
+    test_end: str = TEST_END,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Return (train through train_end, test_start..test_end). Defaults
+    reproduce the original single-year split (train 2005-2015, test 2016);
+    a rolling walk-forward caller passes a different window per year."""
+    train = df.loc[:train_end].copy()
+    test  = df.loc[test_start:test_end].copy()
+    log.info(f"Train: {len(train)} rows (through {train_end}) | "
+             f"Test: {len(test)} rows ({test_start}..{test_end})")
     return train, test
 
 
@@ -184,9 +192,17 @@ def preprocess_core(
     raw_path: str = "data/processed/core_energy_carbon.csv",
     out_path: str = "data/processed/core_processed.csv",
     add_feats: bool = True,
+    train_end: str = TRAIN_END,
+    test_start: str = TEST_START,
+    test_end: str = TEST_END,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Full preprocessing pipeline for Dataset A.
+    Full preprocessing pipeline for Dataset A. Feature engineering
+    (df, saved to out_path) runs over the FULL available history and does
+    not depend on train_end/test_start/test_end -- only the returned
+    train/test split does. A rolling walk-forward caller only needs to
+    call this once and re-slice `df` per year via `split()` directly,
+    rather than re-running preprocessing per year.
 
     Returns
     -------
@@ -231,7 +247,7 @@ def preprocess_core(
 
     save_processed(df, out_path)
 
-    train, test = split(df)
+    train, test = split(df, train_end, test_start, test_end)
     return df, train, test
 
 
@@ -239,9 +255,13 @@ def preprocess_macro(
     raw_path: str = "data/processed/macro_controls.csv",
     out_path: str = "data/processed/macro_processed.csv",
     add_feats: bool = True,
+    train_end: str = TRAIN_END,
+    test_start: str = TEST_START,
+    test_end: str = TEST_END,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Full preprocessing pipeline for Dataset B.
+    Full preprocessing pipeline for Dataset B. Same one-time-features/
+    per-year-split split as `preprocess_core` -- see its docstring.
 
     Returns
     -------
@@ -276,7 +296,7 @@ def preprocess_macro(
 
     save_processed(df, out_path)
 
-    train, test = split(df)
+    train, test = split(df, train_end, test_start, test_end)
     return df, train, test
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:

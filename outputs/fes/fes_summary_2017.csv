@@ -7,14 +7,10 @@ core,FES_TOTAL,-0.92916
 macro,gas_growth_pct,-0.45004
 macro,electricity_growth_pct,-0.24369
 macro,carbon_growth_pct,0.14987
-macro,uncertainty,0.08324
-macro,FES_TOTAL,-0.46062
+macro,uncertainty,0.08743
+macro,FES_TOTAL,-0.45642
 actual,gas_growth_pct,-0.59966
 actual,electricity_growth_pct,0.01151
 actual,carbon_growth_pct,0.15472
 actual,real_vol,-0.39388
 actual,FES_TOTAL,-0.82732
-vw_core,FES_TOTAL,-0.32845
-vw_macro,FES_TOTAL,-0.2214
-bayes_core,FES_TOTAL,-0.28121
-bayes_macro,FES_TOTAL,-0.19031

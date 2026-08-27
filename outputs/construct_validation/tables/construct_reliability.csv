@@ -1,5 +1,0 @@
-construct,label,n_items,n_respondents,cronbach_alpha,mcdonald_omega,composite_reliability,ave,efa_evr_f1,alpha_ok,ave_ok
-FCP,Financial–Energy Cost Pressure,3,698,0.5175,0.0966,0.0966,0.0384,0.5281,False,False
-AEMC,Adaptive Energy-Management Capacity,9,1015,0.2862,0.0929,0.0929,0.0352,0.4059,False,False
-BLI,Energy Behavioural Lock-in,5,1015,0.8599,0.3033,0.3033,0.0814,0.6505,True,False
-TCR,Transition-Cost Resistance,5,673,0.7103,0.1646,0.1646,0.0413,0.4932,True,False

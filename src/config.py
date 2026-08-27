@@ -107,6 +107,51 @@ VAE_N_SEEDS: int        = 10        # seed-stability runs (fewer than AE_N_SEEDS
 # VAE_LATENT_DIMS reuses N_LATENT_DIMS (4) above — not duplicated.
 
 # =============================================================================
+# UKHLS Stage 2c — FES-conditioned COR-CVAE
+# =============================================================================
+UKHLS_VAE_HIDDEN_DIMS: tuple  = (16, 8)
+UKHLS_VAE_BETA: float         = 1.0
+UKHLS_VAE_LAMBDA_ALIGN: float = 1.0
+UKHLS_VAE_GAMMA_PRED: float   = 1.0
+UKHLS_VAE_EPOCHS: int         = 300
+UKHLS_VAE_EPOCHS_FAST: int    = 60
+UKHLS_VAE_LEARNING_RATE: float = 1e-3
+UKHLS_VAE_VAL_SPLIT: float    = 0.20
+UKHLS_VAE_N_SEEDS: int        = 10
+UKHLS_N_LATENT_DIMS: int      = 4   # aligned to OBJECT/CONDITION/PERSONAL/ENERGY
+
+# =============================================================================
+# UKHLS Stage 3 — vulnerability identification
+# =============================================================================
+N_FUZZY_CLUSTERS: int      = 3      # Resource Depleted / Vulnerable to Loss / Resource Resilient
+FUZZY_M: float              = 2.0    # FCM fuzziness exponent (standard default)
+RESILIENT_QUANTILE: float   = 0.25   # bottom-quartile fuel_to_income_ratio -> One-Class SVM reference group
+
+# =============================================================================
+# UKHLS Stage 4 — policy geography hex-cartogram positions (UNUSED)
+# =============================================================================
+# Superseded by real UK region boundaries (data/geo/uk_nuts1_regions.geojson,
+# src/ukhls_geo_maps.py) -- kept here, unused, as a self-contained fallback
+# reference in case boundary-file/internet access is ever unavailable again.
+# Hand-placed (col, row) grid positions approximating true relative UK
+# geography (row 0 = north; col increases eastward).
+GOR_HEX_POSITIONS: dict[str, tuple[int, int]] = {
+    "Scotland":                 (2, 0),
+    "Northern Ireland":         (0, 1),
+    "North East":               (3, 1),
+    "North West":               (2, 2),
+    "Yorkshire and the Humber": (3, 2),
+    "Wales":                    (1, 3),
+    "West Midlands":            (2, 3),
+    "East Midlands":            (3, 3),
+    "East of England":          (4, 3),
+    "South West":               (1, 4),
+    "London":                   (3, 4),
+    "South East":               (3, 5),
+}
+FES_BOUNDARY_ZONE: float = 0.10   # +/- band around 0.5 fuzzy membership for the "near boundary" annotation
+
+# =============================================================================
 # Output
 # =============================================================================
 DPI: int = 150

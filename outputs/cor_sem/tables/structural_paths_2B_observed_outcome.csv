@@ -1,5 +1,0 @@
-path,predictor,outcome,coef,std_err,t_stat,p_value,r_squared,n,significant
-Route2 Option2B: CFA scores -> AEV (circular),FCP_cfa,aev_score,0.02589,0.00202,12.8295,0.0,0.8793,503,True
-Route2 Option2B: CFA scores -> AEV (circular),AEMC_cfa,aev_score,-0.01608,0.00265,-6.0602,0.0,0.8793,503,True
-Route2 Option2B: CFA scores -> AEV (circular),BLI_cfa,aev_score,0.09673,0.00213,45.5094,0.0,0.8793,503,True
-Route2 Option2B: CFA scores -> AEV (circular),TCR_cfa,aev_score,0.06832,0.00259,26.3655,0.0,0.8793,503,True

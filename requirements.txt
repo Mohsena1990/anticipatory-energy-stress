@@ -3,8 +3,7 @@ pandas>=1.5.0
 numpy>=1.23.0
 scipy>=1.9.0
 scikit-learn>=1.1.0
-joblib>=1.2.0             # LSTM scaler checkpoint persistence (src/models/lstm_model.py, src/ts_shap.py)
-factor_analyzer>=0.5.0    # Route 1 EFA (falls back to a PCA-based approximation if unavailable)
+joblib>=1.2.0             # LSTM scaler checkpoint persistence (src/models/lstm_model.py)
 
 # ── Visualisation ──────────────────────────────────────────────────────────────
 matplotlib>=3.6.0
@@ -23,18 +22,20 @@ torch>=2.0.0
 pytorch-forecasting>=0.10.3
 pytorch-lightning>=1.9.0
 
-# ── Machine learning + explainability ─────────────────────────────────────────
-catboost>=1.2.0
-shap>=0.42.0
+# ── Social science (COR-SEM CFA path analysis) ─────────────────────────────────
+semopy>=2.3.9            # UKHLS COR-SEM: CFA / second-order SEM (loadings, fit indices, structural paths)
 
-# ── Social science (SEM path analysis) ────────────────────────────────────────
-semopy>=2.3.9            # Route 2: true CFA / second-order SEM (loadings, fit indices, structural paths)
+# ── Vulnerability identification (Stage 3) ─────────────────────────────────────
+scikit-fuzzy>=0.4.2      # fuzzy c-means clustering (src/ukhls_vulnerability_classification.py)
 
-# ── Deep-learning (household VAE — TensorFlow/Keras; forecast stream uses PyTorch) ──
-tensorflow>=2.13.0        # Route 3 VAE + Stage 8 linear autoencoder (previously undeclared dependency)
+# ── Geography (Stage 3/4 real UK region maps) ───────────────────────────────────
+geopandas>=0.13.0        # src/ukhls_geo_maps.py -- real choropleths on data/geo/uk_nuts1_regions.geojson
+
+# ── Deep-learning (household COR-CVAE — TensorFlow/Keras; forecast stream uses PyTorch) ──
+tensorflow>=2.13.0        # UKHLS Stage 2c FES-conditioned COR-CVAE
 
 # ── Output formats ────────────────────────────────────────────────────────────
-openpyxl>=3.0.10        # reading ENABLE.EU .xlsx survey file
+openpyxl>=3.0.10        # reading data/raw/cpih08_188.xlsx
 
 # ── Notebooks ─────────────────────────────────────────────────────────────────
 jupyter>=1.0.0

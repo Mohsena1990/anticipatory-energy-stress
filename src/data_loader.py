@@ -62,10 +62,64 @@ warnings.filterwarnings("ignore")
 
 # ── Date range of interest ────────────────────────────────────────────────────
 TRAIN_START  = "2005-01-01"
-FORECAST_END = "2017-12-01"
 
 # Extended start for computing 12-month lags without losing 2005 data
 _RAW_START   = "2003-01-01"
+
+
+def _detect_raw_max_date(path: str) -> pd.Timestamp:
+    """Cheaply find the last parseable 'YYYY MON' monthly date in an
+    ONS-style CSV (used for gas.csv / electricity.csv / mgdp.csv)."""
+    df = pd.read_csv(path)
+    title_col = df.columns[0]
+    mask = df[title_col].astype(str).str.match(r"^\d{4} [A-Z]{3}$")
+    dates = pd.to_datetime(df.loc[mask, title_col].str.strip(), format="%Y %b")
+    return dates.max()
+
+
+def _detect_carbon_max_date(path: str) -> pd.Timestamp:
+    df = pd.read_csv(path)
+    dates = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+    return dates.max().to_period("M").to_timestamp()
+
+
+def _compute_forecast_end(
+    gas_path: str = "data/raw/gas.csv",
+    elec_path: str = "data/raw/electricity.csv",
+    carbon_path: str = "data/raw/Carbon Emissions Futures Historical Data UK.csv",
+) -> str:
+    """
+    Dynamically detect the latest month for which ALL THREE core raw
+    sources (gas, electricity, carbon) have real data, instead of a
+    hardcoded cutoff. The raw ONS/futures files are live-updated series
+    that already extend far past 2017 -- hardcoding "2017-12-01" here
+    silently truncated data/processed/core_energy_carbon.csv (and every
+    downstream file) to a single forecast year's worth of history, which
+    is why the UKHLS household-wave panel (2009-2023) could only get
+    realised price-growth context for waves through ~2017.
+
+    This does NOT touch forecast_pipeline.py's own 2005-2015 train /
+    2016 validate / 2017 forecast windows, which are hardcoded
+    independently inside that module (config.py's TRAIN_END/FORECAST_END
+    and forecast_pipeline._get_series()'s explicit date slices) -- that
+    forecasting exercise is unaffected; this only controls how far
+    data_loader.py's parsed/processed CSVs extend.
+    """
+    try:
+        gas_max = _detect_raw_max_date(gas_path)
+        elec_max = _detect_raw_max_date(elec_path)
+        carbon_max = _detect_carbon_max_date(carbon_path)
+        common_end = min(gas_max, elec_max, carbon_max)
+        end_str = common_end.strftime("%Y-%m-01")
+        log.info("Detected common core-data end date: %s (gas=%s, elec=%s, carbon=%s)",
+                 end_str, gas_max.date(), elec_max.date(), carbon_max.date())
+        return end_str
+    except Exception as e:
+        log.warning("Could not auto-detect data end date (%s) -- falling back to 2017-12-01", e)
+        return "2017-12-01"
+
+
+FORECAST_END = _compute_forecast_end()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -772,6 +826,26 @@ def load_macro_dataset(
     df = df.join(gas_futures.reindex(target_dates))
     df = df.join(elec_demand.reindex(target_dates))
     df = df.join(gbp_eur.reindex(target_dates))
+
+    # cpih08_188.xlsx only has real data through Jan-2019, and
+    # historic_demand_2009_2024.csv only through Dec-2024 -- both are the
+    # weakest links among the macro sources. Now that FORECAST_END is
+    # detected dynamically (often 2025/2026), inflation_growth/elec-demand
+    # columns go STALE (forward-filled, not real) past those dates. This
+    # is a real limitation, not hidden: macro controls are only used as
+    # exogenous regressors for "macro mode" forecasting (never as FES
+    # components directly), so staleness degrades but doesn't break that
+    # use, and it does not affect the core gas/electricity/carbon series
+    # the UKHLS panel's attach_price_context() actually consumes.
+    stale_after = {"inflation_growth": pd.Timestamp("2019-01-01"),
+                   "electricity_demand_mean": pd.Timestamp("2024-12-01")}
+    for col, cutoff in stale_after.items():
+        if col in df.columns and target_dates.max() > cutoff:
+            log.warning("%s has no real data after %s -- forward-filled "
+                        "(stale) for %d months beyond that.",
+                        col, cutoff.date(), (target_dates.max().year - cutoff.year) * 12
+                        + (target_dates.max().month - cutoff.month))
+
     df = df.ffill()
 
     lag_cols = [

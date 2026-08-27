@@ -1,4 +1,0 @@
-route_a,route_b,n_continuous,aev_pearson_r,aev_pearson_p,n_binary,high_aev_agreement_rate,cohen_kappa
-Route 1: Composite,Route 2: SEM,503,0.8407,0.0,503,0.8569,0.5812
-Route 1: Composite,Route 3: VAE,503,0.7823,0.0,503,0.841,0.5346
-Route 2: SEM,Route 3: VAE,503,0.6827,0.0,503,0.7694,0.3858

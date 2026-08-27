@@ -45,7 +45,6 @@ Usage
 
 from __future__ import annotations
 
-import logging
 import warnings
 from typing import Optional
 
@@ -61,8 +60,9 @@ warnings.filterwarnings("ignore")
 
 from src import config, paths
 from src.construct_mapping import CONSTRUCT_REGISTRY
+from src.logging_utils import get_logger
 
-log = logging.getLogger(__name__)
+log = get_logger("sem_mediation")
 
 # Palette consistent across all social science figures
 _PALETTE = {

@@ -1,0 +1,4 @@
+path,predictor,outcome,coef,std_err,t_stat,p_value,r_squared,n,significant
+COR-SEM: BASELINE x FES Delta -> fuel_to_income_ratio,baseline_score,fuel_to_income_ratio,-0.02514,0.00014,-175.3559,0.0,0.1101,255324,True
+COR-SEM: BASELINE x FES Delta -> fuel_to_income_ratio,fes_delta,fuel_to_income_ratio,-0.00095,4e-05,-24.0241,0.0,0.1101,255324,True
+COR-SEM: BASELINE x FES Delta -> fuel_to_income_ratio,baseline_x_fes,fuel_to_income_ratio,0.00033,6e-05,5.902,0.0,0.1101,255324,True

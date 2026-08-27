@@ -3,26 +3,38 @@ main.py
 ───────
 Master orchestrator for the full Anticipatory Energy–Carbon Stress pipeline.
 
-Three sub-pipelines
-───────────────────
-  forecast_pipeline.py  — Stages 0–4+4b: macro data → 4 models → FES index + TS-SHAP
-                           (FES is macro-level contextual background only)
-  household_stream.py   — Stages 5–9  : ENABLE UK survey → 3 COR routes (Composite /
-                           SEM / VAE) → cross-route comparison
-  ml_pipeline.py        — Stages 10–11 : CatBoost HighAEV classifier per route → SHAP
+Two sub-pipelines
+─────────────────
+  forecast_pipeline.py  — Stage 1 (0–4): macro data → 4 models → equal-weighted
+                           FES index (single-year, or --rolling for a
+                           walk-forward year-by-year forecast)
+  household_stream.py   — Stage 2–4 : UKHLS (Study 6614) household panel →
+                           COR-SEM + FES-conditioned COR-CVAE (Stage 2) →
+                           fuzzy/one-class vulnerability identification +
+                           driver analysis (Stage 3) → policy geography
+                           maps (Stage 4)
+
+Supersedes the ENABLE-based household stream and its separate
+ml_pipeline.py CatBoost/SHAP stage (see project plan:
+/home/mohsen/.claude/plans/linked-tinkering-moonbeam.md) — Stage 3 now
+folds vulnerability identification and driver analysis into one script.
+The legacy ENABLE-based scripts (ml_pipeline.py, src/enable_preprocessing.py,
+src/cor_sem.py, src/cor_vae.py, src/construct_validation.py,
+src/unsupervised_latent.py, src/route_comparison.py, src/route_utils.py,
+src/ml_classification.py, src/shap_explainability.py, src/ts_shap.py,
+src/fes_scenarios.py) have been removed from the repo entirely -- recoverable
+from git history if ever needed for comparison.
 
 Run individually
 ────────────────
-  python forecast_pipeline.py [options]              # Stages 0–4 + TS-SHAP
-  python household_stream.py [--no-fes] [--skip-vae] # Stages 5–9
-  python ml_pipeline.py      [--no-shap]              # Stages 10–11
+  python forecast_pipeline.py [options]      # Stage 1
+  python household_stream.py [--skip-cvae]   # Stage 2–4
 
 Run via orchestrator
 ────────────────────
   python main.py                              # full pipeline (all stages)
-  python main.py --stage forecast             # Stages 0–4 + TS-SHAP only
-  python main.py --stage household            # Stages 5–9 only
-  python main.py --stage ml                  # Stages 10–11 only
+  python main.py --stage forecast             # Stage 1 only
+  python main.py --stage household            # Stage 2–4 only
 
 Forecast options (active when --stage forecast or all)
 ──────────────────────────────────────────────────────
@@ -34,13 +46,8 @@ Forecast options (active when --stage forecast or all)
   --selection-basis validation   model selection criterion
 
 Household options (active when --stage household or all)
-────────────────────────────────────────────────────────
-  --no-fes    skip FES context attachment (if forecast pipeline has not run)
-  --skip-vae  skip Stage 8 (Route 3 COR-VAE, the most expensive stage)
-
-ML options (active when --stage ml or all)
-──────────────────────────────────────────
-  --no-shap   skip SHAP explainability (Stage 11)
+──────────────────────────────────────────────────────────
+  --skip-cvae  skip Stage 2c (COR-CVAE, the most expensive stage)
 """
 
 from __future__ import annotations
@@ -74,24 +81,22 @@ def _build_parser() -> argparse.ArgumentParser:
             "Sub-pipeline scripts can also be run independently:\n"
             "  python forecast_pipeline.py --help\n"
             "  python household_stream.py  --help\n"
-            "  python ml_pipeline.py       --help\n"
         ),
     )
 
     p.add_argument(
         "--stage",
-        choices=["all", "forecast", "household", "ml"],
+        choices=["all", "forecast", "household"],
         default="all",
         help=(
-            "all       : run all three sub-pipelines in sequence (default)\n"
-            "forecast  : Stages 0–4 (macro models + FES)\n"
-            "household : Stages 5–9 (ENABLE UK survey stream, 3 COR routes)\n"
-            "ml        : Stages 10–11 (CatBoost + SHAP)"
+            "all       : run both sub-pipelines in sequence (default)\n"
+            "forecast  : Stage 1 (macro models + FES)\n"
+            "household : Stage 2–4 (UKHLS panel, COR-SEM/CVAE, vulnerability identification)"
         ),
     )
 
     # ── Forecast options ──────────────────────────────────────────────────────
-    fg = p.add_argument_group("forecast options (Stages 0–4)")
+    fg = p.add_argument_group("forecast options (Stage 1)")
     fg.add_argument("--fast", action="store_true",
                     help="Fewer LSTM/TFT epochs (development mode)")
     fg.add_argument("--fes-only", action="store_true",
@@ -107,19 +112,16 @@ def _build_parser() -> argparse.ArgumentParser:
                     choices=["forecast_actual", "validation"],
                     default="forecast_actual",
                     help="Model selection criterion (default: forecast_actual)")
+    fg.add_argument("--rolling", action="store_true",
+                    help="Walk-forward rolling FES (train through year Y, forecast "
+                         "Y+1, repeat for every feasible Y) instead of the single-year "
+                         "path -- ~n_years x 24 model fits, 45min+ even in --fast mode. "
+                         "Opt-in only, never runs by default. Ignores --fes-only/--tune.")
 
     # ── Household options ─────────────────────────────────────────────────────
-    hg = p.add_argument_group("household options (Stages 5–9)")
-    hg.add_argument("--no-fes", action="store_true",
-                    help="Skip FES context attachment to household data (FES is "
-                         "contextual metadata only — never a model feature)")
-    hg.add_argument("--skip-vae", action="store_true",
-                    help="Skip Stage 8 (Route 3 COR-VAE, the most expensive stage)")
-
-    # ── ML options ────────────────────────────────────────────────────────────
-    mg = p.add_argument_group("ML options (Stages 10–11)")
-    mg.add_argument("--no-shap", action="store_true",
-                    help="Skip SHAP explainability (Stage 11)")
+    hg = p.add_argument_group("household options (Stage 2–4)")
+    hg.add_argument("--skip-cvae", action="store_true",
+                    help="Skip Stage 2c (COR-CVAE, the most expensive stage)")
 
     return p
 
@@ -142,40 +144,39 @@ def main() -> None:
         print(f"  Series      : {series}")
         print(f"  Models      : {models_to_run}")
         print(f"  Fast mode   : {args.fast}")
-        print(f"  FES only    : {args.fes_only}")
-        print(f"  Tuning      : {args.tune}")
-        print(f"  Selection   : {args.selection_basis}")
+        print(f"  Rolling     : {args.rolling}")
+        if not args.rolling:
+            print(f"  FES only    : {args.fes_only}")
+            print(f"  Tuning      : {args.tune}")
+            print(f"  Selection   : {args.selection_basis}")
     if args.stage in ("all", "household"):
-        print(f"  FES context : {'disabled' if args.no_fes else 'enabled'}")
-        print(f"  Route 3 VAE : {'disabled' if args.skip_vae else 'enabled'}")
-    if args.stage in ("all", "ml"):
-        print(f"  SHAP        : {'disabled' if args.no_shap else 'enabled'}")
+        print(f"  COR-CVAE    : {'disabled' if args.skip_cvae else 'enabled'}")
 
     t0 = time.time()
-    household_df = None
 
-    # ── Stages 0–4 : Forecast pipeline ───────────────────────────────────────
+    # ── Stage 1 : Forecast pipeline ──────────────────────────────────────────
     if args.stage in ("all", "forecast"):
-        from forecast_pipeline import run as run_forecast
-        run_forecast(
-            series=series,
-            models_to_run=models_to_run,
-            fast=args.fast,
-            fes_only=args.fes_only,
-            tune=args.tune,
-            selection_basis=args.selection_basis,
-        )
+        if args.rolling:
+            from forecast_pipeline import run_rolling
+            run_rolling(
+                series=series, models_to_run=models_to_run,
+                fast=args.fast, selection_basis=args.selection_basis,
+            )
+        else:
+            from forecast_pipeline import run as run_forecast
+            run_forecast(
+                series=series,
+                models_to_run=models_to_run,
+                fast=args.fast,
+                fes_only=args.fes_only,
+                tune=args.tune,
+                selection_basis=args.selection_basis,
+            )
 
-    # ── Stages 5–9 : Household stream (3 COR routes + cross-route comparison) ─
+    # ── Stage 2–4 : Household stream (UKHLS COR-SEM/CVAE + vulnerability) ────
     if args.stage in ("all", "household"):
         from household_stream import run as run_household
-        household_df = run_household(attach_fes=not args.no_fes, skip_vae=args.skip_vae)
-
-    # ── Stages 10–11 : ML pipeline ───────────────────────────────────────────
-    if args.stage in ("all", "ml"):
-        from ml_pipeline import run as run_ml
-        # Pass df in-memory when household ran in this session (avoids re-loading CSV)
-        run_ml(df=household_df, run_shap=not args.no_shap)
+        run_household(skip_cvae=args.skip_cvae)
 
     _banner(f"Pipeline complete  ({time.time() - t0:.1f}s)")
 

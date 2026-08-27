@@ -1,0 +1,3 @@
+FES_variant,mean_rmse,n_comparisons,chosen
+Equal_Macro,2.294165882352941,51,True
+Equal_Core,3.5309964705882355,51,False

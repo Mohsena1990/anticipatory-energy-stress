@@ -1,0 +1,9 @@
+# UK Data Service Understanding Society (SN 6614) — large, licensed data.
+# Not for redistribution: extract locally from your own UKDS-registered
+# download, never commit.
+data/social_science_data/*.zip
+data/raw/ukhls/
+outputs/ukhls_cleaned/ukhls_panel.csv
+data/
+*.zip
+*.csv

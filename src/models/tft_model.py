@@ -317,7 +317,7 @@ def _run_pytorch_forecasting(
     )
     log.info(f"[TFT {series_name}] Test MAE={metrics['MAE']:.4f}")
 
-    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+    forecast_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=12, freq="MS")
     q025_out, q50_out, q975_out = q025.copy(), q50.copy(), q975.copy()
     if is_electricity(series_name):
         q025_out = index_forecast_to_yoy_growth(q025_out, forecast_dates, full)
@@ -485,7 +485,7 @@ def run_tft(
 
     future_macro_scaled = None
     if use_macro and macro_full is not None and n_feats > 1:
-        macro_2017_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+        macro_2017_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=12, freq="MS")
         cols_avail = macro_cols_for_series(series_name, macro_full)
         macro_2017_vals = align_macro_for_series(
             macro_full, macro_2017_dates, series_name
@@ -501,7 +501,7 @@ def run_tft(
         seed_2017, steps=12, future_macro_scaled=future_macro_scaled
     )
 
-    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+    forecast_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=12, freq="MS")
     if is_electricity(series_name):
         fc_2017 = index_forecast_to_yoy_growth(fc_2017, forecast_dates, full)
         lb_2017 = index_forecast_to_yoy_growth(lb_2017, forecast_dates, full)

@@ -187,7 +187,10 @@ def run_prophet(
         for col in available:
             future_2017[col] = aligned[col].values
     fcast_2017 = m2.predict(future_2017)
-    rows_2017  = fcast_2017[fcast_2017["ds"].dt.year == 2017]
+    # make_future_dataframe appends exactly `periods` new rows after the
+    # training data's last date -- select those (not a specific year) so
+    # this works for any train_end, not just a 2016-vintage refit.
+    rows_2017  = fcast_2017[fcast_2017["ds"] > full.index.max()]
 
     forecast_dates = pd.to_datetime(rows_2017["ds"].values)
     fc_2017 = rows_2017["yhat"].values
