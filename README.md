@@ -1,7 +1,6 @@
 # Anticipatory Fuel Stress Watch (AFSW)
 
-### Forecasting Anticipatory Energy–Carbon Stress and Household Fuel Vulnerability in the UK
-
+### Who Becomes Fuel Vulnerable, and When? Forecast-Conditioned Household Risk Modelling in the UK
 **A Conservation of Resources (COR) Theory and Time-Series Forecasting Framework — UKHLS Household Panel Edition**
 
 ---
