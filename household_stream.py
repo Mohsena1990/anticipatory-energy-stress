@@ -3,13 +3,14 @@ household_stream.py
 ───────────────────
 UKHLS (Understanding Society, UK Data Service Study 6614) household panel
 stream — Stage 2 (latent variable extraction), Stage 3 (vulnerability
-identification), and Stage 4 (policy geography maps).
+identification), Stage 4 (policy geography maps), and Stage 5 (forward
+vulnerability prediction).
 
 Supersedes the ENABLE.EU-based household stream (see project plan:
 /home/mohsen/.claude/plans/linked-tinkering-moonbeam.md). ENABLE was a
 single UK cross-section (2017 only) — every household shared one FES
 value, so forecasted/actual prices could only ever be background context.
-UKHLS is a 15-wave panel (waves a-o, ~2009-2023): each household's
+UKHLS is a 15-wave panel (waves a-o, ~2009-2024): each household's
 interview year differs, so realised energy-price growth is a genuine
 row-level signal, not one shared constant. The legacy ENABLE-based modules
 (enable_preprocessing, cor_sem, cor_vae, construct_validation,
@@ -43,6 +44,15 @@ Stages
              vulnerability vector-shift map, drawn on the 12 UK Government
              Office Regions' real boundaries (src.ukhls_geo_maps, ONS Open
              Geography Portal).
+  Stage 5  : Forward vulnerability prediction (src.ukhls_forward_prediction)
+             — answers "who is about to become vulnerable, and roughly
+             when," not just "who is vulnerable now and why." Links
+             households across consecutive waves via hrpid (household
+             reference person's pidp), trains/walk-forward-validates a
+             logistic model on known 2009-2024 wave-to-wave transitions,
+             then applies it to the most recent wave to predict each
+             household's own next-year vulnerability -- genuinely forward,
+             not yet observed.
 
 Output
 ──────
@@ -51,6 +61,7 @@ Output
   outputs/ukhls_cor_cvae/
   outputs/ukhls_vulnerability/
   outputs/ukhls_policy_maps/
+  outputs/ukhls_forward_prediction/
 
 Prerequisite
 ────────────
@@ -60,10 +71,10 @@ Prerequisite
 
 Usage
 ─────
-  python household_stream.py               # full run (Stage 2 + 3 + 4)
+  python household_stream.py               # full run (Stage 2 + 3 + 4 + 5)
   python household_stream.py --skip-cvae   # skip Stage 2c (COR-CVAE, the
                                              # most expensive stage) — Stage
-                                             # 3/4 then run on SEM scores only
+                                             # 3/4/5 then run on SEM scores only
 """
 
 from __future__ import annotations
@@ -100,7 +111,8 @@ def _stage(n: str, label: str) -> None:
 def run(skip_cvae: bool = False) -> pd.DataFrame:
     """
     Execute Stage 2 (panel build -> COR-SEM -> COR-CVAE), Stage 3
-    (vulnerability identification), then Stage 4 (policy geography maps).
+    (vulnerability identification), Stage 4 (policy geography maps), then
+    Stage 5 (forward vulnerability prediction).
 
     Parameters
     ----------
@@ -159,6 +171,10 @@ def run(skip_cvae: bool = False) -> pd.DataFrame:
     from src.ukhls_policy_maps import run as run_policy_maps
     run_policy_maps(df, sem_scores, vuln_result, counterfactual_df)
 
+    _stage(5, "Forward vulnerability prediction (hrpid-linked wave transitions, 2009-2024 -> next-year prediction)")
+    from src.ukhls_forward_prediction import run as run_forward_prediction
+    run_forward_prediction(df, sem_scores)
+
     df = df.join(sem_scores, how="left").join(cvae_scores, how="left")
     df.to_csv(paths.UKHLS_PANEL, index=False)
     log.info("Saved merged UKHLS panel + latent scores: %s (%d rows, %d columns)",
@@ -183,7 +199,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    _banner("Anticipatory Energy–Carbon Stress — Household Stream (UKHLS Stage 2-4)")
+    _banner("Anticipatory Energy–Carbon Stress — Household Stream (UKHLS Stage 2-5)")
     print(f"  COR-CVAE : {'disabled (--skip-cvae)' if args.skip_cvae else 'enabled'}")
 
     t0 = time.time()

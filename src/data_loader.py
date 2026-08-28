@@ -95,15 +95,17 @@ def _compute_forecast_end(
     that already extend far past 2017 -- hardcoding "2017-12-01" here
     silently truncated data/processed/core_energy_carbon.csv (and every
     downstream file) to a single forecast year's worth of history, which
-    is why the UKHLS household-wave panel (2009-2023) could only get
+    is why the UKHLS household-wave panel (2009-2024) could only get
     realised price-growth context for waves through ~2017.
 
-    This does NOT touch forecast_pipeline.py's own 2005-2015 train /
-    2016 validate / 2017 forecast windows, which are hardcoded
-    independently inside that module (config.py's TRAIN_END/FORECAST_END
-    and forecast_pipeline._get_series()'s explicit date slices) -- that
-    forecasting exercise is unaffected; this only controls how far
-    data_loader.py's parsed/processed CSVs extend.
+    forecast_pipeline.py's own train/validate/forecast window is now ALSO
+    computed dynamically (see forecast_pipeline._compute_default_window),
+    directly from however far the CSVs this function controls extend -- so
+    as this end date advances, the forecast window advances with it
+    ("one year ahead of the latest complete year" instead of a fixed
+    calendar year). Only the raw-source detection itself lives here; the
+    resulting default train/validate/forecast split lives in
+    forecast_pipeline.py.
     """
     try:
         gas_max = _detect_raw_max_date(gas_path)

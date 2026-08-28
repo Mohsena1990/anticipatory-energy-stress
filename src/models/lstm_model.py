@@ -413,7 +413,7 @@ def run_lstm(
     macro_train: Optional[pd.DataFrame] = None,
     macro_full: Optional[pd.DataFrame] = None,
     use_macro: bool = False,
-    actual_2017: Optional[pd.Series] = None,
+    actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
     epochs: int = EPOCHS,
@@ -441,7 +441,7 @@ def run_lstm(
     train       = _safe_series(train)
     test        = _safe_series(test)
     full        = _safe_series(full)
-    actual_2017 = _safe_series(actual_2017) if actual_2017 is not None else None
+    actual_target = _safe_series(actual_target) if actual_target is not None else None
     eval_actual = _safe_series(eval_actual) if eval_actual is not None else None
     macro_train = _safe_macro(macro_train)
     macro_full  = _safe_macro(macro_full)
@@ -452,7 +452,7 @@ def run_lstm(
         raise ValueError("use_macro=True requires both macro_train and macro_full.")
 
     if len(test) != 12:
-        log.warning(f"Expected 12 test observations for 2016, got {len(test)}.")
+        log.warning(f"Expected 12 test (validation) observations, got {len(test)}.")
 
     log.info(
         f"[LSTM-{mode.upper()}] Training on {series_name} | "
@@ -523,7 +523,7 @@ def run_lstm(
     )
 
     log.info(
-        f"[LSTM-{mode.upper()} {series_name}] 2016 validation: "
+        f"[LSTM-{mode.upper()} {series_name}] validation: "
         f"MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}"
     )
 
@@ -582,8 +582,8 @@ def run_lstm(
         "upper_bound": np.round(ub_2017, 4),
     })
 
-    if actual_2017 is not None:
-        df_out["actual"] = actual_2017.reindex(forecast_dates).values
+    if actual_target is not None:
+        df_out["actual"] = actual_target.reindex(forecast_dates).values
 
     Path(forecast_dir).mkdir(parents=True, exist_ok=True)
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_lstm_{mode}.csv"

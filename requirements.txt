@@ -19,8 +19,13 @@ prophet>=1.1.4
 
 # ── Deep-learning (LSTM + TFT — PyTorch only, no TensorFlow) ─────────────────
 torch>=2.0.0
-pytorch-forecasting>=0.10.3
-pytorch-lightning>=1.9.0
+pytorch-forecasting>=1.0.0
+# pytorch-forecasting>=1.0 depends on the "lightning" package (its
+# TemporalFusionTransformer subclasses lightning.pytorch.LightningModule),
+# NOT the older standalone "pytorch-lightning" package -- src/models/
+# tft_model.py imports `lightning.pytorch as pl` accordingly. Verified
+# against pytorch-forecasting 1.8.0 / lightning 2.6.5.
+lightning>=2.0.0
 
 # ── Social science (COR-SEM CFA path analysis) ─────────────────────────────────
 semopy>=2.3.9            # UKHLS COR-SEM: CFA / second-order SEM (loadings, fit indices, structural paths)

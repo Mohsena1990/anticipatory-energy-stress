@@ -45,7 +45,6 @@ MACRO_PROC_CSV    = PROCESSED_DIR / "macro_processed.csv"
 OUTPUTS_DIR  = ROOT / "outputs"
 FES_DIR      = OUTPUTS_DIR / "fes"
 
-FES_MONTHLY_FILE  = FES_DIR / "fes_monthly_2017.csv"
 FES_SUMMARY_FILE  = FES_DIR / "fes_annual_context.csv"
 FES_COMP_FILE     = FES_DIR / "fes_component_decomposition.csv"
 # Rolling walk-forward FES (forecast_pipeline.run_rolling): one row per
@@ -97,17 +96,11 @@ UKHLS_POLICY_MAPS_OUT     = OUTPUTS_DIR / "ukhls_policy_maps"
 UKHLS_POLICY_MAPS_TABLES  = UKHLS_POLICY_MAPS_OUT / "tables"
 UKHLS_POLICY_MAPS_FIGURES = UKHLS_POLICY_MAPS_OUT / "figures"
 
-# =============================================================================
-# Outputs — SEM / mediation. Only `ols_path` is actually imported/called from
-# src.sem_mediation (by src.ukhls_cor_sem); the other functions that reference
-# these paths (bootstrap_mediation, run(), plot_path_diagram, ...) are dead
-# code -- nothing currently reachable ever writes here. Not eagerly created
-# by ensure_dirs() any more (outputs/sem_mediation/ was confirmed empty and
-# removed); the constants stay only so src/sem_mediation.py's own
-# _save_csv/_save_fig helpers don't break if that dead code is ever revived.
-# =============================================================================
-SEM_TABLES  = OUTPUTS_DIR / "sem_mediation" / "tables"
-SEM_FIGURES = OUTPUTS_DIR / "sem_mediation" / "figures"
+# Stage 5 — forward vulnerability prediction (wave-to-wave transitions,
+# hrpid-linked, trained/validated 2009-2024, applied to the latest wave)
+UKHLS_FORWARD_OUT     = OUTPUTS_DIR / "ukhls_forward_prediction"
+UKHLS_FORWARD_TABLES  = UKHLS_FORWARD_OUT / "tables"
+UKHLS_FORWARD_FIGURES = UKHLS_FORWARD_OUT / "figures"
 
 # =============================================================================
 # Shared outputs
@@ -116,6 +109,33 @@ FIGURES_DIR = OUTPUTS_DIR / "figures"
 TABLES_DIR  = OUTPUTS_DIR / "tables"
 LOGS_DIR    = OUTPUTS_DIR / "logs"
 LOG_FILE    = LOGS_DIR / "pipeline.log"
+
+
+def latest_fes_monthly_file() -> Path | None:
+    """
+    Most recent single-run FES monthly CSV (src.fes_calculator.compute_fes
+    names these fes_monthly_{target_year}.csv, dynamically, from whatever
+    year it actually forecast -- not a fixed "fes_monthly_2017.csv"). Used
+    as the last-resort fallback in src.ukhls_preprocessing.attach_fes_delta
+    when neither rolling walk-forward table is available. Returns None if
+    no such file exists yet.
+    """
+    matches = sorted(FES_DIR.glob("fes_monthly_*.csv"))
+    return matches[-1] if matches else None
+
+
+def latest_fes_prior_actual_file() -> Path | None:
+    """
+    Most recent fes_prior_actual_{year}.csv (src.fes_calculator.compute_fes's
+    realised FES_actual baseline for the year immediately before its
+    forecast target window -- see compute_fes's "FES_actual for the
+    training-cutoff year" section). Used by
+    src.ukhls_preprocessing.attach_fes_delta to attach that baseline
+    alongside FES_selected's forward-looking fes_magnitude. Returns None if
+    no such file exists yet.
+    """
+    matches = sorted(FES_DIR.glob("fes_prior_actual_*.csv"))
+    return matches[-1] if matches else None
 
 
 def ensure_dirs() -> None:
@@ -129,6 +149,7 @@ def ensure_dirs() -> None:
         UKHLS_CVAE_TABLES, UKHLS_CVAE_FIGURES,
         UKHLS_VULN_TABLES, UKHLS_VULN_FIGURES,
         UKHLS_POLICY_MAPS_TABLES, UKHLS_POLICY_MAPS_FIGURES,
+        UKHLS_FORWARD_TABLES, UKHLS_FORWARD_FIGURES,
         FIGURES_DIR, TABLES_DIR, LOGS_DIR,
     ]
     for d in dirs:

@@ -20,18 +20,45 @@ TORCH_SEED: int  = 42
 # =============================================================================
 # Date windows (macro forecasting pipeline)
 # =============================================================================
+# These are NOT read by the forecast pipeline (kept only as illustrative
+# documentation of the original single-year design) -- the actual
+# train/validate/forecast window is computed dynamically every run from the
+# core dataset's own date range, one year ahead of the most recent year with
+# a full December of real data, instead of a fixed calendar year. See
+# forecast_pipeline._compute_default_window (single "current" forecast) and
+# forecast_pipeline.run_rolling / _feasible_as_of_years (full walk-forward
+# backtest across every feasible historical year).
 TRAIN_START:    str = "2005-01-01"   # first usable month after 12-month lag
-TRAIN_END:      str = "2015-12-01"   # last month used for model training
-VALIDATION_END: str = "2016-12-01"   # hold-out evaluation year
-FORECAST_START: str = "2017-01-01"   # 12-month forecast horizon start
-FORECAST_END:   str = "2017-12-01"   # 12-month forecast horizon end
+TRAIN_END:      str = "2015-12-01"   # example: last month used for model training
+VALIDATION_END: str = "2016-12-01"   # example: hold-out evaluation year
+FORECAST_START: str = "2017-01-01"   # example: 12-month forecast horizon start
+FORECAST_END:   str = "2017-12-01"   # example: 12-month forecast horizon end
 
 # Z-score reference period: training + validation window, strictly pre-forecast.
 # Using the same reference across FES_core, FES_macro, and FES_actual ensures
 # that differences between the three variants reflect genuine methodological
-# variation rather than scaling artefacts.
+# variation rather than scaling artefacts. (Also illustrative only -- see
+# note above; the real reference window is train_start..refit_end, computed
+# per run.)
 ZSCORE_REF_START: str = "2005-01-01"
 ZSCORE_REF_END:   str = "2016-12-01"
+
+# Default forecast target year -- this ONE constant IS actually read, by
+# forecast_pipeline.run's target_year and run_rolling's max_target_year
+# defaults. The raw UK gas/electricity/carbon price series get updated
+# independently of (and faster than) the UKHLS social-science panel, which
+# currently only covers interview years 2009-2024 -- so the "one year
+# ahead" auto-detected default (see note above) can silently race ahead of
+# what the household-panel stream actually needs (verified: as of the raw
+# price data's 2026-03 coverage, the undetected default already advanced to
+# forecasting 2026, one year past the 2025 this project needs to line up
+# with UKHLS's own most recent wave). Pinning the default to 2025 here
+# keeps every entry point (forecast_pipeline.py's CLI, main.py, direct
+# run()/run_rolling() calls) aligned with the panel until it gets a new
+# wave -- bump this by hand at that point, or pass --target-year/
+# --max-target-year explicitly to override a single run without changing
+# the default for others.
+DEFAULT_TARGET_YEAR: int = 2025
 
 # =============================================================================
 # ENABLE.EU household survey

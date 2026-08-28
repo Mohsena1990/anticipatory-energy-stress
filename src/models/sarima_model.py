@@ -105,7 +105,7 @@ def run_sarima(
     macro_train: Optional[pd.DataFrame] = None,
     macro_full:  Optional[pd.DataFrame] = None,
     use_macro: bool = False,
-    actual_2017: Optional[pd.Series] = None,
+    actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
     return_model: bool = False,
@@ -122,7 +122,7 @@ def run_sarima(
     macro_train  : Dataset B aligned to training dates
     macro_full   : Dataset B for full period (must include 2016 rows for macro mode)
     use_macro    : fit SARIMAX with macro exogenous variables
-    actual_2017  : actual 2017 target values for comparison column in CSV
+    actual_target  : actual 2017 target values for comparison column in CSV
     forecast_dir : output directory
     """
     mode = "macro" if use_macro else "core"
@@ -155,7 +155,7 @@ def run_sarima(
         exog_2017  = _align_macro(macro_full, dates_2017, series_name)
         log.info(f"[SARIMA-MACRO] Using exogenous: {_exog_col_names}")
 
-    # ── Evaluate on the 2016 validation split ────────────────────────────────
+    # ── Evaluate on the validation split ────────────────────────────────
     fc_test, lb_test, ub_test = _eval_on_2017(
         train, test, order, seasonal_order,
         exog_train=exog_train,
@@ -175,7 +175,7 @@ def run_sarima(
         lower=lb_test, upper=ub_test,
         train_actual=train.values,
     )
-    log.info(f"[SARIMA-{mode.upper()} {series_name}] 2016 validation: "
+    log.info(f"[SARIMA-{mode.upper()} {series_name}] validation: "
              f"MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}, "
              f"MAPE={metrics['MAPE']:.2f}%")
 
@@ -214,8 +214,8 @@ def run_sarima(
         "upper_bound": ub_2017.round(4),
     })
 
-    if actual_2017 is not None:
-        df_out["actual"] = actual_2017.reindex(forecast_dates).values
+    if actual_target is not None:
+        df_out["actual"] = actual_target.reindex(forecast_dates).values
 
     Path(forecast_dir).mkdir(parents=True, exist_ok=True)
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_sarima_{mode}.csv"

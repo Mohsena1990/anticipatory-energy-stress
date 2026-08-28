@@ -11,7 +11,7 @@ Why this replaces ENABLE
 ─────────────────────────
 ENABLE.EU is a single UK cross-section (year 2017 only) — every household
 shares one FES value, so forecasted/actual prices could only ever be
-background context. UKHLS is a 15-wave panel (waves a-o, ~2009-2023): each
+background context. UKHLS is a 15-wave panel (waves a-o, ~2009-2024): each
 household's interview year differs, so real price growth genuinely varies
 across rows and can be a legitimate row-level model feature.
 
@@ -59,12 +59,13 @@ from src import paths
 from src.logging_utils import get_logger
 from src.ukhls_mapping import (
     WAVE_LETTERS, WAVE_FIELDWORK_START_YEAR, MISSING_CODES,
-    HH_IDENTIFIER, HH_TIMING_VARS, HH_GEOGRAPHY_VARS,
+    HH_IDENTIFIER, HH_LINK_VARS, HH_TIMING_VARS, HH_GEOGRAPHY_VARS,
     HH_FUEL_EXPENDITURE_VARS, HH_INCOME_VARS, HH_HOUSING_VARS,
     HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
     HH_OBJECT_VARS,
     IND_IDENTIFIER, IND_HH_LINK, IND_FINANCIAL_VARS, IND_WELLBEING_VARS,
     IND_CONDITION_VARS, IND_PERSONAL_VARS, IND_ENERGY_VARS,
+    IND_DISABILITY_VARS, IND_ETHNICITY_VAR, ETHNICITY_GROUP_RECODE,
     JBSTAT_SECURITY_RECODE, QFHIGH_BAND_RECODE, TENURE_SECURITY_RECODE,
     HEATCH_GOOD_RECODE, BILL_SECURITY_RECODE,
     COR_FACTOR_ITEMS,
@@ -112,7 +113,7 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
         raise FileNotFoundError(f"UKHLS hhresp not found for wave {wave}: {path}")
 
     wanted_bare = (
-        [HH_IDENTIFIER] + HH_TIMING_VARS + HH_GEOGRAPHY_VARS
+        [HH_IDENTIFIER] + HH_LINK_VARS + HH_TIMING_VARS + HH_GEOGRAPHY_VARS
         + HH_FUEL_EXPENDITURE_VARS + HH_INCOME_VARS + HH_HOUSING_VARS
         + HH_HARDSHIP_VARS + HH_COPING_VARS_RECENT_ONLY + HH_OBJECT_VARS
     )
@@ -154,6 +155,7 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     ind_vars = (
         IND_FINANCIAL_VARS + IND_WELLBEING_VARS
         + IND_CONDITION_VARS + IND_PERSONAL_VARS + IND_ENERGY_VARS
+        + IND_DISABILITY_VARS
     )
     prefixed = [f"{wave}_{c}" for c in ind_vars] + [f"{wave}_{IND_HH_LINK}"]
     available = _available_columns(path)
@@ -181,18 +183,62 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
         df["sf1_good"] = (5.0 - df["sf1"]) / 4.0
     if "qfhigh_dv" in df.columns:
         df["qfhigh_band"] = df["qfhigh_dv"].map(QFHIGH_BAND_RECODE)
+    if "health" in df.columns and "healthlink" in df.columns:
+        # Equality-Act-2010-style disability flag: health==1 (has a
+        # long-standing illness/disability) AND healthlink in {1,2}
+        # (limits activities "a lot" or "a little"). healthlink is only
+        # asked of respondents with health==1, so it's legitimately NaN
+        # (not missing data) for health==2 respondents -- those are
+        # "not disabled" regardless. Reversed to disability_free so
+        # higher=better, matching health_good/sf1_good's convention.
+        limited = df["healthlink"].isin([1, 2])
+        disabled = np.where(df["health"] == 1, limited, False)
+        df["disability_free"] = np.where(df["health"].isna(), np.nan,
+                                          np.where(disabled, 0.0, 1.0))
 
-    # Recoded categorical items (finfut, jbstat, health, sf1, qfhigh_dv)
-    # are replaced by their derived ordinal/reversed columns for
-    # aggregation; the raw categorical codes are not meaningfully mean-able.
-    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv"}
-    DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good", "qfhigh_band"]
+    # Recoded categorical items (finfut, jbstat, health, sf1, qfhigh_dv,
+    # healthlink) are replaced by their derived ordinal/reversed columns
+    # for aggregation; the raw categorical codes are not meaningfully
+    # mean-able.
+    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv", "healthlink"}
+    DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good",
+               "qfhigh_band", "disability_free"]
     agg_cols = [c for c in ind_vars if c in df.columns and c not in RECODED]
     agg_cols += [c for c in DERIVED if c in df.columns]
     agg = df.groupby(HH_IDENTIFIER)[agg_cols].mean()
     log.info("wave %s: %d respondents -> %d households (individual aggregation)",
               wave, len(df), len(agg))
     return agg.reset_index()
+
+
+def load_wave_hrp_ethnicity(wave: str) -> pd.DataFrame:
+    """
+    Household reference person's ethnicity group for one wave -- read
+    directly from indresp and NOT household-mean-aggregated (racel_dv is
+    categorical, not ordinal/continuous, so averaging it across household
+    members would be meaningless; it's also asked once and carried
+    forward per person by Understanding Society's own derived-variable
+    logic, so no wave-to-wave imputation is needed here either).
+
+    Returns columns [IND_IDENTIFIER, "ethnicity_group"] -- joined onto the
+    household panel via hrpid in build_wave_panel, matching JRF's own
+    convention of defining ethnicity-based poverty rates by "households
+    headed by someone from a X background" (UK Poverty 2025, pp.42-49).
+    """
+    path = _wave_path(wave, "indresp")
+    if not path.exists():
+        raise FileNotFoundError(f"UKHLS indresp not found for wave {wave}: {path}")
+
+    col = f"{wave}_{IND_ETHNICITY_VAR}"
+    available = _available_columns(path)
+    if col not in available:
+        return pd.DataFrame(columns=[IND_IDENTIFIER, "ethnicity_group"])
+
+    df = pd.read_stata(path, columns=[IND_IDENTIFIER, col], convert_categoricals=False)
+    df = df.rename(columns={col: IND_ETHNICITY_VAR})
+    df = _recode_missing(df, [IND_ETHNICITY_VAR])
+    df["ethnicity_group"] = df[IND_ETHNICITY_VAR].map(ETHNICITY_GROUP_RECODE)
+    return df[[IND_IDENTIFIER, "ethnicity_group"]]
 
 
 # =============================================================================
@@ -203,6 +249,11 @@ def build_wave_panel(wave: str) -> pd.DataFrame:
     hh = load_wave_hhresp(wave)
     ind_agg = load_wave_indresp_aggregated(wave)
     panel = hh.merge(ind_agg, on=HH_IDENTIFIER, how="left")
+
+    if "hrpid" in panel.columns:
+        eth = load_wave_hrp_ethnicity(wave)
+        panel = panel.merge(eth, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
+        panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
 
     start_year = WAVE_FIELDWORK_START_YEAR[wave]
     if "month" in panel.columns:
@@ -453,10 +504,29 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
       2. `outputs/fes/fes_rolling_yearly.csv` (annual mean of the same
          walk-forward run) for any row that didn't match at month
          resolution (e.g. missing interview_month).
-      3. A single constant (mean `fes_core` over `outputs/fes/
-         fes_monthly_2017.csv`'s 12 forecast-target months) if `run_rolling`
-         hasn't been executed at all yet -- the original, cruder behavior,
-         kept so the pipeline still runs (with a logged warning).
+      3. A single constant (mean `fes_selected` -- the per-series
+         best-of-core/macro composite, see
+         `src.fes_calculator._select_best_mode_per_series` -- over the
+         latest `outputs/fes/fes_monthly_{target_year}.csv`'s 12
+         forecast-target months) if `run_rolling` hasn't been executed at
+         all yet. Falls back further to `fes_core` for an older cached
+         monthly CSV saved before FES_selected existed. Kept so the
+         pipeline still runs (with a logged warning) without the rolling
+         walk-forward.
+
+    FES Actual, prior year (a single constant across every row, same
+    single-year caveat as tier 3 above)
+    -----------------------------------------------------------------
+    `fes_actual_prior_year`: the realised FES_actual baseline for the year
+    immediately before the forecast target window (year x, where
+    fes_magnitude's single-year fallback forecasts year x+1) -- computed
+    directly from realised data by
+    `src.fes_calculator.compute_fes`'s "FES_actual for the training-cutoff
+    year" step and read from `outputs/fes/fes_prior_actual_{x}.csv`. Not
+    used inside `fes_delta` (which already compares fes_magnitude against
+    each household's own realised exposure via fes_current); provided as an
+    additional reference point -- "what the index actually was last year"
+    alongside "what we forecast for next year" -- for analyses that want it.
 
     In every case, "what was forecast for [this row's target period], using
     only data available as of [this row's as_of_year]" -- a properly
@@ -472,7 +542,7 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
     interview_month) match against the core series, annual-mean fallback) --
     standardized against those three series' own FULL-HISTORY MONTHLY
     mean/std (every month present in `data/processed/core_energy_carbon.csv`,
-    not just the panel's own 2009-2023 window, and not annual-mean-of-means,
+    not just the panel's own 2009-2024 window, and not annual-mean-of-means,
     which would understate month-to-month variance).
 
     FES Delta = FES Magnitude - FES Current
@@ -508,7 +578,10 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
         selection = pd.read_csv(paths.FES_VARIANT_SELECTION_FILE)
         chosen_row = selection[selection["chosen"]]
         if not chosen_row.empty:
-            variant_to_col = {"Equal_Core": "fes_core", "Equal_Macro": "fes_macro"}
+            variant_to_col = {
+                "Equal_Core": "fes_core", "Equal_Macro": "fes_macro",
+                "Equal_Selected": "fes_selected",
+            }
             fes_col = variant_to_col.get(chosen_row.iloc[0]["FES_variant"], "fes_core")
 
     if paths.FES_ROLLING_MONTHLY_FILE.exists():
@@ -553,22 +626,50 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
             paths.FES_ROLLING_FILE.name, fes_col, mag_by_year.notna().sum(),
             df["fes_magnitude"].notna().sum(), len(df),
         )
-    elif paths.FES_MONTHLY_FILE.exists():
-        monthly = pd.read_csv(paths.FES_MONTHLY_FILE)
-        df["fes_magnitude"] = float(monthly["fes_core"].mean())
+    elif paths.latest_fes_monthly_file() is not None:
+        monthly_file = paths.latest_fes_monthly_file()
+        monthly = pd.read_csv(monthly_file)
+        # fes_selected: per-series best-of-core/macro composite (see
+        # src.fes_calculator._select_best_mode_per_series) -- falls back to
+        # fes_core for an older cached monthly CSV saved before FES_selected
+        # existed.
+        single_run_col = "fes_selected" if "fes_selected" in monthly.columns else "fes_core"
+        df["fes_magnitude"] = float(monthly[single_run_col].mean())
         log.warning(
             "Rolling FES table not found (%s) -- falling back to a single "
-            "constant FES Magnitude from %s. Run "
+            "constant FES Magnitude from %s (column=%s). Run "
             "forecast_pipeline.run_rolling() for a genuinely year-varying signal.",
-            paths.FES_ROLLING_FILE, paths.FES_MONTHLY_FILE.name,
+            paths.FES_ROLLING_FILE, monthly_file.name, single_run_col,
         )
     else:
         log.warning("No FES file found (rolling or single-year) -- fes_magnitude/"
                     "fes_current/fes_delta will be NaN. Run forecast_pipeline.py first.")
-        df["fes_magnitude"] = np.nan
-        df["fes_current"]   = np.nan
-        df["fes_delta"]     = np.nan
+        df["fes_magnitude"]         = np.nan
+        df["fes_current"]           = np.nan
+        df["fes_delta"]             = np.nan
+        df["fes_actual_prior_year"] = np.nan
         return df
+
+    # FES_actual for the training-cutoff year (year x) -- src.fes_calculator.
+    # compute_fes's realised baseline for the year immediately before its
+    # forecast target window, saved alongside fes_magnitude's year x+1
+    # forecast. A single constant across every row (same caveat as
+    # fes_magnitude's own single-year fallback above: genuinely per-row
+    # variation needs forecast_pipeline.run_rolling, not yet computed here).
+    prior_actual_file = paths.latest_fes_prior_actual_file()
+    if prior_actual_file is not None:
+        prior_actual = pd.read_csv(prior_actual_file)
+        df["fes_actual_prior_year"] = float(prior_actual["fes_actual"].mean())
+        log.info(
+            "FES actual, prior year baseline attached from %s: mean=%.4f",
+            prior_actual_file.name, df["fes_actual_prior_year"].iloc[0],
+        )
+    else:
+        log.warning(
+            "No fes_prior_actual_*.csv found -- fes_actual_prior_year will be NaN. "
+            "Run forecast_pipeline.py (src.fes_calculator.compute_fes) first."
+        )
+        df["fes_actual_prior_year"] = np.nan
 
     if not paths.CORE_CSV.exists():
         log.warning("Core price series not found: %s -- fes_current/fes_delta "
@@ -601,12 +702,13 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
     log.info(
         "FES magnitude range [%.4f, %.4f] (unique values=%d) | "
         "fes_current range [%.4f, %.4f] | fes_delta range [%.4f, %.4f] "
-        "(%d/%d rows valid)",
+        "(%d/%d rows valid) | fes_actual_prior_year=%.4f",
         df["fes_magnitude"].min(skipna=True), df["fes_magnitude"].max(skipna=True),
         df["fes_magnitude"].nunique(),
         df["fes_current"].min(skipna=True), df["fes_current"].max(skipna=True),
         df["fes_delta"].min(skipna=True), df["fes_delta"].max(skipna=True),
         df["fes_delta"].notna().sum(), len(df),
+        df["fes_actual_prior_year"].iloc[0] if df["fes_actual_prior_year"].notna().any() else float("nan"),
     )
     return df
 

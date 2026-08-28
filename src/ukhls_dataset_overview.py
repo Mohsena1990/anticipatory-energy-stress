@@ -153,6 +153,32 @@ _MISSINGNESS_VARS = [
     "inoutflows2", "inoutflows3", "inoutflows4",
 ]
 
+# Human-readable labels for the missingness chart's variable axis -- the raw
+# UKHLS column names above are unreadable variable codes on a plot (same
+# rationale/style as ukhls_vulnerability_classification._PREDICTOR_LABELS).
+# Falls back to the raw name via .get(..., name) if a new variable is ever
+# added to _MISSINGNESS_VARS without an entry here.
+_VAR_LABELS: dict[str, str] = {
+    "fuel_to_income_ratio":  "Fuel-to-income ratio",
+    "high_fuel_vulnerable":  "High fuel vulnerability (flag)",
+    "total_fuel_spend":      "Annual fuel spend",
+    "fihhmnnet1_dv":         "Household net monthly income",
+    "fiyrinvinc_dv":         "Individual annual investment income",
+    "financial_strain_score":"Financial/psychological strain",
+    "tenure_security":       "Housing tenure security",
+    "jbstat_security":       "Employment status security",
+    "health_good":           "Self-rated health (good)",
+    "sf1_good":              "General health satisfaction (good)",
+    "qfhigh_band":           "Educational qualification level",
+    "hsval":                 "House value",
+    "carval":                "Car value",
+    "bill_security":         "Bill payment security",
+    "heatch_good":           "Has central heating (good)",
+    "inoutflows2":           "Used savings (past year)",
+    "inoutflows3":           "New borrowing, bank/credit card (past year)",
+    "inoutflows4":           "New borrowing, family/friends (past year)",
+}
+
 
 def plot_missingness(df: pd.DataFrame) -> pd.DataFrame:
     cols = [c for c in _MISSINGNESS_VARS if c in df.columns]
@@ -161,10 +187,11 @@ def plot_missingness(df: pd.DataFrame) -> pd.DataFrame:
     out.columns = ["variable", "pct_missing"]
     _save_csv(out, "dataset_missingness_by_variable")
 
+    labels = [_VAR_LABELS.get(c, c) for c in pct_missing.index]
     fig, ax = plt.subplots(figsize=(8, max(4, len(cols) * 0.35)))
     fig.patch.set_facecolor("white")
     colors = ["#E74C3C" if v > 50 else "#E67E22" if v > 10 else "#27AE60" for v in pct_missing.values]
-    ax.barh(pct_missing.index[::-1], pct_missing.values[::-1], color=colors[::-1], alpha=0.85)
+    ax.barh(labels[::-1], pct_missing.values[::-1], color=colors[::-1], alpha=0.85)
     for i, v in enumerate(pct_missing.values[::-1]):
         ax.text(v + 1, i, f"{v:.1f}%", va="center", fontsize=8)
     ax.set_xlabel("% missing (structural + item non-response, all waves pooled)")

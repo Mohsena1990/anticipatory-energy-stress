@@ -1,7 +1,7 @@
-component,FES_core,FES_macro,FES_actual
-gas_growth_pct,-0.55509,-0.45004,-0.59966
-electricity_growth_pct,-0.33585,-0.24369,0.01151
-carbon_growth_pct,0.11282,0.14987,0.15472
-Uncertainty / RealVol,-0.15103,0.08743,-0.39388
-FES_total (annual mean),-0.92916,-0.45642,-0.82732
---- best model ---,gas:TFT | electricity:TFT | carbon:LSTM,gas:Prophet | electricity:LSTM | carbon:TFT,realised values
+component,FES_core,FES_macro,FES_selected,FES_actual
+gas_growth_pct,-0.20837,-0.3786,-0.20837,-0.1939
+electricity_growth_pct,-0.32264,-0.4425,-0.32264,-0.41105
+carbon_growth_pct,-0.03758,0.06007,-0.03758,0.03237
+Uncertainty / RealVol,-0.49218,-0.49485,-0.49218,-0.57706
+FES_total (annual mean),-1.06077,-1.25588,-1.06077,-1.14962
+--- best model ---,gas:LSTM | electricity:LSTM | carbon:LSTM,gas:LSTM | electricity:LSTM | carbon:TFT,gas:core | electricity:core | carbon:core,realised values

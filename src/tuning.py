@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src import config
 from src.logging_utils import get_logger
 
 log = get_logger("tuning")
@@ -44,19 +45,27 @@ def _score_result(result: dict, selection_basis: str) -> tuple[float, str]:
     return float(result["metrics"].get("MAE", np.inf)), "validation_MAE"
 
 
-def _prophet_grid(series: str, fast: bool) -> list[dict[str, Any]]:
+def _prophet_grid(series: str, run_mode: str, fast: bool) -> list[dict[str, Any]]:
     modes = ["additive"]
     if series == "gas":
         modes = ["additive", "multiplicative"]
     cps_values = [0.01, 0.05] if fast else [0.001, 0.01, 0.05, 0.1]
     sps_values = [1.0, 10.0] if not fast else [10.0]
+    # regressor_prior_scale only affects macro mode (core has no
+    # regressors) -- varying it for core would just duplicate identical
+    # candidates. Includes Prophet's old implicit default (~10, effectively
+    # unregularised) alongside tighter values, so tuning can confirm
+    # whether the new 0.5 default actually beats the old behaviour rather
+    # than just asserting it.
+    reg_ps_values = [0.1, 0.5, 2.0, 10.0] if run_mode == "macro" else [None]
     return [
         {
             "changepoint_prior_scale": cps,
             "seasonality_prior_scale": sps,
             "seasonality_mode": mode,
+            **({"regressor_prior_scale": reg_ps} if reg_ps is not None else {}),
         }
-        for cps, sps, mode in product(cps_values, sps_values, modes)
+        for cps, sps, mode, reg_ps in product(cps_values, sps_values, modes, reg_ps_values)
     ]
 
 
@@ -115,12 +124,18 @@ def _tft_grid(fast: bool) -> list[dict[str, Any]]:
 
 def _candidate_grid(model: str, series: str, mode: str, fast: bool) -> list[dict[str, Any]]:
     if model == "Prophet":
-        return _prophet_grid(series, fast)
+        return _prophet_grid(series, mode, fast)
     if model == "LSTM":
-        # LSTM tuning is skipped: 12-point validation window + 60-vs-100 epoch
-        # mismatch makes tuned params consistently degrade 2017 actual MAE.
-        # Default architecture is more stable across all series/modes.
-        return []
+        # Previously disabled entirely: tuning trained candidates for only
+        # 60 epochs (20 in --fast) while the final production model trains
+        # for 100 (30 fast) -- a real mismatch, since more epochs can shift
+        # which dropout/lookback/lr combination actually generalises best,
+        # so a candidate picked under 60-epoch training was never a
+        # trustworthy predictor of 100-epoch behaviour. Re-enabled now that
+        # tune_models trains candidates for the SAME epoch count as the
+        # final model (see epochs_lstm below) -- the grid itself
+        # (_lstm_grid) was already fully defined and correct, just unused.
+        return _lstm_grid(series, mode, fast)
     if model == "TFT":
         return _tft_grid(fast)
     return [{}]
@@ -137,10 +152,18 @@ def tune_models(
     fast: bool = False,
     selection_basis: str = "forecast_actual",
     out_dir: str = "outputs/tuning",
+    full_train_end: str = "2016-12-01",
+    forecast_start: str = "2017-01-01",
+    forecast_end: str = "2017-12-01",
 ) -> tuple[dict[tuple[str, str, str], dict[str, Any]], pd.DataFrame]:
     """
     Tune model hyperparameters and return best params keyed by
     ``(series, mode, model)``.
+
+    full_train_end/forecast_start/forecast_end default to the original
+    single-year window; forecast_pipeline.run() passes the dynamically
+    detected "latest year + 1" window instead so tuning is scored against
+    whichever period is actually being forecast, not a fixed calendar year.
     """
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     forecast_root = Path(out_dir) / "forecasts"
@@ -149,7 +172,10 @@ def tune_models(
     rows: list[dict[str, Any]] = []
     best_params: dict[tuple[str, str, str], dict[str, Any]] = {}
 
-    epochs_lstm = 20 if fast else 60
+    # Matches the FINAL production epoch count exactly (config.LSTM_EPOCHS*)
+    # -- previously 20/60 here vs. 30/100 in production, a mismatch that
+    # made tuned LSTM hyperparameters unreliable (see _candidate_grid).
+    epochs_lstm = config.LSTM_EPOCHS_FAST if fast else config.LSTM_EPOCHS
     epochs_tft = 15 if fast else 50
     mc_samples = 50 if fast else 100
 
@@ -157,8 +183,8 @@ def tune_models(
         col = f"{series}_growth"
         train_s = core_train[col].dropna()
         test_s = core_test[col].dropna()
-        full_s = core_full.loc[:"2016-12-01", col].dropna()
-        actual_2017 = core_full.loc["2017-01-01":"2017-12-01", col]
+        full_s = core_full.loc[:full_train_end, col].dropna()
+        actual_target = core_full.loc[forecast_start:forecast_end, col]
         eval_actual = core_test[col].dropna()
 
         for mode in ["core", "macro"]:
@@ -183,7 +209,7 @@ def tune_models(
                                 macro_train=macro_train,
                                 macro_full=macro_full,
                                 use_macro=use_macro,
-                                actual_2017=actual_2017,
+                                actual_target=actual_target,
                                 eval_actual=eval_actual,
                                 forecast_dir=str(candidate_dir),
                             )
@@ -195,7 +221,7 @@ def tune_models(
                                 macro_train=macro_train,
                                 macro_full=macro_full,
                                 use_regressors=use_macro,
-                                actual_2017=actual_2017,
+                                actual_target=actual_target,
                                 eval_actual=eval_actual,
                                 forecast_dir=str(candidate_dir),
                                 **params,
@@ -208,7 +234,7 @@ def tune_models(
                                 macro_train=macro_train,
                                 macro_full=macro_full,
                                 use_macro=use_macro,
-                                actual_2017=actual_2017,
+                                actual_target=actual_target,
                                 eval_actual=eval_actual,
                                 forecast_dir=str(candidate_dir),
                                 epochs=epochs_lstm,
@@ -223,7 +249,7 @@ def tune_models(
                                 macro_train=macro_train,
                                 macro_full=macro_full,
                                 use_macro=use_macro,
-                                actual_2017=actual_2017,
+                                actual_target=actual_target,
                                 eval_actual=eval_actual,
                                 forecast_dir=str(candidate_dir),
                                 epochs=epochs_tft,

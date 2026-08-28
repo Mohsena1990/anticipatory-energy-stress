@@ -61,11 +61,12 @@ def run_prophet(
     macro_train: Optional[pd.DataFrame] = None,
     macro_full: Optional[pd.DataFrame]  = None,
     use_regressors: bool = False,
-    actual_2017: Optional[pd.Series] = None,
+    actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
     changepoint_prior_scale: float = 0.05,
     seasonality_prior_scale: float = 10.0,
+    regressor_prior_scale: float = 0.5,
     seasonality_mode: Optional[str] = None,
     return_model: bool = False,
 ) -> dict:
@@ -82,8 +83,17 @@ def run_prophet(
     macro_full     : Dataset B for full period; must include 2017 rows so that
                      the 2017 forecast receives actual (not zero) macro values.
     use_regressors : include macro variables as additional regressors (macro mode)
-    actual_2017    : actual 2017 target values for comparison column in CSV
+    actual_target    : actual 2017 target values for comparison column in CSV
     forecast_dir   : output directory
+    regressor_prior_scale : Laplace prior scale for each macro regressor's
+        coefficient (Prophet's own `add_regressor(prior_scale=...)`).
+        Previously left at Prophet's default (falls back to
+        holidays_prior_scale=10.0, a loose prior) -- macro regressors can
+        go out-of-distribution in the forecast window (see
+        model_utils.py's "linear models blow up when gas futures are OOD"
+        comment), and an under-regularised coefficient amplifies exactly
+        that. 0.5 is a meaningfully tighter default; tunable via
+        src.tuning._prophet_grid for macro mode.
     """
     try:
         from prophet import Prophet
@@ -100,6 +110,7 @@ def run_prophet(
     log.info(f"[Prophet-{mode.upper()}] Fitting on {series_name} "
              f"(train={len(train)} obs, regressors={use_regressors}, "
              f"cps={changepoint_prior_scale}, sps={seasonality_prior_scale}, "
+             f"reg_ps={regressor_prior_scale if use_regressors else 'n/a'}, "
              f"seasonality={final_seasonality_mode})")
 
     # ── Determine available macro columns ─────────────────────────────────────
@@ -123,7 +134,7 @@ def run_prophet(
         seasonality_prior_scale=seasonality_prior_scale,
     )
     for col in available:
-        m.add_regressor(col)
+        m.add_regressor(col, prior_scale=regressor_prior_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -155,7 +166,7 @@ def run_prophet(
         lower=lb_test, upper=ub_test,
         train_actual=train.values,
     )
-    log.info(f"[Prophet-{mode.upper()} {series_name}] 2016 validation: "
+    log.info(f"[Prophet-{mode.upper()} {series_name}] validation: "
              f"MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}")
 
     # ── Refit on full history through 2016 ───────────────────────────────────
@@ -173,7 +184,7 @@ def run_prophet(
         seasonality_prior_scale=seasonality_prior_scale,
     )
     for col in available:
-        m2.add_regressor(col)
+        m2.add_regressor(col, prior_scale=regressor_prior_scale)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -221,8 +232,8 @@ def run_prophet(
         "upper_bound": ub_2017.round(4),
     })
 
-    if actual_2017 is not None:
-        df_out["actual"] = actual_2017.reindex(
+    if actual_target is not None:
+        df_out["actual"] = actual_target.reindex(
             pd.DatetimeIndex(forecast_dates)
         ).values
 
@@ -240,6 +251,7 @@ def run_prophet(
         "params": {
             "changepoint_prior_scale": changepoint_prior_scale,
             "seasonality_prior_scale": seasonality_prior_scale,
+            "regressor_prior_scale": regressor_prior_scale if use_regressors else None,
             "seasonality_mode": final_seasonality_mode,
         },
     }

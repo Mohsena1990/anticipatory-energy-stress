@@ -2,13 +2,15 @@
 fes_calculator.py
 ─────────────────
 Compute the equal-weighted Forecasted Energy-Carbon Stress (FES) index for
-2017.
+the target forecast year -- auto-detected from the data by
+forecast_pipeline.py (see _compute_default_window), not a fixed calendar
+year.
 
 Two analytical baselines
 ─────────────────────────
   FES_core   — built from core-only model forecasts (target series only)
   FES_macro  — built from macro-augmented model forecasts (core + exogenous)
-  FES_actual — built from realised 2017 values (benchmark)
+  FES_actual — built from the target year's realised values (benchmark)
 
 Formula
 ───────
@@ -20,21 +22,22 @@ Formula
 
 Z-score standardisation
 ───────────────────────
-  All z-scores use the TRAINING period (2005-2017) mean and std so that
-  FES_core, FES_macro, and FES_actual are directly comparable.
+  All z-scores use the TRAINING period (train_start..train_end, passed in
+  by the caller) mean and std so that FES_core, FES_macro, and FES_actual
+  are directly comparable.
 
     z(X_t) = (X_t − μ_train) / σ_train
 
   Uncertainty z-scores use the rolling 12-month std of the training series as
   the reference distribution for forecast interval half-widths.
 
-Outputs (CSV only)
-──────────────────
-  outputs/fes/fes_monthly_2017.csv       — 12 rows × all z-components + FES
-  outputs/fes/fes_summary_2017.csv       — annual mean FES and components
+Outputs (CSV only, named by the actual target_year)
+────────────────────────────────────────────────────
+  outputs/fes/fes_monthly_{target_year}.csv       — 12 rows × all z-components + FES
+  outputs/fes/fes_summary_{target_year}.csv       — annual mean FES and components
   outputs/fes/fes_components_table.csv   — cross-baseline comparison table
-  outputs/figures/fes_monthly_2017.png   — FES time-series (equal-weight variants)
-  outputs/figures/fes_components_2017.png — component breakdown bars
+  outputs/figures/fes_monthly_{target_year}.png   — FES time-series (equal-weight variants)
+  outputs/figures/fes_components_{target_year}.png — component breakdown bars
   outputs/figures/forecast_vs_actual_{series}.png  — per-series forecast plot
 
 Simplified from an earlier version that also computed volatility-weighted
@@ -42,7 +45,8 @@ Simplified from an earlier version that also computed volatility-weighted
 simulation (`src/fes_scenarios.py`) and TS-SHAP attribution
 (`src/ts_shap.py`) — dropped as unused overhead; only the equal-weighted
 FES_core/FES_macro/FES_actual are produced now. `fes_scenarios.py` and
-`ts_shap.py` remain in the repo, unused, for reference.
+`ts_shap.py` have since been removed from the repo entirely, recoverable
+from git history if ever needed for comparison.
 """
 
 from __future__ import annotations
@@ -59,6 +63,10 @@ warnings.filterwarnings("ignore")
 
 SERIES         = ["gas", "electricity", "carbon"]
 MODES          = ["core", "macro"]
+# Legacy fallback defaults only -- forecast_pipeline.py always passes
+# train_start/train_end/forecast_dates explicitly (computed dynamically from
+# the data's own date range; see forecast_pipeline._compute_default_window),
+# so these constants are never actually used by the real pipeline.
 TRAIN_START    = "2005-01-01"
 TRAIN_END      = "2016-12-01"
 FORECAST_DATES = pd.date_range("2017-01-01", periods=12, freq="MS")
@@ -78,6 +86,106 @@ def _find_best_models(ranked_df: pd.DataFrame) -> dict:
     for (s, m), mdl in best.items():
         log.info(f"  [{s}][{m}] → {mdl}")
     return best
+
+
+def _select_best_mode_per_series(ranked_df: pd.DataFrame, best: dict) -> dict:
+    """
+    Per series, pick whichever mode -- core or macro -- has the lower
+    forecast error for its own best model. Independent of, and in addition
+    to, _find_best_models' per-(series, mode) best-MODEL choice: this picks
+    the best MODE for each series (gas/electricity/carbon may each end up
+    core or macro), so a single composite forecast (FES_selected) can use
+    gas's better mode, electricity's better mode, and carbon's better mode
+    together instead of committing the whole index to one mode.
+
+    Deliberately does NOT compare `selection_score`/`rank_score` across
+    modes: those are ranks computed WITHIN each (series, mode) group (see
+    model_evaluation.apply_selection_scores), so the winning model in every
+    group always has rank 1 there regardless of how good or bad that group
+    is overall -- comparing "minimum rank" across the core vs macro groups
+    is therefore always a 1-vs-1 tie, which silently resolved to whichever
+    mode pandas' groupby visited first (an earlier version of this function
+    did exactly that, and always picked 'core'). Compares the two winning
+    models' actual forecast_actual_MAE instead (falling back to RMSE when
+    forecast-vs-actual data isn't available yet), which is on a shared,
+    directly comparable scale across modes.
+    """
+    metric_col = (
+        "forecast_actual_MAE"
+        if "forecast_actual_MAE" in ranked_df.columns and ranked_df["forecast_actual_MAE"].notna().any()
+        else "RMSE"
+    )
+    selected: dict = {}
+    for series in SERIES:
+        scores: dict = {}
+        for mode in MODES:
+            model = best.get((series, mode))
+            if model is None:
+                continue
+            row = ranked_df[
+                (ranked_df["series_name"] == series)
+                & (ranked_df["mode"] == mode)
+                & (ranked_df["model"] == model)
+            ]
+            if row.empty:
+                continue
+            val = row.iloc[0].get(metric_col, np.nan)
+            if pd.isna(val) and metric_col != "RMSE":
+                val = row.iloc[0].get("RMSE", np.nan)
+            if not pd.isna(val):
+                scores[mode] = float(val)
+        if scores:
+            selected[series] = min(scores, key=scores.get)
+    log.info("Per-series mode selected for FES_selected (by %s): %s", metric_col, selected)
+    return selected
+
+
+def _compute_actual_fes_for_window(
+    core_df: pd.DataFrame, stats: dict, window_dates: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    """
+    Realised FES_actual (same formula as the FES_actual block in
+    compute_fes) computed for an arbitrary calendar window instead of the
+    forecast target window -- used to get FES_actual for the training-cutoff
+    year (year x) as a baseline alongside FES_selected's year x+1 forecast,
+    without re-running the whole compute_fes pipeline a second time.
+    """
+    rows = []
+    for date in window_dates:
+        row: dict = {"date": date}
+        z_actual = []
+        for series in SERIES:
+            st  = stats[series]
+            col = f"{series}_growth"
+            sub = core_df[core_df["date"] == date]
+            act_val = (
+                float(sub[col].iloc[0])
+                if not sub.empty and col in sub.columns and pd.notna(sub[col].iloc[0])
+                else np.nan
+            )
+            z_a = _zscore_array(np.array([act_val]), st["mean"], st["std"])[0] \
+                  if not np.isnan(act_val) else np.nan
+            row[f"actual_{series}"]   = round(act_val, 5) if not np.isnan(act_val) else np.nan
+            row[f"z_{series}_actual"] = round(float(z_a), 5) if not np.isnan(z_a) else np.nan
+            z_actual.append(z_a)
+
+        z_actual_arr = np.array([v for v in z_actual if not np.isnan(v)])
+        real_vol = float(np.std(z_actual_arr)) if len(z_actual_arr) > 1 else np.nan
+        row["real_vol_actual"] = round(real_vol, 5) if not np.isnan(real_vol) else np.nan
+        rv_ref = stats.get("_real_vol", {"mean": 0.0, "std": 1.0})
+        z_real_vol = _zscore_array(
+            np.array([real_vol]), rv_ref["mean"], rv_ref["std"]
+        )[0] if not np.isnan(real_vol) else np.nan
+        row["z_real_vol_actual"] = round(float(z_real_vol), 5) if not np.isnan(z_real_vol) else np.nan
+
+        if len(z_actual_arr) == 0:
+            row["fes_actual"] = np.nan
+        else:
+            row["fes_actual"] = round(
+                float(np.sum(z_actual_arr) + (z_real_vol if not np.isnan(z_real_vol) else 0)), 5
+            )
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def _load_forecast(
@@ -233,12 +341,18 @@ def _compute_actual_fes_variants(
     rv_ref_mean = rv_ref["mean"]
     rv_ref_std  = max(rv_ref["std"], 1e-10)
 
+    # np.nansum of an all-NaN row silently returns 0.0 -- mask those months
+    # (no realised data at all, e.g. beyond the raw data's real-world
+    # coverage) back to NaN so they don't fabricate a false fes_actual_A/B/C
+    # data point, matching the fes_actual fix above.
+    all_nan_month = np.all(np.isnan(z_matrix), axis=1)
     z_sum = np.nansum(z_matrix, axis=1)   # sum of actual component z-scores
+    z_sum = np.where(all_nan_month, np.nan, z_sum)
 
     for label, rv in [("A", rv_A), ("B", rv_B), ("C", rv_C)]:
         rv_clean = np.where(np.isnan(rv), 0.0, rv)
         z_rv     = _zscore_array(rv_clean, rv_ref_mean, rv_ref_std)
-        fes_opt  = z_sum + z_rv
+        fes_opt  = np.where(all_nan_month, np.nan, z_sum + z_rv)
         df[f"rv_actual_{label}"]   = np.round(rv, 5)
         df[f"z_rv_actual_{label}"] = np.round(z_rv, 5)
         df[f"fes_actual_{label}"]  = np.round(fes_opt, 5)
@@ -261,8 +375,9 @@ def _compare_fes_variants(monthly_df: pd.DataFrame) -> pd.DataFrame:
         sp = None
 
     forecasted = {
-        "Equal_Core":   "fes_core",
-        "Equal_Macro":  "fes_macro",
+        "Equal_Core":     "fes_core",
+        "Equal_Macro":    "fes_macro",
+        "Equal_Selected": "fes_selected",
     }
     actuals = {
         "Actual_RollingVol": "fes_actual_A",
@@ -374,6 +489,7 @@ def compute_fes(
     # ── Load data ─────────────────────────────────────────────────────────────
     core_df = pd.read_csv(core_csv, parse_dates=["date"])
     best    = _find_best_models(ranked_df)
+    selected_mode = _select_best_mode_per_series(ranked_df, best)
     stats   = _training_stats(core_df, train_start, train_end)
 
     # ── Build per-series forecast arrays ─────────────────────────────────────
@@ -390,7 +506,7 @@ def compute_fes(
                 forecasts[(series, mode)] = df
 
     # ── Extract actual target-window values ───────────────────────────────────
-    actual_2017: dict = {}
+    actual_target: dict = {}
     target_start, target_end = forecast_dates.min(), forecast_dates.max()
     for series in SERIES:
         col = f"{series}_growth"
@@ -398,20 +514,20 @@ def compute_fes(
             (core_df["date"] >= target_start) & (core_df["date"] <= target_end)
         ].set_index("date")
         if col in sub.columns:
-            actual_2017[series] = sub[col].reindex(forecast_dates).values
+            actual_target[series] = sub[col].reindex(forecast_dates).values
         else:
             # Try to get from forecast CSV actual column
             for mode in MODES:
                 key = (series, mode)
                 if key in forecasts and "actual" in forecasts[key].columns:
-                    actual_2017[series] = (
+                    actual_target[series] = (
                         forecasts[key].set_index("date")["actual"]
                         .reindex(forecast_dates).values
                     )
                     break
             else:
                 log.warning(f"No actual target-window data for {series}; using NaN")
-                actual_2017[series] = np.full(12, np.nan)
+                actual_target[series] = np.full(12, np.nan)
 
     # ── Compute z-scores for each component and variant ───────────────────────
     monthly_rows = []
@@ -465,11 +581,29 @@ def compute_fes(
             fes_val = float(np.nansum(z_vals) + z_unc_agg)
             row[f"fes_{mode}"] = round(fes_val, 5)
 
+        # ── FES_selected: per-series best-of-core/macro composite ────────────
+        # Reuses the z_{series}_{mode}/z_unc_{series}_{mode} components just
+        # computed above -- for each series, take whichever mode
+        # _select_best_mode_per_series found better, instead of committing
+        # every series to one mode the way FES_core/FES_macro each do.
+        z_sel_vals, z_sel_unc = [], []
+        for series in SERIES:
+            m = selected_mode.get(series, "core")
+            row[f"selected_mode_{series}"] = m
+            z_sel = row.get(f"z_{series}_{m}", np.nan)
+            unc_sel = row.get(f"z_unc_{series}_{m}", np.nan)
+            row[f"z_{series}_selected"] = z_sel
+            z_sel_vals.append(z_sel)
+            z_sel_unc.append(unc_sel)
+        z_sel_unc_agg = float(np.nanmean(z_sel_unc))
+        row["z_unc_selected"] = round(z_sel_unc_agg, 5)
+        row["fes_selected"] = round(float(np.nansum(z_sel_vals) + z_sel_unc_agg), 5)
+
         # ── FES_actual ────────────────────────────────────────────────────────
         z_actual = []
         for series in SERIES:
             st = stats[series]
-            act_val = actual_2017[series][i] if i < len(actual_2017[series]) else np.nan
+            act_val = actual_target[series][i] if i < len(actual_target[series]) else np.nan
             z_a = _zscore_array(np.array([act_val]), st["mean"], st["std"])[0] \
                   if not np.isnan(act_val) else np.nan
             row[f"actual_{series}"]   = round(float(act_val), 5) if not np.isnan(act_val) else np.nan
@@ -489,10 +623,17 @@ def compute_fes(
             round(float(z_real_vol), 5) if not np.isnan(z_real_vol) else np.nan
         )
 
-        fes_actual = float(np.nansum(z_actual) + (
-            z_real_vol if not np.isnan(z_real_vol) else 0
-        ))
-        row["fes_actual"] = round(fes_actual, 5)
+        if len(z_actual_arr) == 0:
+            # No realised data at all for this month (e.g. still ahead of the
+            # raw data's real-world coverage) -- np.nansum([nan, nan, nan])
+            # silently returns 0.0, which would otherwise fabricate a false
+            # "realised FES = 0" data point instead of leaving it unrealised.
+            row["fes_actual"] = np.nan
+        else:
+            fes_actual = float(np.sum(z_actual_arr) + (
+                z_real_vol if not np.isnan(z_real_vol) else 0
+            ))
+            row["fes_actual"] = round(fes_actual, 5)
 
         monthly_rows.append(row)
 
@@ -506,6 +647,28 @@ def compute_fes(
     monthly_path = f"{out_dir}/fes_monthly_{target_year}.csv"
     monthly_df.to_csv(monthly_path, index=False)
     log.info(f"Monthly FES saved → {monthly_path}")
+
+    # ── FES_actual for the training-cutoff year (year x) ──────────────────────
+    # Baseline realised level for the year immediately before the forecast
+    # target window, computed straight from realised data (not a forecast) --
+    # sits alongside FES_selected's year x+1 forecast so downstream
+    # consumers (src.ukhls_preprocessing.attach_fes_delta) have both "what
+    # actually happened last year" and "what we forecast for next year"
+    # available together.
+    prior_year   = target_year - 1
+    prior_dates  = pd.DatetimeIndex([d - pd.DateOffset(years=1) for d in forecast_dates])
+    prior_actual_df = _compute_actual_fes_for_window(core_df, stats, prior_dates)
+    # NOT "fes_monthly_*" -- that glob is reserved for compute_fes's own
+    # target-year output and is exactly what paths.latest_fes_monthly_file()
+    # scans (alphabetically, so a "fes_monthly_prior_actual_2024.csv" would
+    # incorrectly outrank "fes_monthly_2025.csv" as the "latest" file).
+    prior_actual_path = f"{out_dir}/fes_prior_actual_{prior_year}.csv"
+    prior_actual_df.to_csv(prior_actual_path, index=False)
+    fes_actual_prior_mean = float(prior_actual_df["fes_actual"].mean())
+    log.info(
+        "FES_actual, prior year %d (baseline for FES_selected's %d forecast): mean=%.5f -> %s",
+        prior_year, target_year, fes_actual_prior_mean, prior_actual_path,
+    )
 
     # ── Comparison metrics (cheap, no plotting -- kept even under
     # skip_diagnostics since the rolling walk-forward's FES-variant
@@ -522,14 +685,18 @@ def compute_fes(
         return monthly_df
 
     # ── Build summary / component table ──────────────────────────────────────
-    _save_summary(monthly_df, out_dir)
-    _save_component_table(monthly_df, best, out_dir)
+    extra_summary_rows = [
+        {"variant": "actual_prior_year", "component": "year",       "z_mean": prior_year},
+        {"variant": "actual_prior_year", "component": "FES_TOTAL",  "z_mean": round(fes_actual_prior_mean, 5)},
+    ]
+    _save_summary(monthly_df, out_dir, target_year, extra_rows=extra_summary_rows)
+    _save_component_table(monthly_df, best, out_dir, target_year, selected_mode=selected_mode)
 
     # ── Generate figures ──────────────────────────────────────────────────────
-    _plot_fes_comparison(monthly_df, figures_dir)
-    _plot_fes_components(monthly_df, figures_dir)
+    _plot_fes_comparison(monthly_df, figures_dir, target_year)
+    _plot_fes_components(monthly_df, figures_dir, target_year)
     _plot_forecasts_vs_actual(
-        forecasts, actual_2017, core_df, best, figures_dir,
+        forecasts, actual_target, core_df, best, figures_dir,
         train_start=train_start, train_end=train_end, forecast_dates=forecast_dates,
     )
 
@@ -541,7 +708,7 @@ def compute_fes(
     # Polar model ranking charts
     try:
         from src.plotting_utils import plot_all_polar_charts
-        plot_all_polar_charts(ranked_df, figures_dir)
+        plot_all_polar_charts(ranked_df, figures_dir, best=best)
     except Exception as e:
         log.warning(f"Polar charts failed: {e}")
 
@@ -557,15 +724,18 @@ def compute_fes(
 
     # ── 6 static target-year model-comparison figures (3 series × 2 modes) ───
     try:
-        from src.plotting_utils import plot_all_2017_comparisons
-        plot_all_2017_comparisons(forecast_dir, figures_dir)
+        from src.plotting_utils import plot_all_model_comparisons
+        plot_all_model_comparisons(forecast_dir, figures_dir)
         log.info("Static target-year comparison figures complete")
     except Exception as e:
         log.warning(f"Static target-year comparison figures failed: {e}")
     # ── 6 interactive HTML timeline figures (3 series × 2 modes) ─────────────
     try:
         from src.plotting_utils import plot_all_interactive_forecasts
-        plot_all_interactive_forecasts(core_df, forecast_dir, figures_dir)
+        plot_all_interactive_forecasts(
+            core_df, forecast_dir, figures_dir,
+            train_start=train_start, train_end=train_end,
+        )
         log.info("Interactive timeline figures complete")
     except Exception as e:
         log.warning(f"Interactive timeline figures failed: {e}")
@@ -577,10 +747,14 @@ def compute_fes(
 # Summary tables
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
+def _save_summary(
+    monthly_df: pd.DataFrame, out_dir: str, target_year: int,
+    extra_rows: list[dict] | None = None,
+) -> None:
     rows = []
-    # Equal-weight and actual variants (have full component breakdown)
-    for mode in ["core", "macro", "actual"]:
+    # Equal-weight, per-series-selected, and actual variants (have full
+    # component breakdown)
+    for mode in ["core", "macro", "selected", "actual"]:
         fes_col = f"fes_{mode}"
         if fes_col not in monthly_df.columns:
             continue
@@ -598,7 +772,7 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
                 "z_mean":    round(z_mean, 5),
             })
 
-        unc_col = f"z_unc_{mode}" if mode in ("core", "macro") else "z_real_vol_actual"
+        unc_col = f"z_unc_{mode}" if mode in ("core", "macro", "selected") else "z_real_vol_actual"
         if unc_col in monthly_df.columns:
             rows.append({
                 "variant":   mode,
@@ -612,8 +786,14 @@ def _save_summary(monthly_df: pd.DataFrame, out_dir: str) -> None:
             "z_mean":    round(float(np.nanmean(fes_vals)), 5),
         })
 
+    # Extra rows the caller wants folded in (e.g. the prior-year FES_actual
+    # baseline, which has no per-series/uncertainty breakdown of its own
+    # since it isn't derived from monthly_df's target-year columns).
+    if extra_rows:
+        rows.extend(extra_rows)
+
     summary_df = pd.DataFrame(rows)
-    path = f"{out_dir}/fes_summary_2017.csv"
+    path = f"{out_dir}/fes_summary_{target_year}.csv"
     summary_df.to_csv(path, index=False)
     log.info(f"FES summary saved → {path}")
 
@@ -622,22 +802,32 @@ def _save_component_table(
     monthly_df: pd.DataFrame,
     best: dict,
     out_dir: str,
+    target_year: int,
+    selected_mode: dict | None = None,
 ) -> None:
     """
     Create the cross-baseline comparison table:
 
-    component          | FES_core | FES_macro | FES_actual
-    ───────────────────────────────────────────────────────
-    gas_growth_pct     |  z_mean  |  z_mean   |  z_mean
-    electricity_growth |  z_mean  |  z_mean   |  z_mean
-    carbon_log_return      |  z_mean  |  z_mean   |  z_mean
-    uncertainty        |  z_mean  |  z_mean   |  z_mean
-    FES (annual mean)  |  mean    |  mean     |  mean
+    component          | FES_core | FES_macro | FES_selected | FES_actual
+    ─────────────────────────────────────────────────────────────────────
+    gas_growth_pct     |  z_mean  |  z_mean   |  z_mean      |  z_mean
+    electricity_growth |  z_mean  |  z_mean   |  z_mean      |  z_mean
+    carbon_log_return      |  z_mean  |  z_mean   |  z_mean      |  z_mean
+    uncertainty        |  z_mean  |  z_mean   |  z_mean      |  z_mean
+    FES (annual mean)  |  mean    |  mean     |  mean        |  mean
+
+    FES_selected picks, independently for each series, whichever of
+    FES_core/FES_macro validated better (see _select_best_mode_per_series) --
+    so unlike FES_core/FES_macro it isn't tied to one "best model" dict
+    entry per mode; `selected_mode` (the {series: 'core'|'macro'} choice) is
+    reported in the "best model" row instead.
     """
+    modes = ["core", "macro", "selected", "actual"]
+    selected_mode = selected_mode or {}
     rows = []
     for series in SERIES:
         row = {"component": f"{series}_growth_pct"}
-        for mode in ["core", "macro", "actual"]:
+        for mode in modes:
             col = f"z_{series}_{mode}"
             row[f"FES_{mode}"] = (
                 round(float(monthly_df[col].mean()), 5) if col in monthly_df.columns else np.nan
@@ -646,7 +836,7 @@ def _save_component_table(
 
     # Uncertainty row
     unc_row = {"component": "Uncertainty / RealVol"}
-    for mode in ["core", "macro"]:
+    for mode in ["core", "macro", "selected"]:
         col = f"z_unc_{mode}"
         unc_row[f"FES_{mode}"] = (
             round(float(monthly_df[col].mean()), 5) if col in monthly_df.columns else np.nan
@@ -659,18 +849,19 @@ def _save_component_table(
 
     # FES total row
     total_row = {"component": "FES_total (annual mean)"}
-    for mode in ["core", "macro", "actual"]:
+    for mode in modes:
         col = f"fes_{mode}"
         total_row[f"FES_{mode}"] = (
             round(float(monthly_df[col].mean()), 5) if col in monthly_df.columns else np.nan
         )
     rows.append(total_row)
 
-    # Best model info
+    # Best model / mode info
     model_row = {"component": "--- best model ---"}
     for mode in ["core", "macro"]:
         mdl_list = [f"{s}:{best.get((s,mode),'?')}" for s in SERIES]
         model_row[f"FES_{mode}"] = " | ".join(mdl_list)
+    model_row["FES_selected"] = " | ".join(f"{s}:{selected_mode.get(s,'?')}" for s in SERIES)
     model_row["FES_actual"] = "realised values"
     rows.append(model_row)
 
@@ -680,7 +871,7 @@ def _save_component_table(
     log.info(f"FES components table saved → {path}")
 
     # Print to console
-    print("\n── FES Component Table (z-score means, 2017) ──────────────────────────")
+    print(f"\n── FES Component Table (z-score means, {target_year}) ──────────────────────────")
     print(comp_df.to_string(index=False))
 
 
@@ -715,8 +906,8 @@ def _save_fig(fig: plt.Figure, path: str) -> None:
     log.info(f"Figure saved → {path}")
 
 
-def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
-    """Line chart: FES_core vs FES_macro vs FES_actual over 12 months of 2017."""
+def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str, target_year: int) -> None:
+    """Line chart: FES_core vs FES_macro vs FES_actual over 12 months of the target year."""
     fig, ax = plt.subplots(figsize=(13, 5))
     ax.set_facecolor("white")
     fig.patch.set_facecolor("white")
@@ -726,7 +917,7 @@ def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
     for col, label, colour, ls in [
         ("fes_core",   "FES Core (core-only models)",      _PALETTE["core"],   "-"),
         ("fes_macro",  "FES Macro (core + exogenous)",     _PALETTE["macro"],  "--"),
-        ("fes_actual", "FES Actual (realised 2017 values)",_PALETTE["actual"], ":"),
+        ("fes_actual", f"FES Actual (realised {target_year} values)",_PALETTE["actual"], ":"),
     ]:
         if col in monthly_df.columns:
             ax.plot(months, monthly_df[col].values, color=colour,
@@ -734,18 +925,18 @@ def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str) -> None:
                     label=label)
 
     ax.axhline(0, color="#95A5A6", linewidth=0.9, linestyle="-")
-    ax.set_title("UK Anticipatory Energy–Carbon Stress Index — 2017 Monthly",
+    ax.set_title(f"UK Anticipatory Energy–Carbon Stress Index — {target_year} Monthly",
                  fontsize=14, fontweight="bold", pad=12)
-    ax.set_xlabel("Month (2017)", fontsize=11)
+    ax.set_xlabel(f"Month ({target_year})", fontsize=11)
     ax.set_ylabel("FES (sum of z-scores)", fontsize=11)
     ax.legend(framealpha=0.92, fontsize=10, loc="upper left")
     ax.grid(True, color=_PALETTE["grid"], linewidth=0.8)
     ax.tick_params(axis="both", labelsize=9)
 
-    _save_fig(fig, f"{figures_dir}/fes_monthly_2017.png")
+    _save_fig(fig, f"{figures_dir}/fes_monthly_{target_year}.png")
 
 
-def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
+def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str, target_year: int) -> None:
     """
     Two-panel figure:
     Left  — grouped bar chart comparing z-score components across the three variants
@@ -789,10 +980,23 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
     ax.set_xticklabels(["Gas\nGrowth", "Elec\nGrowth", "Carbon\nGrowth", "Unc /\nRealVol"],
                        fontsize=9)
     ax.axhline(0, color="#95A5A6", linewidth=0.8)
-    ax.set_title("FES Component Z-Scores (2017 annual mean)", fontsize=12, fontweight="bold")
+    ax.set_title(f"FES Component Z-Scores ({target_year} annual mean)", fontsize=12, fontweight="bold")
     ax.set_ylabel("Z-score", fontsize=10)
     ax.legend(fontsize=9, loc="upper right")
     ax.grid(axis="y", color=_PALETTE["grid"], linewidth=0.8)
+    # The value labels above/below each bar use a small FIXED offset, not a
+    # fraction of that bar's own height -- for the most negative bars (e.g.
+    # the Unc/RealVol group) the label lands beyond matplotlib's
+    # auto-computed y-limit and gets clipped/overlaps the x-tick labels
+    # below the axis. Pad the limits explicitly using the actual plotted
+    # values (not just the default autoscale) so every label has room.
+    all_vals = [
+        float(monthly_df[c].mean()) if c in monthly_df.columns else 0.0
+        for cols in z_cols.values() for c in cols
+    ]
+    y_lo, y_hi = min(0.0, *all_vals), max(0.0, *all_vals)
+    pad = max(0.15 * (y_hi - y_lo), 0.15)
+    ax.set_ylim(y_lo - pad, y_hi + pad)
 
     # ── Right: FES total bars ─────────────────────────────────────────────────
     ax2 = axes[1]
@@ -814,18 +1018,24 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str) -> None:
                  f"{v:+.3f}", ha="center", fontsize=11, fontweight="bold")
 
     ax2.axhline(0, color="#95A5A6", linewidth=0.8)
-    ax2.set_title("Total FES — Annual Mean 2017", fontsize=12, fontweight="bold")
+    ax2.set_title(f"Total FES — Annual Mean {target_year}", fontsize=12, fontweight="bold")
     ax2.set_ylabel("FES (sum of z-scores)", fontsize=10)
     ax2.grid(axis="y", color=_PALETTE["grid"], linewidth=0.8)
+    # Same fixed-offset label-clipping issue as the left panel -- pad
+    # explicitly so the most negative bar's label (e.g. FES Macro) doesn't
+    # land on top of the x-tick labels below the axis.
+    y_lo2, y_hi2 = min(0.0, *fes_vals), max(0.0, *fes_vals)
+    pad2 = max(0.15 * (y_hi2 - y_lo2), 0.15)
+    ax2.set_ylim(y_lo2 - pad2, y_hi2 + pad2)
 
-    fig.suptitle("Anticipatory Energy–Carbon Stress Index — Component Analysis 2017",
+    fig.suptitle(f"Anticipatory Energy–Carbon Stress Index — Component Analysis {target_year}",
                  fontsize=14, fontweight="bold", y=1.01)
     plt.tight_layout()
-    _save_fig(fig, f"{figures_dir}/fes_components_2017.png")
+    _save_fig(fig, f"{figures_dir}/fes_components_{target_year}.png")
 
 def _plot_forecasts_vs_actual(
     forecasts: dict,
-    actual_2017: dict,
+    actual_target: dict,
     core_df: pd.DataFrame,
     best: dict,
     figures_dir: str,
@@ -873,7 +1083,7 @@ def _plot_forecasts_vs_actual(
                 ax.fill_between(fc_dates, lb, ub, alpha=0.12, color=col_mode)
 
         # Actual target-year values
-        act = actual_2017.get(series, np.full(12, np.nan))
+        act = actual_target.get(series, np.full(12, np.nan))
         if not np.all(np.isnan(act)):
             ax.plot(fc_dates, act, color="#2C3E50", linestyle="none",
                     marker="o", markersize=5, zorder=5,
@@ -903,7 +1113,7 @@ def _plot_forecasts_vs_actual(
         hist = core_df[
             (core_df["date"] >= train_start) & (core_df["date"] <= train_end)
         ].set_index("date")[col]
-        act  = actual_2017.get(series, np.full(12, np.nan))
+        act  = actual_target.get(series, np.full(12, np.nan))
 
         fig2, ax2 = plt.subplots(figsize=(12, 4))
         fig2.patch.set_facecolor("white")

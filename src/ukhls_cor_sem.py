@@ -38,7 +38,7 @@ row has.
 Panel caveat
 ────────────
 The CFA is fit POOLED across all 15 waves. This assumes measurement
-invariance over time (item meanings/loadings stable 2009-2023), which is
+invariance over time (item meanings/loadings stable 2009-2024), which is
 NOT tested here — flagged as a limitation, not hidden, the same way the
 original ENABLE-based Route 2 flagged Heywood-case risk rather than
 silently reporting an unstable estimate.
@@ -454,70 +454,32 @@ def _plot_loadings(loadings: pd.DataFrame) -> None:
 
 def plot_factor_loadings_polar(loadings: pd.DataFrame) -> None:
     """
-    Stacked polar bar chart, the COR-SEM's own "regression evaluation
-    metrics" companion to Stage 1's forecasting-model polar charts: slices
-    = the 4 COR factors, each slice stacked with that factor's own item
-    |standardized loadings| (from `_plot_loadings`' underlying data),
-    summed centre-to-edge in item order. Bar height is deliberately the
-    SUM, not the mean -- a factor with more well-loading items genuinely
-    carries more total measurement evidence, and normalising that away
-    (tried and reverted: dividing by item count made every factor look
-    almost equally tall, erasing the actual difference in evidence between
-    a 5-item and a 2-item factor). Item names are listed in a compact
-    per-factor box outside the plot (centre-to-edge order) rather than
-    on the wedges themselves -- in-wedge labels overlapped badly for
-    factors with several thin segments.
+    Grouped circular bar chart (house style, see
+    src.plotting_utils.plot_grouped_circular_bars): one group per COR
+    factor (OBJECT/CONDITION/PERSONAL/ENERGY), one individual (non-stacked)
+    bar per item, height = |standardized loading|. Each item is now
+    directly comparable at a glance (previously stacked centre-to-edge,
+    which showed total measurement evidence per factor but hid individual
+    item quality inside the stack).
     """
+    from src.plotting_utils import plot_grouped_circular_bars
+
     if loadings.empty:
         return
     factors = [f for f in _FACTORS if f in loadings["factor"].unique()]
-    n = len(factors)
-    if n == 0:
+    if not factors:
         return
 
-    fig, ax = plt.subplots(figsize=(10, 9), subplot_kw={"projection": "polar"})
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    groups = {}
+    for f in factors:
+        sub = loadings[loadings["factor"] == f]
+        groups[f] = {row["item"]: abs(float(row["std_loading"])) for _, row in sub.iterrows()}
 
-    angles = np.array([i * 2 * np.pi / n for i in range(n)])
-    slice_width = (2 * np.pi / n) * 0.65
-    item_cmap = plt.get_cmap("inferno")
-
-    max_total = 0.0
-    item_lists: list[str] = []
-    for angle, f in zip(angles, factors):
-        sub = loadings[loadings["factor"] == f].reset_index(drop=True)
-        n_items = len(sub)
-        bottom = 0.0
-        for i, row in sub.iterrows():
-            val = abs(float(row["std_loading"]))
-            color = matplotlib.colors.to_hex(item_cmap(0.12 + 0.76 * i / max(n_items - 1, 1)))
-            ax.bar(angle, val, width=slice_width, bottom=bottom, color=color,
-                   edgecolor="white", linewidth=1.2, zorder=3)
-            bottom += val
-        max_total = max(max_total, bottom)
-        item_lists.append(f"{f} (centre→edge): " + ", ".join(sub["item"]))
-
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles)
-    ax.set_xticklabels(factors, fontsize=11, fontweight="bold")
-    ax.set_ylim(0, max_total * 1.1 if max_total else 1.0)
-    ax.set_rlabel_position(37.5)  # between OBJECT and CONDITION spokes, clear of bars
-    ax.tick_params(axis="y", labelsize=8, labelcolor="#555555")
-    ax.yaxis.set_major_formatter(lambda v, _pos: f"{v:.1f}")
-    ax.grid(color="#EAECEE", linewidth=0.9, zorder=0)
-    ax.spines["polar"].set_visible(False)
-
-    fig.text(0.5, 0.03, "\n".join(item_lists), fontsize=8, ha="center", va="bottom")
-    ax.set_title(
-        "COR-SEM: Item Loading Composition by Factor\n"
-        "(stacked |standardized loading|, summed centre→edge in item order;\n"
-        "taller = more total measurement evidence, not necessarily higher per-item quality)",
-        fontsize=12, fontweight="bold", pad=24,
+    group_colors = {f: _PALETTE.get(f, "#888888") for f in factors}
+    plot_grouped_circular_bars(
+        groups, group_colors, f"{paths.UKHLS_SEM_FIGURES}/cor_sem_loadings_polar.png",
+        title="COR-SEM: Item Loadings by Factor\n(bar = |standardized loading|, taller = stronger item)",
     )
-    fig.subplots_adjust(bottom=0.22)
-    _save_fig(fig, "cor_sem_loadings_polar")
 
 
 def _plot_structural_paths(struct_result: dict) -> None:

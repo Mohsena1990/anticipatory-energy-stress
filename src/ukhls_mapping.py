@@ -2,7 +2,8 @@
 ukhls_mapping.py
 ─────────────────
 Variable registry for the Understanding Society (UKHLS, UK Data Service
-Study 6614) household panel — waves a–o (≈2009–2023). Parallels
+Study 6614) household panel — waves a–o (≈2009–2024, wave o's fieldwork
+spans both calendar years). Parallels
 `construct_mapping.py`'s role in the old ENABLE-based design: the single
 shared vocabulary that `src.ukhls_preprocessing` draws on, so item lists,
 missing-value conventions, and per-wave availability notes live in exactly
@@ -55,6 +56,16 @@ MISSING_CODES: list[int] = [-9, -8, -7, -2, -1]
 # =============================================================================
 
 HH_IDENTIFIER = "hidp"
+
+# Household reference person's pidp -- hidp itself is wave-specific (reissued
+# whenever household composition changes), so it cannot link the same
+# household across waves. hrpid CAN: matching hrpid_t == hrpid_{t+1} directly
+# at the household level identifies "the same reference person still heads a
+# household in the next wave" without needing an indresp lookup. Verified
+# against the raw waves: present in every wave's hhresp file, ~72-73% direct
+# match rate wave-to-wave (normal UKHLS attrition). Used by
+# src.ukhls_forward_prediction to build wave-to-wave transition pairs.
+HH_LINK_VARS: list[str] = ["hrpid"]
 
 HH_TIMING_VARS: list[str] = ["month", "quarter"]
 
@@ -110,6 +121,19 @@ IND_CONDITION_VARS: list[str] = ["jbstat"]
 
 # Personal resources (individual-level): human capital / health.
 IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "qfhigh_dv"]
+
+# Disability (individual-level, aggregated to household): `health` alone
+# (already in IND_PERSONAL_VARS, RECODED to health_good) only captures
+# long-standing illness/disability ever, not whether it limits daily
+# activity -- healthlink adds that, together giving an Equality-Act-2010-
+# style disability flag (JRF's own definition, UK Poverty 2025 p.65:
+# "a physical or mental impairment which has a substantial and long-term
+# adverse effect on the ability to carry out normal day-to-day
+# activities"), which health alone conflates with milder/non-limiting
+# conditions. Kept as a separate list (not folded into IND_PERSONAL_VARS)
+# because it's excluded from the SEM's PERSONAL factor -- this is a new
+# descriptive breakdown dimension, not a COR-SEM indicator.
+IND_DISABILITY_VARS: list[str] = ["healthlink"]
 
 # Energy resources (individual-level, additional to income already in
 # HH_INCOME_VARS and inoutflows already in HH_COPING_VARS_RECENT_ONLY).
@@ -173,6 +197,62 @@ TENURE_SECURITY_RECODE: dict[int, float] = {
     6: 0.3,   # Rented private unfurnished
     7: 0.3,   # Rented private furnished
     8: 0.2,   # Other
+}
+
+# tenure_dv -> a coarser, JRF-comparable tenure grouping (UK Poverty 2025,
+# Table 10, p.95: Owned outright / Buying with mortgage / Social renting /
+# Private renting) -- a NEW descriptive-breakdown dimension, distinct from
+# TENURE_SECURITY_RECODE's ordinal security score which already feeds the
+# SEM's CONDITION factor. Codes 5-7 (rented from employer, private
+# unfurnished/furnished) all map to "Private renting", the closest match;
+# JRF's own table has no separate "rented from employer" category.
+TENURE_GROUP_RECODE: dict[int, str] = {
+    1: "Owned outright",
+    2: "Buying with mortgage",
+    3: "Social renting",   # Local authority rent
+    4: "Social renting",   # Housing assoc rented
+    5: "Private renting",  # Rented from employer
+    6: "Private renting",  # Rented private unfurnished
+    7: "Private renting",  # Rented private furnished
+    8: "Other",
+}
+
+# =============================================================================
+# Ethnicity (individual-level, attributed via household reference person)
+# =============================================================================
+# racel_dv is asked once (at a person's entry wave) and carried forward by
+# Understanding Society's own derived-variable logic for continuing sample
+# members -- confirmed populated in both wave a and wave o's raw files.
+# Unlike other individual-level items in this project it is NOT
+# household-mean-aggregated (it's categorical, not ordinal/continuous):
+# it's read directly for the household reference person (hrpid) only,
+# matching how JRF's own report defines ethnicity-based poverty rates
+# ("households headed by someone from a X background" -- UK Poverty 2025,
+# pp.42-49) -- see src.ukhls_preprocessing.load_wave_hrp_ethnicity.
+IND_ETHNICITY_VAR = "racel_dv"
+
+# racel_dv numeric codes -> group labels, aligned to JRF's own ethnicity
+# categories (UK Poverty 2025, Figure 13/25) for direct comparability.
+# Codes/labels confirmed against data/raw/ukhls/a_indresp.dta's Stata
+# value labels (convert_categoricals=True), not guessed from memory.
+ETHNICITY_GROUP_RECODE: dict[int, str] = {
+    1:  "White",                          # British/English/Scottish/Welsh/NI
+    2:  "White",                          # Irish
+    4:  "White",                          # Any other White background
+    5:  "Mixed/multiple ethnic groups",   # White and Black Caribbean
+    6:  "Mixed/multiple ethnic groups",   # White and Black African
+    7:  "Mixed/multiple ethnic groups",   # White and Asian
+    8:  "Mixed/multiple ethnic groups",   # Any other Mixed background
+    9:  "Indian",
+    10: "Pakistani",
+    11: "Bangladeshi",
+    12: "Chinese",
+    13: "Any other Asian background",
+    14: "Black Caribbean",
+    15: "Black African",
+    16: "Any other Black background",
+    17: "Other ethnic group",             # Arab
+    97: "Other ethnic group",             # Any other ethnic group
 }
 
 # =============================================================================

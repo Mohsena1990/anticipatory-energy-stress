@@ -3,15 +3,16 @@ plotting_utils.py
 ─────────────────
 All figure-generation functions for the Anticipatory Energy Stress pipeline.
 
-Figures produced
+Figures produced (target year is auto-detected from the data every run --
+see forecast_pipeline._compute_default_window -- not a fixed calendar year)
 ────────────────
-  A. forecast_vs_actual_{series}.png        – historical + core/macro forecasts + actual 2017
+  A. forecast_vs_actual_{series}.png        – historical + core/macro forecasts + actual target-year values
   B. growth_components_bar.png              – GasGrowth / ElecGrowth / CarbonGrowth bars
   C. uncertainty_components_bar.png         – per-series uncertainty + average
   D. step6_pipeline_diagram.png             – flowchart of Step 6 stages
   E. model_ranking_polar_{series}_{mode}.png – stacked polar bar chart of normalised model metrics
-  F. prediction_intervals_2017.png          – PI width comparison: core vs macro, all series
-  G. fes_monthly_2017.png                   – FES timeline: core vs macro vs actual (Jan-Dec)
+  F. prediction_intervals_{target_year}.png – PI width comparison: core vs macro, all series
+  G. fes_monthly_{target_year}.png          – FES timeline: core vs macro vs actual (Jan-Dec)
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import matplotlib
 matplotlib.use("Agg")                    # headless rendering
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.patheffects as pe
+import matplotlib.patheffects as mpe
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,12 @@ PALETTE = {
     "ci":          "#D7BDE2",
     "grid":        "#EAECEE",
 }
+# Single source of truth for model->colour across the whole project (Stage 1
+# polar charts, rolling performance figures) -- previously duplicated as
+# forecast_pipeline._MODEL_COLORS; that module now imports this instead.
+MODEL_COLORS = {
+    "SARIMA":  "#3B0F70", "Prophet": "#B63679", "LSTM": "#F1605D", "TFT": "#FCB92C",
+}
 FIGSIZE_WIDE = (14, 5)
 FIGSIZE_BAR  = (10, 6)
 DPI          = 150
@@ -50,6 +57,15 @@ def _save(fig: plt.Figure, path: str) -> None:
     fig.savefig(Path(path).with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
     log.info(f"Figure saved → {path}")
+
+
+def _infer_forecast_dates(df: pd.DataFrame, n: int = 12) -> pd.DatetimeIndex:
+    """Recover the actual forecast window from a forecast CSV's own 'date'
+    column (last n unique sorted dates), instead of assuming a fixed
+    calendar year -- the window moves every run as new data lands (see
+    forecast_pipeline._compute_default_window)."""
+    dates = pd.to_datetime(df["date"]).sort_values().unique()
+    return pd.DatetimeIndex(dates[-n:])
 
 
 def _actual_values_by_date(df: pd.DataFrame, forecast_dates: pd.DatetimeIndex) -> np.ndarray:
@@ -66,276 +82,240 @@ def _actual_values_by_date(df: pd.DataFrame, forecast_dates: pd.DatetimeIndex) -
     return actual.reindex(forecast_dates).values
 
 
-# ── A. Forecast vs Actual ──────────────────────────────────────────────────────
+# ── Shared grouped circular bar chart (house style for every polar plot) ───────
 
-def plot_forecast_vs_actual(
-    actual: pd.Series,
-    forecast_2017: np.ndarray,
-    lower_2017: Optional[np.ndarray],
-    upper_2017: Optional[np.ndarray],
-    series_name: str,
-    model_name: str,
+def plot_grouped_circular_bars(
+    groups: dict,
+    group_colors: dict,
     out_path: str,
-    units: str = "",
+    title: str = "",
+    item_colors: dict | None = None,
+    highlight_groups: set | None = None,
+    value_fmt: str = "{:.2f}",
+    color_legend: dict | None = None,
 ) -> None:
     """
-    Plot historical actuals plus 2017 forecast with prediction interval.
+    Grouped circular bar chart: each group gets its own coloured arc +
+    centred label, and each of its items is a separate (non-stacked) bar
+    radiating from a common inner baseline circle -- reproduces the
+    reference "A/B/C/D" circular bar plot style used consistently across
+    every polar chart in this project (Stage 1 model ranking / rolling
+    performance, COR-SEM loadings, COR-CVAE alignment) instead of each one
+    inventing its own stacked-wedge scheme.
+
+    Deliberately not a stacked chart: individual bars remove the
+    ambiguous-total problem stacking has (a chart's visual "shortest bar"
+    no longer needs to coincidentally agree with a separately-computed
+    selection criterion). Which group is the real, external "winner" is
+    shown structurally via `highlight_groups` (a bolder arc + label), not
+    inferred from bar length.
 
     Parameters
     ----------
-    actual        : full history (2005-2017)
-    forecast_2017 : 12-element array of 2017 point forecasts
-    lower/upper   : 95 % PI bounds (may be None)
-    series_name   : 'gas', 'electricity', or 'carbon'
-    model_name    : name of selected model (for subtitle)
-    out_path      : file path to save
-    units         : y-axis label units
+    groups           : {group_label: {item_label: value}}, in draw order.
+                        All values must be >= 0.
+    group_colors     : {group_label: hex colour} for arcs/labels and the
+                        default bar colour.
+    out_path         : PNG file path (a .pdf twin is also saved, via _save).
+    title            : figure title.
+    item_colors      : optional {(group_label, item_label): hex colour}
+                        overriding a specific bar's colour (e.g. colour by
+                        winning model while grouping by series).
+    highlight_groups : group labels to draw with a bolder arc/label --
+                        the actual externally-determined "selected"/"best"
+                        group(s), independent of any bar's height.
+    value_fmt        : format string for the small value label at each bar tip.
+    color_legend     : optional {label: hex colour} legend box -- needed
+                        whenever `item_colors` makes bar colour mean
+                        something OTHER than group membership (e.g. bars
+                        grouped by series but coloured by winning model).
     """
-    colour  = PALETTE.get(series_name, "#555555")
-    fct_col = PALETTE["forecast"]
-    dates_fc = pd.date_range("2017-01-01", periods=12, freq="MS")
+    highlight_groups = highlight_groups or set()
+    item_colors = item_colors or {}
 
-    fig, ax = plt.subplots(figsize=FIGSIZE_WIDE)
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-
-    # Historical
-    ax.plot(actual.index, actual.values, color=colour, linewidth=2.0,
-            label=f"Actual ({actual.index.min().year}–{actual.index.max().year})", zorder=3)
-
-    # Forecast
-    ax.plot(dates_fc, forecast_2017, color=fct_col, linewidth=2.0,
-            linestyle="--", marker="o", markersize=4, label=f"Forecast 2017 ({model_name})", zorder=4)
-
-    # Prediction interval
-    if lower_2017 is not None and upper_2017 is not None:
-        ax.fill_between(
-            dates_fc, lower_2017, upper_2017,
-            alpha=0.25, color=fct_col, label="95 % Prediction Interval", zorder=2
-        )
-
-    # Vertical separator
-    ax.axvline(pd.Timestamp("2017-01-01"), color="#BDC3C7", linewidth=1.2, linestyle=":", zorder=1)
-
-    ax.set_title(
-        f"{series_name.capitalize()} Price — Forecast vs Actual",
-        fontsize=14, fontweight="bold", pad=12
-    )
-    ax.set_xlabel("Date", fontsize=11)
-    ax.set_ylabel(units or series_name.capitalize(), fontsize=11)
-    ax.legend(framealpha=0.9, fontsize=9)
-    ax.grid(True, color=PALETTE["grid"], linewidth=0.8, zorder=0)
-    ax.tick_params(axis="both", labelsize=9)
-
-    _save(fig, out_path)
-
-
-# ── B. Growth components bar chart ────────────────────────────────────────────
-
-def plot_growth_components(
-    gas_growth: float,
-    elec_growth: float,
-    carbon_growth: float,
-    out_path: str,
-) -> None:
-    """Bar chart of annualised 2017 growth rates for all three core series."""
-    labels  = ["Gas", "Electricity", "Carbon"]
-    values  = [gas_growth * 100, elec_growth * 100, carbon_growth * 100]
-    colours = [PALETTE["gas"], PALETTE["electricity"], PALETTE["carbon"]]
-    edge    = ["#C0392B" if v < 0 else "#1A5276" for v in values]
-
-    fig, ax = plt.subplots(figsize=FIGSIZE_BAR)
-    bars = ax.bar(labels, values, color=colours, edgecolor=edge, linewidth=1.2, width=0.5)
-
-    for bar, val in zip(bars, values):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + (0.3 if val >= 0 else -0.8),
-            f"{val:+.2f} %",
-            ha="center", va="bottom", fontsize=11, fontweight="bold"
-        )
-
-    ax.axhline(0, color="#555555", linewidth=0.8)
-    ax.set_title("FES Growth Components — 2017 Annual Forecast vs 2017 Actual",
-                 fontsize=13, fontweight="bold", pad=10)
-    ax.set_ylabel("Growth Rate (%)", fontsize=11)
-    ax.set_ylim(min(values) - 5, max(values) + 8)
-    ax.grid(axis="y", color=PALETTE["grid"], linewidth=0.8)
-    ax.set_facecolor("white")
-
-    _save(fig, out_path)
-
-
-# ── C. Uncertainty components bar chart ───────────────────────────────────────
-
-def plot_uncertainty_components(
-    gas_unc: float,
-    elec_unc: float,
-    carbon_unc: float,
-    out_path: str,
-) -> None:
-    """Bar chart of ForecastUncertainty for each series + average."""
-    avg     = np.mean([gas_unc, elec_unc, carbon_unc])
-    labels  = ["Gas", "Electricity", "Carbon", "Average"]
-    values  = [gas_unc, elec_unc, carbon_unc, avg]
-    colours = [PALETTE["gas"], PALETTE["electricity"], PALETTE["carbon"], "#7F8C8D"]
-
-    fig, ax = plt.subplots(figsize=FIGSIZE_BAR)
-    bars = ax.bar(labels, values, color=colours, edgecolor="#2C3E50", linewidth=0.8, width=0.5)
-
-    for bar, val in zip(bars, values):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.002,
-            f"{val:.4f}" if val < 1 else f"{val:.3f}",
-            ha="center", va="bottom", fontsize=11, fontweight="bold"
-        )
-
-    ax.set_title("Forecast Uncertainty — (Upper − Lower) / Forecast  [2017 Annual]",
-                 fontsize=12, fontweight="bold", pad=10)
-    ax.set_ylabel("Uncertainty Ratio", fontsize=11)
-    ax.set_ylim(0, max(values) * 1.25)
-    ax.grid(axis="y", color=PALETTE["grid"], linewidth=0.8)
-    ax.set_facecolor("white")
-
-    _save(fig, out_path)
-
-
-# ── D. Pipeline flowchart ──────────────────────────────────────────────────────
-
-def plot_pipeline_diagram(out_path: str) -> None:
-    """
-    Simple flowchart:
-      Selected best models → Forecast 2017 → Growth calculation
-      → Uncertainty calculation → Final FES components
-    """
-    fig, ax = plt.subplots(figsize=(14, 4))
-    ax.set_xlim(0, 14)
-    ax.set_ylim(0, 4)
-    ax.axis("off")
-    fig.patch.set_facecolor("#FDFEFE")
-
-    stages = [
-        ("Step 6.1\nLoad & Validate\nData", 1.0,   "#2E86C1"),
-        ("Step 6.2\nSelect Best\nModel",    3.0,   "#1A5276"),
-        ("Step 6.3\nMonthly\nGrowth & Unc", 5.5,  "#117A65"),
-        ("Step 6.4\nAnnual\nAggregation",   8.0,   "#76448A"),
-        ("Step 6.5-6\nSave Tables\n& Figures", 10.5, "#B7950B"),
-        ("Step 6.7\nFES Components\nJSON",  13.0,  "#943126"),
-    ]
-
-    BOX_W, BOX_H = 1.8, 1.0
-    Y_CENTER = 2.0
-
-    for label, x, colour in stages:
-        rect = mpatches.FancyBboxPatch(
-            (x - BOX_W / 2, Y_CENTER - BOX_H / 2),
-            BOX_W, BOX_H,
-            boxstyle="round,pad=0.1",
-            facecolor=colour, edgecolor="white", linewidth=1.5,
-        )
-        ax.add_patch(rect)
-        ax.text(x, Y_CENTER, label, ha="center", va="center",
-                fontsize=7.5, color="white", fontweight="bold", wrap=True)
-
-    # Arrows
-    arrow_props = dict(arrowstyle="-|>", color="#555555", lw=1.5)
-    xs = [s[1] for s in stages]
-    for i in range(len(xs) - 1):
-        ax.annotate(
-            "", xy=(xs[i+1] - BOX_W / 2, Y_CENTER),
-            xytext=(xs[i] + BOX_W / 2, Y_CENTER),
-            arrowprops=arrow_props,
-        )
-
-    # Labels underneath
-    bottom_labels = [
-        (xs[0], "gas · electricity · carbon\n2005–2016 actual + forecasts"),
-        (xs[1], "Rank-aggregation\nScore_m = Σ Rank(Metric_k)"),
-        (xs[2], "GrowthRate = (FC₂₀₁₈ − Act₂₀₁₇) / Act₂₀₁₇\nUncertainty = (UB − LB) / FC"),
-        (xs[3], "Annual avg\nforecast & bounds"),
-        (xs[4], "CSV / XLSX\nPNG figures"),
-        (xs[5], "GasGrowth · ElecGrowth\nCarbonGrowth · ForecastUnc"),
-    ]
-    for x, txt in bottom_labels:
-        ax.text(x, Y_CENTER - 0.9, txt, ha="center", va="top",
-                fontsize=6.5, color="#2C3E50", style="italic")
-
-    ax.set_title("Step 6 Pipeline — Producing FES Components from Best Forecast Model",
-                 fontsize=12, fontweight="bold", pad=6, color="#1C2833")
-
-    _save(fig, out_path)
-
-
-# ── Model comparison heatmap ───────────────────────────────────────────────────
-
-def plot_metrics_heatmap(
-    metrics_df: pd.DataFrame,
-    out_path: str,
-) -> None:
-    """Heatmap of normalised metric values (lower = better, green)."""
-    try:
-        import seaborn as sns
-    except ImportError:
-        log.warning("seaborn not installed; skipping heatmap")
+    group_labels = [g for g in groups if groups[g]]
+    if not group_labels:
+        log.warning("plot_grouped_circular_bars: no data to plot")
         return
 
-    METRIC_COLS = [c for c in metrics_df.columns
-                   if c not in ("series_name", "model", "rank_score")]
+    all_values = [v for g in group_labels for v in groups[g].values()]
+    max_val = max(all_values) if all_values else 1.0
+    if max_val <= 0:
+        max_val = 1.0
 
-    n_series = metrics_df["series_name"].nunique()
-    fig, axes = plt.subplots(1, n_series, figsize=(6 * n_series, 5))
-    if n_series == 1:
-        axes = [axes]
+    n_items_total = sum(len(groups[g]) for g in group_labels)
+    n_groups = len(group_labels)
 
-    for ax, (series, grp) in zip(axes, metrics_df.groupby("series_name")):
-        pivot = grp.set_index("model")[METRIC_COLS].astype(float)
-        # Normalise each column 0-1 (lower = greener)
-        normed = (pivot - pivot.min()) / (pivot.max() - pivot.min() + 1e-10)
-        sns.heatmap(
-            normed, ax=ax, cmap="RdYlGn_r", annot=pivot.round(3),
-            fmt=".3f", linewidths=0.5, vmin=0, vmax=1,
-            cbar_kws={"label": "Normalised (lower=better)"},
+    gap_frac = 0.10  # fraction of the full circle spent on inter-group gaps
+    gap_each = (2 * np.pi * gap_frac) / n_groups
+    item_angle = (2 * np.pi * (1 - gap_frac)) / n_items_total
+
+    # ── Angular layout ──────────────────────────────────────────────────────
+    theta_offset = np.pi / 2   # first item starts at the top
+    theta_direction = -1        # proceeds clockwise
+
+    cursor = 0.0
+    group_ranges: dict = {}
+    item_angle_center: dict = {}
+    for g in group_labels:
+        items = list(groups[g].items())
+        start = cursor
+        for i, (item_label, _val) in enumerate(items):
+            item_angle_center[(g, item_label)] = cursor + item_angle * (i + 0.5)
+        cursor += len(items) * item_angle
+        group_ranges[g] = (start, cursor)
+        cursor += gap_each
+
+    # ── Radial layout ────────────────────────────────────────────────────────
+    # r0 (and everything inside it) is sized generously relative to max_val
+    # so that fixed-size group-label text has room to breathe -- text at a
+    # SMALL radius subtends a much larger angular span than the same text
+    # further out, so a too-small inner circle makes adjacent group labels
+    # collide regardless of how narrow their angular slice is.
+    r0 = max_val * 0.55          # inner baseline circle bars grow from
+    label_r = r0 + max_val * 1.20  # one consistent radius for every item label
+    r_max = label_r * 1.08
+
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={"projection": "polar"})
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    ax.set_theta_offset(theta_offset)
+    ax.set_theta_direction(theta_direction)
+    ax.set_ylim(0, r_max)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.grid(False)
+    ax.spines["polar"].set_visible(False)
+
+    def _visual_angle(theta: float) -> float:
+        """Screen-space angle (standard math convention) a data-theta value
+        renders at, after the offset/direction transform above -- needed to
+        compute label rotation, since ax.text's rotation is in screen
+        degrees and matplotlib does not adjust it for polar transforms."""
+        return theta_offset + theta_direction * theta
+
+    for g in group_labels:
+        is_hl = g in highlight_groups
+        gcolor = group_colors.get(g, "#888888")
+
+        # Bars
+        for item_label, val in groups[g].items():
+            center = item_angle_center[(g, item_label)]
+            bar_color = item_colors.get((g, item_label), gcolor)
+            ax.bar(
+                center, val, width=item_angle * 0.92, bottom=r0,
+                color=bar_color, edgecolor="white", linewidth=0.8, zorder=3,
+            )
+
+        # Group arc (bold + wider when highlighted)
+        start, end = group_ranges[g]
+        pad = item_angle * 0.06
+        arc_theta = np.linspace(start + pad, end - pad, 60)
+        ax.plot(
+            arc_theta, np.full_like(arc_theta, r0 * 0.90),
+            color="#B8860B" if is_hl else gcolor,
+            linewidth=7 if is_hl else 4,
+            solid_capstyle="round", zorder=2,
         )
-        ax.set_title(f"{series.capitalize()} — Model Metrics", fontsize=11, fontweight="bold")
-        ax.set_xlabel("")
-        ax.tick_params(axis="x", rotation=40, labelsize=8)
 
-    fig.suptitle("Model Comparison Heatmap", fontsize=13, fontweight="bold", y=1.02)
+        # Group label, in the empty inner circle but close to its own arc
+        # (not dead-centre) -- a small radius makes fixed-size text subtend
+        # a wide angle and collide with neighbouring groups' labels.
+        mid = (start + end) / 2
+        ax.text(
+            mid, r0 * 0.62, g, ha="center", va="center",
+            fontsize=12 if is_hl else 11,
+            fontweight="bold", color="#B8860B" if is_hl else "#333333",
+        )
+
+        # Item labels + leader lines for bars that don't reach label_r
+        for item_label, val in groups[g].items():
+            center = item_angle_center[(g, item_label)]
+            bar_tip = r0 + val
+            if label_r - bar_tip > max_val * 0.02:
+                ax.plot([center, center], [bar_tip, label_r * 0.985],
+                        color="#BBBBBB", linewidth=0.7, zorder=1)
+
+            rot_deg = np.degrees(_visual_angle(center)) % 360
+            flipped = 90 < rot_deg < 270
+            ha = "right" if flipped else "left"
+            label_rot = rot_deg + 180 if flipped else rot_deg
+            ax.text(
+                center, label_r, f"{item_label}",
+                rotation=label_rot, rotation_mode="anchor",
+                ha=ha, va="center", fontsize=8, color="#333333",
+            )
+
+            # Value, on the colourful bar itself (mid-radius of the wedge) --
+            # white with a dark stroke so it stays legible against any of the
+            # per-model/per-series bar colours.
+            ax.text(
+                center, r0 + val / 2, value_fmt.format(val),
+                rotation=label_rot, rotation_mode="anchor",
+                ha="center", va="center", fontsize=7.5, fontweight="bold",
+                color="white", zorder=4,
+                path_effects=[mpe.withStroke(linewidth=2, foreground="black")],
+            )
+
+    if color_legend:
+        legend_handles = [
+            mpatches.Patch(facecolor=c, edgecolor="white", label=lbl)
+            for lbl, c in color_legend.items()
+        ]
+        ax.legend(
+            handles=legend_handles, loc="center left", bbox_to_anchor=(1.08, 0.5),
+            fontsize=9, framealpha=0.95, title="Bar colour", title_fontsize=9.5,
+        )
+
+    ax.set_title(title, fontsize=13, fontweight="bold", pad=24)
     _save(fig, out_path)
 
 
 # ── E. Polar model ranking chart ───────────────────────────────────────────────
+
+MODEL_RANKING_METRICS = ["forecast_actual_MAE", "forecast_actual_RMSE", "forecast_actual_SMAPE"]
+MODEL_RANKING_FALLBACK_METRICS = ["MAE", "RMSE", "SMAPE", "MASE",
+                                  "QuantileLoss", "WinklerScore", "MSIS"]
+MODEL_RANKING_LABELS = {
+    "forecast_actual_MAE": "MAE", "forecast_actual_RMSE": "RMSE", "forecast_actual_SMAPE": "SMAPE",
+    "MAE": "MAE", "RMSE": "RMSE", "SMAPE": "SMAPE", "MASE": "MASE",
+    "QuantileLoss": "QuantileLoss", "WinklerScore": "WinklerScore", "MSIS": "MSIS",
+}
+
 
 def plot_model_ranking_polar(
     metrics_df: pd.DataFrame,
     series_name: str,
     mode: str,
     out_path: str,
+    selected_model: str | None = None,
 ) -> None:
     """
-    Stacked polar bar chart showing each model's full normalised-metric
-    composition -- replaces the earlier overlapping-line radar chart.
+    Grouped circular bar chart (house style, see plot_grouped_circular_bars):
+    one group per model, one individual (non-stacked) bar per evaluation
+    metric. The pipeline-selected model's group gets the bold highlighted
+    arc + label -- shown structurally, not inferred from which bar/group
+    looks shortest, so there is no possibility of the chart's visual and
+    the real selection disagreeing (the failure mode of the earlier
+    stacked-bar version: summing normalised metrics into one ambiguous
+    total could, and did, order models differently than the pipeline's own
+    forecast_actual_MAE-based selection).
 
-    Each radial slice (a bar with a visible gap on either side, not a
-    solid ring) = one model. Within a slice, the metrics are stacked from
-    the centre (r=0) outward, each metric its own colour band in a warm
-    dark-purple -> rose -> peach gradient -- a slice's total height shows
-    overall model quality (shorter = better, since every metric is
-    normalised 0=best/1=worst), and its colour composition shows which
-    metrics drive that.
+    Every call uses the SAME fixed metric list (MODEL_RANKING_METRICS) so
+    every model_ranking_polar_*.png in a run is directly comparable --
+    falls back to MODEL_RANKING_FALLBACK_METRICS only when forecast-vs-
+    actual data genuinely isn't available yet (a target year that hasn't
+    been realised).
 
     Parameters
     ----------
-    metrics_df  : ranked metrics table (from model_evaluation)
-    series_name : 'gas', 'electricity', or 'carbon'
-    mode        : 'core' or 'macro'
-    out_path    : file path for PNG
+    metrics_df     : ranked metrics table (from model_evaluation)
+    series_name    : 'gas', 'electricity', or 'carbon'
+    mode           : 'core' or 'macro'
+    out_path       : file path for PNG
+    selected_model : the model actually chosen by the pipeline for this
+                      (series, mode) -- from fes_calculator._find_best_models.
     """
-    RANK_METRICS = ["MAE", "RMSE", "SMAPE", "MASE",
-                    "QuantileLoss", "WinklerScore", "MSIS",
-                    "PredictionIntervalCoverage"]
-
     sub = metrics_df[
         (metrics_df["series_name"] == series_name) &
         (metrics_df["mode"] == mode)
@@ -345,94 +325,35 @@ def plot_model_ranking_polar(
         log.warning(f"No data for polar chart ({series_name}, {mode})")
         return
 
-    cols_avail = [c for c in RANK_METRICS if c in sub.columns]
+    has_forecast_actual = (
+        all(c in sub.columns for c in MODEL_RANKING_METRICS)
+        and sub["forecast_actual_MAE"].notna().any()
+    )
+    metrics = MODEL_RANKING_METRICS if has_forecast_actual else MODEL_RANKING_FALLBACK_METRICS
+    cols_avail = [c for c in metrics if c in sub.columns]
     if not cols_avail:
+        log.warning(f"No ranking metrics available for polar chart ({series_name}, {mode})")
         return
 
-    sub = sub.set_index("model")[cols_avail].astype(float)
-
-    # Normalise: for each metric, 0 = best model, 1 = worst.
-    # PredictionIntervalCoverage is higher-better → invert.
-    normed = sub.copy()
-    for col in cols_avail:
-        col_min = sub[col].min()
-        col_max = sub[col].max()
-        rng = col_max - col_min + 1e-10
-        if col == "PredictionIntervalCoverage":
-            normed[col] = (col_max - sub[col]) / rng   # invert
-        else:
-            normed[col] = (sub[col] - col_min) / rng
-
-    models   = list(normed.index)
-    n_models = len(models)
-
-    short_labels = {
-        "MAE": "MAE", "RMSE": "RMSE", "SMAPE": "SMAPE", "MASE": "MASE",
-        "QuantileLoss": "Quantile Loss", "WinklerScore": "Winkler Score",
-        "MSIS": "MSIS", "PredictionIntervalCoverage": "PI Coverage",
+    sub = sub.set_index("model")
+    groups = {
+        model: {MODEL_RANKING_LABELS.get(c, c): max(float(sub.loc[model, c]), 0.0) for c in cols_avail}
+        for model in sub.index
     }
-    # Warm dark-purple -> magenta -> orange -> gold, sampled from
-    # matplotlib's "inferno" for strong, clearly distinct steps (the
-    # earlier hand-picked muted-rose palette had too little contrast
-    # between adjacent bands to read at a glance).
-    n_stack = len(cols_avail)
-    stack_cmap = plt.get_cmap("inferno")
-    STACK_COLORS = [
-        matplotlib.colors.to_hex(stack_cmap(0.12 + 0.76 * i / max(n_stack - 1, 1)))
-        for i in range(n_stack)
-    ]
-    colors = {c: STACK_COLORS[i % len(STACK_COLORS)] for i, c in enumerate(cols_avail)}
+    group_colors = {model: MODEL_COLORS.get(model, "#888888") for model in sub.index}
 
-    fig, ax = plt.subplots(figsize=(9, 8), subplot_kw={"projection": "polar"})
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-
-    angles      = np.array([i * 2 * np.pi / n_models for i in range(n_models)])
-    slice_width = (2 * np.pi / n_models) * 0.72   # < full width -> visible gaps
-
-    for angle, model_name in zip(angles, models):
-        bottom = 0.0
-        for col in cols_avail:
-            val = float(normed.loc[model_name, col])
-            bars = ax.bar(
-                angle, val, width=slice_width, bottom=bottom,
-                color=colors[col], edgecolor="white", linewidth=1.3,
-                align="center", zorder=3,
-            )
-            bars[0].set_path_effects([
-                pe.SimpleLineShadow(offset=(0.8, -0.8), alpha=0.18),
-                pe.Normal(),
-            ])
-            bottom += val
-
-    stack_totals = normed.sum(axis=1)
-    r_max = float(stack_totals.max()) * 1.15 if not stack_totals.empty else 1.0
-
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles)
-    ax.set_xticklabels(models, fontsize=11, fontweight="bold")
-    ax.set_ylim(0, r_max)
-    ax.set_yticklabels([])
-    ax.grid(color="#EAECEE", linewidth=0.9, zorder=0)
-    ax.spines["polar"].set_visible(False)
-
-    legend_handles = [
-        mpatches.Patch(facecolor=colors[col], edgecolor="white", label=short_labels.get(col, col))
-        for col in cols_avail
-    ]
-    ax.legend(
-        handles=legend_handles, loc="center left", bbox_to_anchor=(1.12, 0.5),
-        fontsize=9, framealpha=0.95, title="Metric (stacked, centre outward)",
-        title_fontsize=9.5,
+    basis_label = "forecast-vs-actual accuracy" if has_forecast_actual else "validation-period fit"
+    title = (
+        f"{series_name.capitalize()} [{mode}] — Model Ranking ({basis_label})\n"
+        f"shorter bar = better"
     )
-    ax.set_title(
-        f"{series_name.capitalize()} [{mode}]\n"
-        f"Model Ranking — Stacked Metric Composition (shorter bar = better)",
-        fontsize=12, fontweight="bold", pad=20,
-    )
+    if selected_model is not None:
+        title += f"  |  selected: {selected_model}"
 
-    _save(fig, out_path)
+    plot_grouped_circular_bars(
+        groups, group_colors, out_path, title=title,
+        highlight_groups={selected_model} if selected_model else None,
+    )
 
 
 def plot_all_polar_charts(
@@ -440,8 +361,14 @@ def plot_all_polar_charts(
     figures_dir: str,
     series_names: list = None,
     modes: list = None,
+    best: dict | None = None,
 ) -> None:
-    """Generate one polar chart per (series, mode) combination."""
+    """Generate one polar chart per (series, mode) combination.
+
+    best : {(series, mode): model} from fes_calculator._find_best_models --
+           the actual pipeline selection, used to highlight the right wedge.
+           Optional so existing callers without it keep working unhighlighted.
+    """
     if series_names is None:
         series_names = ["gas", "electricity", "carbon"]
     if modes is None:
@@ -450,8 +377,9 @@ def plot_all_polar_charts(
     for series in series_names:
         for mode in modes:
             out = f"{figures_dir}/model_ranking_polar_{series}_{mode}.png"
+            selected = best.get((series, mode)) if best else None
             try:
-                plot_model_ranking_polar(metrics_df, series, mode, out)
+                plot_model_ranking_polar(metrics_df, series, mode, out, selected_model=selected)
             except Exception as e:
                 log.warning(f"Polar chart failed ({series},{mode}): {e}")
 
@@ -466,7 +394,8 @@ def plot_prediction_intervals(
     series_names: list = None,
 ) -> None:
     """
-    Two-row figure showing 2017 forecast + prediction intervals for all series.
+    Two-row figure showing the target-year forecast + prediction intervals
+    for all series.
 
     Row 1 — core-only models
     Row 2 — macro-augmented models
@@ -474,7 +403,7 @@ def plot_prediction_intervals(
     For each series, plots:
       - Point forecast (solid line)
       - 95 % PI shaded band
-      - Actual 2017 values (diamonds, if available)
+      - Actual values for the target year (diamonds, if available)
 
     Parameters
     ----------
@@ -504,6 +433,7 @@ def plot_prediction_intervals(
                              sharey=False)
     fig.patch.set_facecolor("white")
 
+    target_year = None
     for col_idx, series in enumerate(series_names):
         path = f"{forecast_dir}/{series}_growth_pct_forecasts_all.csv"
         try:
@@ -514,7 +444,9 @@ def plot_prediction_intervals(
                 axes[row_idx, col_idx].set_visible(False)
             continue
 
-        forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+        forecast_dates = _infer_forecast_dates(df_all)
+        if target_year is None:
+            target_year = int(forecast_dates[0].year)
 
         for row_idx, mode in enumerate(["core", "macro"]):
             ax = axes[row_idx, col_idx]
@@ -547,13 +479,13 @@ def plot_prediction_intervals(
                 ax.fill_between(MONTHS[:12], lb, ub,
                                 alpha=0.12, color=style["color"])
 
-            # Actual 2017
+            # Actual target-year values
             act = _actual_values_by_date(df_mode, forecast_dates)
             if not all(pd.isna(act)):
                 ax.plot(MONTHS[:12], act,
                         color=_PALETTE["actual"], marker="o",
                         markersize=5, linestyle="none", zorder=5,
-                        label="Actual 2017")
+                        label=f"Actual {target_year}")
 
             ax.axhline(0, color="#BDC3C7", linewidth=0.8)
             ax.set_title(
@@ -572,7 +504,7 @@ def plot_prediction_intervals(
                                     fontsize=10, fontweight="bold")
 
     fig.suptitle(
-        "Prediction Intervals — 2017 Forecast (core vs macro)  |  95 % PI shaded",
+        f"Prediction Intervals — {target_year} Forecast (core vs macro)  |  95 % PI shaded",
         fontsize=14, fontweight="bold", y=1.01,
     )
     plt.tight_layout()
@@ -580,128 +512,7 @@ def plot_prediction_intervals(
 
 
 
-def plot_prediction_intervalss(
-    forecast_dir: str,
-    out_path: str,
-    series_names: list = None,
-) -> None:
-    """
-    Two-row figure showing 2017 forecast + prediction intervals for all series.
-
-    Row 1 — core-only models
-    Row 2 — macro-augmented models
-
-    For each series, plots:
-      - Point forecast (solid line)
-      - 95 % PI shaded band
-      - Actual 2017 values (diamonds, if available)
-
-    Parameters
-    ----------
-    forecast_dir : directory containing *_forecasts_all.csv files
-    out_path     : PNG output path
-    series_names : list of series to plot (default: gas, electricity, carbon)
-    """
-    if series_names is None:
-        series_names = ["gas", "electricity", "carbon"]
-
-    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    _PALETTE = {
-        "gas":         "#E67E22",
-        "electricity": "#2980B9",
-        "carbon":      "#27AE60",
-        "core":        "#8E44AD",
-        "macro":       "#E74C3C",
-        "actual":      "#2C3E50",
-    }
-
-    _MODEL_STYLES: dict = {
-    "SARIMA":  {"color": "#2980B9", "ls": "-",   "marker": "o",  "lw": 2.0},
-    "Prophet": {"color": "#E67E22", "ls": "--",  "marker": "s",  "lw": 2.0},
-    "LSTM":    {"color": "#8E44AD", "ls": "-.",  "marker": "^",  "lw": 2.0},
-    "TFT":     {"color": "#27AE60", "ls": ":",   "marker": "D",  "lw": 2.0},
-    }
-
-    import pandas as pd
-
-    fig, axes = plt.subplots(2, len(series_names),
-                             figsize=(6 * len(series_names), 9),
-                             sharey=False)
-    fig.patch.set_facecolor("white")
-
-    for col_idx, series in enumerate(series_names):
-        path = f"{forecast_dir}/{series}_growth_pct_forecasts_all.csv"
-        try:
-            df_all = pd.read_csv(path, parse_dates=["date"])
-        except FileNotFoundError:
-            log.warning(f"Not found: {path}")
-            for row_idx in range(2):
-                axes[row_idx, col_idx].set_visible(False)
-            continue
-
-        forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
-
-        for row_idx, mode in enumerate(["core", "macro"]):
-            ax = axes[row_idx, col_idx]
-            ax.set_facecolor("white")
-
-            df_mode = df_all[df_all["mode"] == mode]
-            colour  = _PALETTE[mode]
-
-            # Plot each model's PI and forecast
-            models_in_mode = df_mode["model"].unique()
-            for midx, model in enumerate(models_in_mode):
-                df_m = df_mode[df_mode["model"] == model].set_index("date")
-                
-                fc = df_m["forecast"].reindex(forecast_dates).values
-                lb = df_m["lower_bound"].reindex(forecast_dates).values
-                ub = df_m["upper_bound"].reindex(forecast_dates).values
-
-                alpha_line = 0.9 if midx == 0 else 0.45
-                alpha_fill = 0.15 if midx == 0 else 0.07
-                lw = 2.0 if midx == 0 else 1.0
-
-                ax.plot(MONTHS[:12], fc, color=colour, linewidth=lw,
-                        linestyle="-", alpha=alpha_line,
-                        label=f"{model} forecast")
-                ax.fill_between(MONTHS[:12], lb, ub,
-                                alpha=alpha_fill, color=colour)
-
-            # Actual 2017
-            act = _actual_values_by_date(df_mode, forecast_dates)
-            if not all(pd.isna(act)):
-                ax.plot(MONTHS[:12], act,
-                        color=_PALETTE["actual"], marker="o",
-                        markersize=5, linestyle="none", zorder=5,
-                        label="Actual 2017")
-
-            ax.axhline(0, color="#BDC3C7", linewidth=0.8)
-            ax.set_title(
-                f"{series.capitalize()} [{mode}]",
-                fontsize=11, fontweight="bold",
-            )
-            ax.tick_params(axis="x", rotation=45, labelsize=8)
-            ax.set_ylabel("YoY Growth (%)" if col_idx == 0 else "")
-            ax.legend(fontsize=7.5, loc="best", framealpha=0.85, ncol=2)
-            ax.grid(True, color="#EAECEE", linewidth=0.7)
-
-    # Row labels
-    for row_idx, label in enumerate(["CORE — target series only",
-                                     "MACRO — core + exogenous"]):
-        axes[row_idx, 0].set_ylabel(f"{label}\n\nYoY Growth (%)",
-                                    fontsize=10, fontweight="bold")
-
-    fig.suptitle(
-        "Prediction Intervals — 2017 Forecast (core vs macro)  |  95 % PI shaded",
-        fontsize=14, fontweight="bold", y=1.01,
-    )
-    plt.tight_layout()
-    _save(fig, out_path)
-
-
-# ── H. Static 2017 model-comparison figure (6 total: 3 series × 2 modes) ─────
+# ── H. Static target-year model-comparison figure (6 total: 3 series × 2 modes) ─
 
 _MODEL_STYLES: dict = {
     "SARIMA":  {"color": "#2980B9", "ls": "-",   "marker": "o",  "lw": 2.0},
@@ -713,30 +524,31 @@ _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def plot_2017_model_comparison(
+def plot_model_comparison(
     forecast_dir: str,
     series_name: str,
     mode: str,
     out_path: str,
-    actual_2017: Optional["pd.Series"] = None,
+    actual_target: Optional["pd.Series"] = None,
 ) -> None:
     """
-    Static 2017 monthly figure: all 4 models' point forecasts + 95 % PI,
-    plus actual 2017 values for one (series, mode) pair.
+    Static target-year monthly figure: all 4 models' point forecasts + 95 % PI,
+    plus actual values for one (series, mode) pair. The target year itself
+    is inferred from the forecast CSV's own dates, not hardcoded.
 
     Parameters
     ----------
-    forecast_dir : directory holding *_forecasts_all.csv
-    series_name  : 'gas', 'electricity', or 'carbon'
-    mode         : 'core' or 'macro'
-    out_path     : PNG file path
-    actual_2017  : optional 12-element actual-value Series for 2017
+    forecast_dir  : directory holding *_forecasts_all.csv
+    series_name   : 'gas', 'electricity', or 'carbon'
+    mode          : 'core' or 'macro'
+    out_path      : PNG file path
+    actual_target : optional 12-element actual-value Series for the target year
     """
     all_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_all.csv"
     try:
         df_all = pd.read_csv(all_path, parse_dates=["date"])
     except FileNotFoundError:
-        log.warning(f"Not found for 2017 comparison: {all_path}")
+        log.warning(f"Not found for target-year comparison: {all_path}")
         return
 
     df_mode = df_all[df_all["mode"] == mode].copy()
@@ -744,7 +556,8 @@ def plot_2017_model_comparison(
         log.warning(f"No data for mode={mode} in {all_path}")
         return
 
-    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+    forecast_dates = _infer_forecast_dates(df_mode)
+    target_year = int(forecast_dates[0].year)
 
     fig, ax = plt.subplots(figsize=(13, 5))
     ax.set_facecolor("white")
@@ -780,10 +593,10 @@ def plot_2017_model_comparison(
         plt.close(fig)
         return
 
-    # Actual 2017 values
+    # Actual target-year values
     act_vals = None
-    if actual_2017 is not None and actual_2017.notna().any():
-        act_vals = actual_2017.reindex(forecast_dates).values
+    if actual_target is not None and actual_target.notna().any():
+        act_vals = actual_target.reindex(forecast_dates).values
     elif "actual" in df_mode.columns:
         act_vals = _actual_values_by_date(df_mode, forecast_dates)
 
@@ -793,17 +606,17 @@ def plot_2017_model_comparison(
             color="#2C3E50", linestyle="none",
             marker="o", markersize=6, markeredgewidth=1.0,
             markeredgecolor="white", zorder=6,
-            label="Actual 2017",
+            label=f"Actual {target_year}",
         )
 
     ax.axhline(0, color="#BDC3C7", linewidth=0.8)
     mode_label = "Core-Only Models" if mode == "core" else "Macro-Augmented Models"
     ax.set_title(
-        f"UK {series_name.capitalize()} Growth (%) — 2017 Monthly Forecast\n"
+        f"UK {series_name.capitalize()} Growth (%) — {target_year} Monthly Forecast\n"
         f"{mode_label}  |  95 % PI shaded  |  Actual values ●",
         fontsize=13, fontweight="bold", pad=12,
     )
-    ax.set_xlabel("Month (2017)", fontsize=11)
+    ax.set_xlabel(f"Month ({target_year})", fontsize=11)
     ax.set_ylabel("Growth Rate (%)", fontsize=11)
     ax.legend(fontsize=10, framealpha=0.92, loc="best")
     ax.grid(True, color=PALETTE["grid"], linewidth=0.8)
@@ -812,13 +625,13 @@ def plot_2017_model_comparison(
     _save(fig, out_path)
 
 
-def plot_all_2017_comparisons(
+def plot_all_model_comparisons(
     forecast_dir: str,
     figures_dir: str,
     series_names: list = None,
     modes: list = None,
 ) -> None:
-    """Generate all 6 static 2017 model-comparison figures."""
+    """Generate all 6 static target-year model-comparison figures."""
     if series_names is None:
         series_names = ["gas", "electricity", "carbon"]
     if modes is None:
@@ -826,11 +639,11 @@ def plot_all_2017_comparisons(
 
     for series in series_names:
         for mode in modes:
-            out = f"{figures_dir}/forecast_2017_{series}_{mode}.png"
+            out = f"{figures_dir}/forecast_comparison_{series}_{mode}.png"
             try:
-                plot_2017_model_comparison(forecast_dir, series, mode, out)
+                plot_model_comparison(forecast_dir, series, mode, out)
             except Exception as e:
-                log.warning(f"2017 comparison figure failed ({series},{mode}): {e}")
+                log.warning(f"Target-year comparison figure failed ({series},{mode}): {e}")
 
 # ── I. Interactive Plotly timeline (6 total: 3 series × 2 modes) ──────────────
 
@@ -842,19 +655,21 @@ def plot_interactive_forecast(
     out_path: str,
 ) -> None:
     """
-    Interactive Plotly HTML figure: full 2005–2017 timeline.
+    Interactive Plotly HTML figure: full historical + target-year timeline.
+    The historical range and target year are both inferred from the data
+    (historical.index and the forecast CSV's own dates), not hardcoded.
 
     Layout
     ------
-    - Solid grey area: historical 2005-2017 actual values
-    - Vertical dashed line at 2017-01-01 separating history from forecast
+    - Solid grey area: historical actual values
+    - Vertical dashed line separating history from the forecast
     - One coloured trace per model (point forecast + shaded PI band)
     - Models are toggleable via the legend (click to show/hide)
     - Hover tooltip shows date, model, forecast value, PI bounds
 
     Parameters
     ----------
-    historical   : full 2005-2017 actual Series (DatetimeIndex, name = col)
+    historical   : full historical actual Series (DatetimeIndex, name = col)
     forecast_dir : directory holding forecast CSVs
     series_name  : 'gas', 'electricity', or 'carbon'
     mode         : 'core' or 'macro'
@@ -876,22 +691,29 @@ def plot_interactive_forecast(
         return
 
     df_mode = df_all[df_all["mode"] == mode].copy()
-    forecast_dates = pd.date_range("2017-01-01", periods=12, freq="MS")
+    if df_mode.empty:
+        log.warning(f"No data for mode={mode} in {all_path}")
+        return
+    forecast_dates = _infer_forecast_dates(df_mode)
+    target_year = int(forecast_dates[0].year)
+    hist_start_year = int(historical.index.min().year) if historical is not None and not historical.empty else None
+    hist_end_year   = int(historical.index.max().year) if historical is not None and not historical.empty else None
+    hist_range_label = f"{hist_start_year}–{hist_end_year}" if hist_start_year else "history"
 
     mode_label = "Core-Only" if mode == "core" else "Macro-Augmented"
     title = (
-        f"UK {series_name.capitalize()} Growth (%) — Full Timeline 2005–2017  "
+        f"UK {series_name.capitalize()} Growth (%) — Full Timeline {hist_range_label}–{target_year}  "
         f"[{mode_label} Models]"
     )
 
     fig = go.Figure()
 
-    # ── Historical 2005-2017 ──────────────────────────────────────────────────
+    # ── Historical ─────────────────────────────────────────────────────────
     if historical is not None and not historical.empty:
         fig.add_trace(go.Scatter(
             x=historical.index,
             y=historical.values,
-            name="Historical 2005–2016",
+            name=f"Historical {hist_range_label}",
             mode="lines",
             line=dict(color="#7F8C8D", width=2),
             fill="tozeroy",
@@ -899,16 +721,16 @@ def plot_interactive_forecast(
             hovertemplate="<b>%{x|%b %Y}</b><br>Actual: %{y:.3f}%<extra></extra>",
         ))
 
-    # ── Actual 2017 ───────────────────────────────────────────────────────────
+    # ── Actual target-year values ─────────────────────────────────────────
     act_col = "actual"
     if act_col in df_mode.columns:
         act_values = _actual_values_by_date(df_mode, forecast_dates)
-        act_2017 = pd.Series(act_values, index=forecast_dates).dropna()
-        if not act_2017.empty:
+        act_target = pd.Series(act_values, index=forecast_dates).dropna()
+        if not act_target.empty:
             fig.add_trace(go.Scatter(
-                x=act_2017.index,
-                y=act_2017.values,
-                name="Actual 2017",
+                x=act_target.index,
+                y=act_target.values,
+                name=f"Actual {target_year}",
                 mode="markers",
                 marker=dict(symbol="circle", size=10,
                             color="#2C3E50", line=dict(color="white", width=1.5)),
@@ -977,8 +799,8 @@ def plot_interactive_forecast(
             ),
         ))
 
-    # ── Vertical separator at 2017-01-01 ─────────────────────────────────────
-    split_date = pd.Timestamp("2017-01-01")
+    # ── Vertical separator at the start of the forecast window ────────────
+    split_date = forecast_dates.min()
     fig.add_shape(
         type="line",
         x0=split_date,
@@ -994,7 +816,7 @@ def plot_interactive_forecast(
         y=1,
         xref="x",
         yref="paper",
-        text="  2017 forecast →",
+        text=f"  {target_year} forecast →",
         showarrow=False,
         xanchor="left",
         yanchor="bottom",
@@ -1053,15 +875,23 @@ def plot_all_interactive_forecasts(
     figures_dir: str,
     series_names: list = None,
     modes: list = None,
+    train_start: str = "2005-01-01",
+    train_end: str = "2016-12-01",
 ) -> None:
-    """Generate all 6 interactive HTML forecast timelines."""
+    """Generate all 6 interactive HTML forecast timelines.
+
+    train_start/train_end default to the original single-year window but
+    should be passed explicitly by the caller (src.fes_calculator.compute_fes
+    does) so the historical range shown matches whatever window was
+    actually used to train the current forecast.
+    """
     if series_names is None:
         series_names = ["gas", "electricity", "carbon"]
     if modes is None:
         modes = ["core", "macro"]
 
-    TRAIN_START = "2005-01-01"
-    TRAIN_END   = "2016-12-01"
+    TRAIN_START = train_start
+    TRAIN_END   = train_end
 
     for series in series_names:
         col = f"{series}_growth"
@@ -1079,54 +909,3 @@ def plot_all_interactive_forecasts(
             except Exception as e:
                 log.warning(f"Interactive figure failed ({series},{mode}): {e}")
 
-
-# ── G. FES timeline  ──────────────────────────────────────────────────────────
-# (Implemented in fes_calculator.py — _plot_fes_comparison)
-# Exposed here as a standalone wrapper for external use.
-
-def plot_fes_timeline(
-    fes_monthly: "pd.DataFrame",
-    out_path: str,
-) -> None:
-    """
-    Line chart: FES_core vs FES_macro vs FES_actual over Jan–Dec 2017.
-
-    Parameters
-    ----------
-    fes_monthly : DataFrame with columns fes_core, fes_macro, fes_actual
-    out_path    : PNG output path
-    """
-    import pandas as pd
-
-    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    _P = {"core": "#8E44AD", "macro": "#E74C3C", "actual": "#2C3E50"}
-
-    fig, ax = plt.subplots(figsize=(13, 5))
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-
-    for col, label, colour, ls in [
-        ("fes_core",   "FES Core (main — core-only models)",         _P["core"],   "-"),
-        ("fes_macro",  "FES Macro (Robustness 1 — macro-augmented)", _P["macro"],  "--"),
-        ("fes_actual", "FES Actual (Robustness 2 — realised prices)",_P["actual"], ":"),
-    ]:
-        if col in fes_monthly.columns:
-            months_n = len(fes_monthly)
-            ax.plot(MONTHS[:months_n], fes_monthly[col].values,
-                    color=colour, linestyle=ls, linewidth=2.2,
-                    marker="o", markersize=5, label=label)
-
-    ax.axhline(0, color="#95A5A6", linewidth=0.9, linestyle="-")
-    ax.set_title(
-        "UK Anticipatory Energy–Carbon Stress Index — Monthly 2017\n"
-        "FES_core (main)  |  FES_macro (Robustness 1)  |  FES_actual (Robustness 2)",
-        fontsize=13, fontweight="bold", pad=12,
-    )
-    ax.set_xlabel("Month (2017)", fontsize=11)
-    ax.set_ylabel("FES  (sum of training-period z-scores)", fontsize=11)
-    ax.legend(framealpha=0.92, fontsize=10, loc="upper left")
-    ax.grid(True, color=PALETTE["grid"], linewidth=0.8)
-
-    _save(fig, out_path)

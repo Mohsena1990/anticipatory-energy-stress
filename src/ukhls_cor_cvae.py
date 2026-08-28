@@ -53,7 +53,6 @@ import warnings
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
@@ -410,72 +409,38 @@ def _plot_alignment_heatmap(mu_df: pd.DataFrame, sem_scores: pd.DataFrame) -> No
 
 def plot_alignment_polar(align_df: pd.DataFrame) -> None:
     """
-    Stacked polar bar chart, the CVAE's own "regression evaluation
-    metrics" companion to Stage 1's forecasting-model polar charts: slices
-    = the 4 latent dimensions (z1-z4), each stacked with |pearson_r|
-    against all 4 SEM factors -- a wide, evenly-stacked slice means that
-    latent dimension aligns broadly with the whole COR structure; a slice
-    dominated by one segment means it aligns narrowly with a single
-    factor. Distinct from `_plot_alignment_heatmap` (a precise per-pair
-    number grid) -- this is the at-a-glance composition view.
+    Grouped circular bar chart (house style, see
+    src.plotting_utils.plot_grouped_circular_bars): one group per latent
+    dimension (z1-z4), one individual (non-stacked) bar per SEM factor,
+    height = |pearson_r| between that latent dim and that factor. Each
+    dim-factor pair is now directly comparable (previously stacked, which
+    showed a dim's total alignment breadth but hid which specific factor
+    pairs were strong vs. weak inside the stack).
     """
+    from src.plotting_utils import plot_grouped_circular_bars
+
     if align_df.empty:
         return
     dims = [d for d in _Z_COLS if d in align_df["latent_dim"].unique()]
-    n = len(dims)
-    if n == 0:
+    if not dims:
         return
 
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={"projection": "polar"})
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-
-    angles = np.array([i * 2 * np.pi / n for i in range(n)])
-    slice_width = (2 * np.pi / n) * 0.65
-    item_cmap = plt.get_cmap("inferno")
-    n_factors = len(_SEM_FACTOR_COLS)
-    factor_colors = {
-        f: matplotlib.colors.to_hex(item_cmap(0.12 + 0.76 * i / max(n_factors - 1, 1)))
-        for i, f in enumerate(_SEM_FACTOR_COLS)
-    }
-
-    max_total = 0.0
-    for angle, dim in zip(angles, dims):
+    groups = {}
+    for dim in dims:
         sub = align_df[align_df["latent_dim"] == dim]
-        bottom = 0.0
+        items = {}
         for factor in _SEM_FACTOR_COLS:
             row = sub[sub["sem_factor"] == factor]
             if row.empty or pd.isna(row["pearson_r"].iloc[0]):
                 continue
-            val = abs(float(row["pearson_r"].iloc[0]))
-            ax.bar(angle, val, width=slice_width, bottom=bottom, color=factor_colors[factor],
-                   edgecolor="white", linewidth=1.2, zorder=3)
-            bottom += val
-        max_total = max(max_total, bottom)
+            items[factor.replace("_score", "")] = abs(float(row["pearson_r"].iloc[0]))
+        groups[dim] = items
 
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles)
-    ax.set_xticklabels(dims, fontsize=11, fontweight="bold")
-    ax.set_ylim(0, max_total * 1.1 if max_total else 1.0)
-    ax.set_rlabel_position(45)  # between z1 and z2 spokes, clear of bars
-    ax.tick_params(axis="y", labelsize=8, labelcolor="#555555")
-    ax.yaxis.set_major_formatter(lambda v, _pos: f"{v:.1f}")
-    ax.grid(color="#EAECEE", linewidth=0.9, zorder=0)
-    ax.spines["polar"].set_visible(False)
-
-    legend_handles = [
-        mpatches.Patch(facecolor=factor_colors[f], edgecolor="white", label=f)
-        for f in _SEM_FACTOR_COLS
-    ]
-    ax.legend(handles=legend_handles, loc="center left", bbox_to_anchor=(1.12, 0.5),
-              fontsize=9, framealpha=0.95, title="SEM factor (stacked)", title_fontsize=9.5)
-    ax.set_title(
-        "COR-CVAE: Latent-SEM Alignment Composition\n"
-        "(stacked |Pearson r|, taller = broader alignment across all 4 COR factors)",
-        fontsize=12, fontweight="bold", pad=20,
+    group_colors = {d: _PALETTE.get(d, "#888888") for d in dims}
+    plot_grouped_circular_bars(
+        groups, group_colors, f"{paths.UKHLS_CVAE_FIGURES}/cvae_alignment_polar.png",
+        title="COR-CVAE: Latent-SEM Alignment\n(bar = |Pearson r| between that latent dim and that COR factor)",
     )
-    _save_fig(fig, "cvae_alignment_polar")
 
 
 # =============================================================================

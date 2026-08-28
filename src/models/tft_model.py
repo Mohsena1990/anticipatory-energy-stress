@@ -213,72 +213,68 @@ class _AttentionLSTM:
 # Primary TFT via pytorch-forecasting (when available)
 # ════════════════════════════════════════════════════════════════════════════════
 
-def _run_pytorch_forecasting(
-    series_name: str,
-    train: pd.Series,
-    test: pd.Series,
-    full: pd.Series,
-    macro_full: Optional[pd.DataFrame],
-    use_macro: bool,
-    actual_2017: Optional[pd.Series],
-    eval_actual: Optional[pd.Series],
-    forecast_dir: str,
-    epochs: int,
-) -> dict:
-    """Use the official pytorch-forecasting TFT."""
-    from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
-    from pytorch_forecasting.metrics import QuantileLoss as PTQLoss
-    import pytorch_lightning as pl
-    import torch
-
-    mode = "macro" if use_macro else "core"
-    log.info(f"[TFT/pytorch-forecasting] Fitting {series_name} ({mode})")
-
-    series_col = f"{series_name}_value"
-    df_train = pd.DataFrame({
-        "time_idx": range(len(train)),
+def _build_tft_dataset(
+    series_name: str, values: pd.Series, macro_full: Optional[pd.DataFrame],
+    use_macro: bool, series_col: str, extra_time_idx: int = 0,
+    future_dates: Optional[pd.DatetimeIndex] = None, last_value: float = 0.0,
+) -> tuple:
+    """
+    Build a pytorch-forecasting-ready dataframe for `values`' date range,
+    optionally extended by `extra_time_idx` additional future rows (target
+    filled with `last_value` as a structural placeholder -- an "unknown
+    real" is never read by the model as an input, only used to define the
+    dataset's shape, so the placeholder value itself doesn't leak
+    information). Returns (df, time_varying_known_reals).
+    """
+    n = len(values)
+    df = pd.DataFrame({
+        "time_idx": range(n + extra_time_idx),
         "group":    series_name,
-        series_col: train.values,
+        series_col: list(values.values) + [last_value] * extra_time_idx,
     })
-    df_full = pd.DataFrame({
-        "time_idx": range(len(full)),
-        "group":    series_name,
-        series_col: full.values,
-    })
-
-    time_varying_known_reals = []
+    time_varying_known_reals: list = []
     if use_macro and macro_full is not None:
-        macro_aligned_full  = align_macro_for_series(macro_full, full.index, series_name)
-        macro_aligned_train = align_macro_for_series(macro_full, train.index, series_name)
-        cols_avail = macro_cols_for_series(series_name, macro_aligned_full)
+        full_index = values.index
+        if extra_time_idx and future_dates is not None:
+            full_index = full_index.append(future_dates)
+        macro_aligned = align_macro_for_series(macro_full, full_index, series_name)
+        cols_avail = macro_cols_for_series(series_name, macro_aligned)
         for col in cols_avail:
-            df_full[col]  = macro_aligned_full[col].values
-            df_train[col] = macro_aligned_train[col].values
+            df[col] = macro_aligned[col].values
         time_varying_known_reals = cols_avail
+    return df, time_varying_known_reals
 
-    max_encoder_length    = LOOKBACK
-    max_prediction_length = 12
-    training_cutoff       = len(train) - max_prediction_length
+
+def _fit_tft(df_train_slice: pd.DataFrame, series_col: str, time_varying_known_reals: list,
+             epochs: int) -> tuple:
+    """Fit a fresh TemporalFusionTransformer on df_train_slice; returns (model, training_dataset)."""
+    from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+    from pytorch_forecasting.data.encoders import GroupNormalizer
+    from pytorch_forecasting.metrics import QuantileLoss as PTQLoss
+    # pytorch_forecasting's TemporalFusionTransformer subclasses
+    # lightning.pytorch.LightningModule (the current "lightning" package),
+    # NOT the separate legacy "pytorch_lightning" package -- using the
+    # latter's Trainer against this model raises "model must be a
+    # LightningModule ... got TemporalFusionTransformer" since the two
+    # packages define distinct, non-interchangeable LightningModule
+    # classes despite the near-identical API. Verified empirically against
+    # the installed pytorch-forecasting 1.8.0 / lightning 2.6.5.
+    import lightning.pytorch as pl
 
     training = TimeSeriesDataSet(
-        df_train[df_train.time_idx <= training_cutoff],
+        df_train_slice,
         time_idx="time_idx",
         target=series_col,
         group_ids=["group"],
-        max_encoder_length=max_encoder_length,
-        max_prediction_length=max_prediction_length,
+        max_encoder_length=LOOKBACK,
+        max_prediction_length=FORECAST_STEPS,
         time_varying_unknown_reals=[series_col],
         time_varying_known_reals=time_varying_known_reals,
-        target_normalizer=__import__("pytorch_forecasting.data").data.encoders.GroupNormalizer(
-            groups=["group"], transformation=None
-        ),
+        target_normalizer=GroupNormalizer(groups=["group"], transformation=None),
     )
-    val = TimeSeriesDataSet.from_dataset(training, df_train, predict=True, stop_randomization=True)
+    train_dl = training.to_dataloader(train=True, batch_size=32, num_workers=0)
 
-    train_dl = training.to_dataloader(train=True,  batch_size=32, num_workers=0)
-    val_dl   = val.to_dataloader(     train=False, batch_size=32, num_workers=0)
-
-    tft_model = TemporalFusionTransformer.from_dataset(
+    model = TemporalFusionTransformer.from_dataset(
         training,
         learning_rate=1e-3,
         lstm_layers=2,
@@ -293,19 +289,67 @@ def _run_pytorch_forecasting(
         max_epochs=epochs,
         enable_model_summary=False,
         enable_progress_bar=False,
+        enable_checkpointing=False,
         logger=False,
     )
-    trainer.fit(tft_model, train_dataloaders=train_dl, val_dataloaders=val_dl)
+    trainer.fit(model, train_dataloaders=train_dl)
+    return model, training
 
-    raw_preds = tft_model.predict(val_dl, mode="quantiles", return_x=False)
-    q025 = raw_preds[:, :, 0].numpy().flatten()[:12]
-    q50  = raw_preds[:, :, 1].numpy().flatten()[:12]
-    q975 = raw_preds[:, :, 2].numpy().flatten()[:12]
-    q025_eval, q50_eval, q975_eval = q025.copy(), q50.copy(), q975.copy()
+
+def _predict_tft(model, training_dataset, df_predict_from: pd.DataFrame) -> np.ndarray:
+    """Predict quantiles for the last max_prediction_length rows of
+    df_predict_from (its encoder = everything before that)."""
+    from pytorch_forecasting import TimeSeriesDataSet
+
+    predict_ds = TimeSeriesDataSet.from_dataset(
+        training_dataset, df_predict_from, predict=True, stop_randomization=True,
+    )
+    predict_dl = predict_ds.to_dataloader(train=False, batch_size=32, num_workers=0)
+    raw_preds = model.predict(predict_dl, mode="quantiles", return_x=False)
+    return raw_preds[0].numpy()  # (prediction_length, n_quantiles)
+
+
+def _run_pytorch_forecasting(
+    series_name: str,
+    train: pd.Series,
+    test: pd.Series,
+    full: pd.Series,
+    macro_full: Optional[pd.DataFrame],
+    use_macro: bool,
+    actual_target: Optional[pd.Series],
+    eval_actual: Optional[pd.Series],
+    forecast_dir: str,
+    epochs: int,
+) -> dict:
+    """
+    Use the official pytorch-forecasting TFT, fit TWICE like every other
+    model in this pipeline (SARIMA/Prophet/LSTM): once on `train` to
+    validate against the genuinely held-out `test` period, then refit on
+    `full` (train+test) to forecast the genuinely unknown 12 months beyond
+    it. An earlier version of this function fit once on `train` alone and
+    reused that SAME in-sample-tail prediction, mislabeled, as both the
+    validation score AND the final forecast -- it never saw `test` or
+    forecast anything beyond `train`'s own last 12 months. Fixed here.
+    """
+    mode = "macro" if use_macro else "core"
+    log.info(f"[TFT/pytorch-forecasting] Fitting {series_name} ({mode})")
+
+    series_col = f"{series_name}_value"
+
+    # ── Step 1: fit on train, evaluate on the REAL held-out test period ──────
+    eval_series = pd.concat([train, test])
+    df_eval, kr_eval = _build_tft_dataset(series_name, eval_series, macro_full, use_macro, series_col)
+    train_cutoff = len(train) - 1
+    eval_model, eval_training_ds = _fit_tft(
+        df_eval[df_eval.time_idx <= train_cutoff], series_col, kr_eval, epochs,
+    )
+    eval_quantiles = _predict_tft(eval_model, eval_training_ds, df_eval)
+    q025_eval, q50_eval, q975_eval = eval_quantiles[:, 0], eval_quantiles[:, 1], eval_quantiles[:, 2]
+
     test_arr = test.values
     if is_electricity(series_name):
         test_dates = pd.DatetimeIndex(test.index)
-        hist_for_test = pd.concat([train, test]).sort_index()
+        hist_for_test = eval_series.sort_index()
         q025_eval = index_forecast_to_yoy_growth(q025_eval, test_dates, hist_for_test)
         q50_eval = index_forecast_to_yoy_growth(q50_eval, test_dates, hist_for_test)
         q975_eval = index_forecast_to_yoy_growth(q975_eval, test_dates, hist_for_test)
@@ -315,10 +359,21 @@ def _run_pytorch_forecasting(
         actual=test_arr, forecast=q50_eval, lower=q025_eval, upper=q975_eval,
         train_actual=train.values,
     )
-    log.info(f"[TFT {series_name}] Test MAE={metrics['MAE']:.4f}")
+    log.info(f"[TFT {series_name}] validation: MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}")
 
-    forecast_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=12, freq="MS")
-    q025_out, q50_out, q975_out = q025.copy(), q50.copy(), q975.copy()
+    # ── Step 2: refit on full (train+test), forecast genuinely beyond it ─────
+    forecast_dates = pd.date_range(full.index.max() + pd.DateOffset(months=1), periods=FORECAST_STEPS, freq="MS")
+    df_full, kr_full = _build_tft_dataset(
+        series_name, full, macro_full, use_macro, series_col,
+        extra_time_idx=FORECAST_STEPS, future_dates=forecast_dates, last_value=float(full.iloc[-1]),
+    )
+    final_cutoff = len(full) - 1
+    final_model, final_training_ds = _fit_tft(
+        df_full[df_full.time_idx <= final_cutoff], series_col, kr_full, epochs,
+    )
+    final_quantiles = _predict_tft(final_model, final_training_ds, df_full)
+    q025_out, q50_out, q975_out = final_quantiles[:, 0], final_quantiles[:, 1], final_quantiles[:, 2]
+
     if is_electricity(series_name):
         q025_out = index_forecast_to_yoy_growth(q025_out, forecast_dates, full)
         q50_out = index_forecast_to_yoy_growth(q50_out, forecast_dates, full)
@@ -328,12 +383,12 @@ def _run_pytorch_forecasting(
         "date":        forecast_dates,
         "model":       "TFT",
         "mode":        mode,
-        "forecast":    q50_out[:12].round(4),
-        "lower_bound": q025_out[:12].round(4),
-        "upper_bound": q975_out[:12].round(4),
+        "forecast":    q50_out[:FORECAST_STEPS].round(4),
+        "lower_bound": q025_out[:FORECAST_STEPS].round(4),
+        "upper_bound": q975_out[:FORECAST_STEPS].round(4),
     })
-    if actual_2017 is not None:
-        df_out["actual"] = actual_2017.reindex(forecast_dates).values
+    if actual_target is not None:
+        df_out["actual"] = actual_target.reindex(forecast_dates).values
 
     Path(forecast_dir).mkdir(parents=True, exist_ok=True)
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_tft_{mode}.csv"
@@ -356,7 +411,7 @@ def run_tft(
     macro_train: Optional[pd.DataFrame] = None,
     macro_full: Optional[pd.DataFrame]  = None,
     use_macro: bool = False,
-    actual_2017: Optional[pd.Series] = None,
+    actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
     forecast_dir: str = "outputs/forecasts",
     epochs: int = 80,
@@ -383,7 +438,7 @@ def run_tft(
     full         : history up to end of 2017 (no 2017 data)
     macro_*      : Dataset B; macro_full must include 2017 rows for macro mode
     use_macro    : pass macro vars as known-future covariates
-    actual_2017  : actual 2017 target values for comparison column in CSV
+    actual_target  : actual 2017 target values for comparison column in CSV
     forecast_dir : output directory
     epochs       : training epochs
     """
@@ -395,7 +450,7 @@ def run_tft(
             series_name, train, test, full,
             macro_full if use_macro else None,
             use_macro,
-            actual_2017,
+            actual_target,
             eval_actual,
             forecast_dir, epochs,
         )
@@ -465,7 +520,7 @@ def run_tft(
         lower=lb_test, upper=ub_test,
         train_actual=train.values,
     )
-    log.info(f"[TFT-Fallback-{mode.upper()} {series_name}] 2016 validation: "
+    log.info(f"[TFT-Fallback-{mode.upper()} {series_name}] validation: "
              f"MAE={metrics['MAE']:.4f}, RMSE={metrics['RMSE']:.4f}")
 
     # Refit on full history through 2016
@@ -515,8 +570,8 @@ def run_tft(
         "lower_bound": lb_2017.round(4),
         "upper_bound": ub_2017.round(4),
     })
-    if actual_2017 is not None:
-        df_out["actual"] = actual_2017.reindex(forecast_dates).values
+    if actual_target is not None:
+        df_out["actual"] = actual_target.reindex(forecast_dates).values
 
     Path(forecast_dir).mkdir(parents=True, exist_ok=True)
     out_path = f"{forecast_dir}/{series_name}_growth_pct_forecasts_tft_{mode}.csv"

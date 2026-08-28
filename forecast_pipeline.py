@@ -18,7 +18,8 @@ Stages
 Simplified from an earlier version that also produced volatility-weighted/
 Bayesian FES variants, a 9-scenario simulation, and a Stage 4b TS-SHAP
 attribution step — all dropped as unused overhead (`src/fes_scenarios.py`
-and `src/ts_shap.py` remain in the repo, unused, for reference).
+and `src/ts_shap.py` have since been removed from the repo entirely;
+recoverable from git history if ever needed for comparison).
 
 Usage
 ─────
@@ -39,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from src.logging_utils import setup_logger, get_logger
+from src.config import DEFAULT_TARGET_YEAR
 setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
 log = get_logger("forecast_pipeline")
 
@@ -196,7 +198,7 @@ def stage2_train_evaluate(
     for series in series_names:
         log.info("\n%s\nSeries: %s\n%s", "─" * 50, series.upper(), "─" * 50)
 
-        train_s, test_s, full_s, actual_2017, eval_actual = _get_series(
+        train_s, test_s, full_s, actual_target, eval_actual = _get_series(
             series, core_train, core_test, core_full,
             train_end=train_end, forecast_start=forecast_start, forecast_end=forecast_end,
         )
@@ -210,7 +212,7 @@ def stage2_train_evaluate(
                     results.append(run_sarima(
                         series, train_s, test_s, full_s,
                         macro_train=macro_train, macro_full=macro_full,
-                        use_macro=use_macro, actual_2017=actual_2017,
+                        use_macro=use_macro, actual_target=actual_target,
                         eval_actual=eval_actual,
                         return_model=True, forecast_dir=forecast_dir,
                         **model_params.get((series, mode, "SARIMA"), {}),
@@ -227,7 +229,7 @@ def stage2_train_evaluate(
                     results.append(run_prophet(
                         series, train_s, test_s, full_s,
                         macro_train=macro_train, macro_full=macro_full,
-                        use_regressors=use_regressors, actual_2017=actual_2017,
+                        use_regressors=use_regressors, actual_target=actual_target,
                         eval_actual=eval_actual,
                         return_model=True, forecast_dir=forecast_dir,
                         **model_params.get((series, mode, "Prophet"), {}),
@@ -246,7 +248,7 @@ def stage2_train_evaluate(
                     results.append(run_lstm(
                         series, train_s, test_s, full_s,
                         macro_train=macro_train, macro_full=macro_full,
-                        use_macro=use_macro, actual_2017=actual_2017,
+                        use_macro=use_macro, actual_target=actual_target,
                         eval_actual=eval_actual, epochs=epochs_lstm,
                         save_dir=MODELS_DIR, forecast_dir=forecast_dir,
                         **_lstm_kw,
@@ -263,7 +265,7 @@ def stage2_train_evaluate(
                     results.append(run_tft(
                         series, train_s, test_s, full_s,
                         macro_train=macro_train, macro_full=macro_full,
-                        use_macro=use_macro, actual_2017=actual_2017,
+                        use_macro=use_macro, actual_target=actual_target,
                         eval_actual=eval_actual, epochs=epochs_tft,
                         save_dir=MODELS_DIR, forecast_dir=forecast_dir,
                         **model_params.get((series, mode, "TFT"), {}),
@@ -299,8 +301,14 @@ def stage3_evaluation(
 
 
 def _load_ranked_df_from_csv() -> pd.DataFrame:
-    """Load the saved model metrics table when --fes-only skips training."""
-    path = Path(TABLES_DIR) / "model_metrics.csv"
+    """Load the saved model metrics table when --fes-only skips training.
+
+    Filename must match model_evaluation.save_metrics_table's default
+    ("model_metrics_comparison") -- this previously looked for
+    "model_metrics.csv", a name nothing in the pipeline ever writes, so
+    --fes-only always raised FileNotFoundError even right after a full run.
+    """
+    path = Path(TABLES_DIR) / "model_metrics_comparison.csv"
     if not path.exists():
         raise FileNotFoundError(
             f"Metrics table not found: {path}\n"
@@ -315,14 +323,25 @@ def _load_ranked_df_from_csv() -> pd.DataFrame:
 # Stage 4 — FES computation
 # ══════════════════════════════════════════════════════════════════════════════
 
-def stage4_compute_fes(ranked_df: pd.DataFrame) -> None:
+def stage4_compute_fes(
+    ranked_df: pd.DataFrame,
+    train_start: str = "2005-01-01",
+    train_end: str = "2016-12-01",
+    forecast_dates: pd.DatetimeIndex | None = None,
+) -> None:
     from src.fes_calculator import compute_fes
+    kwargs = {}
+    if forecast_dates is not None:
+        kwargs["forecast_dates"] = forecast_dates
     compute_fes(
         ranked_df=ranked_df,
         core_csv=CORE_CSV,
         forecast_dir=FORECAST_DIR,
         out_dir=FES_DIR,
         figures_dir=FIGURES_DIR,
+        train_start=train_start,
+        train_end=train_end,
+        **kwargs,
     )
 
 
@@ -363,6 +382,77 @@ def _feasible_as_of_years(core_full: pd.DataFrame, min_train_months: int = MIN_T
     return years
 
 
+def _compute_default_window(
+    core_full: pd.DataFrame, min_train_months: int = MIN_TRAIN_MONTHS,
+    override_target_year: int | None = None,
+) -> tuple[str, str, str, str, pd.DatetimeIndex]:
+    """
+    "One year ahead" default window: train on everything through the most
+    recent year that has a full December of real data (the latest entry in
+    `_feasible_as_of_years`), validate on that year, then forecast the year
+    right after it. Computed fresh from the data's own date range every
+    run, so as new gas/electricity/carbon data lands (see
+    src.data_loader._compute_forecast_end) the forecast window advances
+    with it automatically instead of staying pinned to one fixed calendar
+    year (e.g. 2017).
+
+    override_target_year : if given, forecast exactly this year instead of
+        the dynamically-detected latest one -- e.g. pin a delivery to 2025
+        (the most recent fully-realised year) without changing the default
+        for future runs. Must be a feasible target (its as-of year, i.e.
+        override_target_year - 1, needs enough training history and real
+        data through its December) or this raises ValueError.
+
+    Returns
+    -------
+    (split_train_end, split_test_start, split_test_end, refit_end, forecast_dates)
+    """
+    years = _feasible_as_of_years(core_full, min_train_months)
+    if not years:
+        raise ValueError(
+            "Not enough history in the core dataset to compute a default "
+            f"forecast window (need >= {min_train_months} months before "
+            "the first feasible validation year)."
+        )
+    if override_target_year is not None:
+        as_of_year = override_target_year - 1
+        if as_of_year not in years:
+            raise ValueError(
+                f"target_year={override_target_year} is not feasible with the "
+                f"current data (needs as-of-year={as_of_year} in the feasible "
+                f"set {years[0]}..{years[-1]}). Feasible target years: "
+                f"{years[0] + 1}..{years[-1] + 1}."
+            )
+    else:
+        as_of_year = years[-1]
+    split_train_end  = f"{as_of_year - 1}-12-01"
+    split_test_start = f"{as_of_year}-01-01"
+    split_test_end   = f"{as_of_year}-12-01"
+    refit_end        = f"{as_of_year}-12-01"
+    forecast_dates   = pd.date_range(f"{as_of_year + 1}-01-01", periods=12, freq="MS")
+    return split_train_end, split_test_start, split_test_end, refit_end, forecast_dates
+
+
+def _infer_forecast_dates_from_csvs(forecast_dir: str, series_names: list) -> pd.DatetimeIndex:
+    """Recover the forecast window from already-saved forecast CSVs.
+
+    Used by --fes-only, which intentionally skips Stage 0/1 (no re-read of
+    raw data) and so never recomputes the window from the core dataset --
+    it must instead match whatever window the existing forecast CSVs were
+    actually produced with.
+    """
+    for s in series_names:
+        path = f"{forecast_dir}/{s}_growth_pct_forecasts_all.csv"
+        if Path(path).exists():
+            dates = pd.read_csv(path, parse_dates=["date"])["date"]
+            if not dates.empty:
+                return pd.DatetimeIndex(sorted(dates.unique())[-12:])
+    raise FileNotFoundError(
+        f"No forecast CSVs found under {forecast_dir} to infer the forecast "
+        "window for --fes-only. Run the full pipeline first (without --fes-only)."
+    )
+
+
 def _plot_rolling_trend(rolling_df: pd.DataFrame, figures_dir: str) -> None:
     """One line chart: FES_core/FES_macro/FES_actual across all rolling
     years -- replaces per-year diagnostic figures (15+ years x the full
@@ -400,145 +490,65 @@ def _plot_rolling_trend(rolling_df: pd.DataFrame, figures_dir: str) -> None:
     log.info("Rolling FES trend figure saved → %s", out_path)
 
 
-def _plot_rolling_metrics_heatmap(comparison_frames: list, figures_dir: str) -> None:
+def _plot_rolling_performance_polar(performance_df: pd.DataFrame, mode: str, figures_dir: str) -> None:
     """
-    Supersedes the single-year (2017-only) fes_metrics_{metric}_heatmap.png
-    -- same filenames, but now rows = every rolling as_of_year instead of a
-    2x3 grid for one fixed year. Cell value = that year's mean RMSE/Pearson_r
-    across the 3 realised-FES benchmarks (the same averaging
-    _select_best_fes_variant uses for its own decision), one column per
-    FES_variant (Equal_Core / Equal_Macro).
+    Grouped circular bar chart (house style, see plotting_utils.
+    plot_grouped_circular_bars): one group per series (gas/electricity/
+    carbon), one bar per rolling target year within that series, bar
+    height = the winning model's validation RMSE that year, bar colour =
+    which model won -- real per-year magnitude, not just an equal-height
+    coloured ring segment (the previous design). One chart per mode
+    (core/macro) since a single chart can't cleanly carry two RMSE scales
+    at once; supersedes the old 3-per-series ring charts (2 files instead
+    of 3, same total information).
     """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from pathlib import Path as _Path
+    from src.plotting_utils import plot_grouped_circular_bars, MODEL_COLORS, PALETTE
 
-    if not comparison_frames:
-        return
-    all_comp = pd.concat(comparison_frames, ignore_index=True)
-
-    for metric, cmap, invert, cbar_label in [
-        ("RMSE", "YlOrRd", True, "Mean RMSE vs realised-FES benchmarks (lower = better)"),
-        ("Pearson_r", "RdYlGn", False, "Mean Pearson r vs realised-FES benchmarks (higher = better)"),
-    ]:
-        if metric not in all_comp.columns:
-            continue
-        pivot = (
-            all_comp.groupby(["as_of_year", "FES_variant"])[metric]
-            .mean().reset_index()
-            .pivot(index="as_of_year", columns="FES_variant", values=metric)
-            .sort_index()
-        )
-        if pivot.empty:
-            continue
-
-        fig, ax = plt.subplots(figsize=(6, max(4, 0.4 * len(pivot))))
-        fig.patch.set_facecolor("white")
-        vals = pivot.values.astype(float)
-        vmin, vmax = np.nanmin(vals), np.nanmax(vals)
-        if np.isnan(vmin) or np.isnan(vmax):
-            plt.close(fig)
-            continue
-        im = ax.imshow(vals, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
-        plt.colorbar(im, ax=ax, label=cbar_label)
-        ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels(pivot.columns, fontsize=9)
-        ax.set_yticks(range(len(pivot.index))); ax.set_yticklabels(pivot.index, fontsize=8)
-        mid = (vmin + vmax) / 2
-        for r in range(len(pivot.index)):
-            for c in range(len(pivot.columns)):
-                v = vals[r, c]
-                if not np.isnan(v):
-                    txt_colour = "white" if (invert and v > mid) else "black"
-                    ax.text(c, r, f"{v:.2f}", ha="center", va="center", fontsize=8,
-                            fontweight="bold", color=txt_colour)
-        ax.set_xlabel("FES variant")
-        ax.set_ylabel("Rolling as-of year")
-        ax.set_title(f"FES Robustness by Year — {metric.replace('_', ' ')}", fontsize=12, fontweight="bold")
-        fig.tight_layout()
-        _Path(figures_dir).mkdir(parents=True, exist_ok=True)
-        out_path = f"{figures_dir}/fes_metrics_{metric.lower()}_heatmap.png"
-        fig.savefig(out_path, dpi=150, bbox_inches="tight")
-        fig.savefig(out_path.replace(".png", ".pdf"), bbox_inches="tight")
-        plt.close(fig)
-        log.info("Rolling FES metrics heatmap saved → %s (%d years)", out_path, len(pivot))
-
-
-_MODEL_COLORS = {
-    "SARIMA":  "#3B0F70", "Prophet": "#B63679", "LSTM": "#F1605D", "TFT": "#FCB92C",
-}  # fixed categorical colours (sampled from "inferno"), consistent across all 3 series charts
-
-
-def _plot_model_selection_polar(model_selection_df: pd.DataFrame, series_name: str, figures_dir: str) -> None:
-    """
-    Polar chart: which model won each rolling year, for one series -- an
-    inner ring for core mode, an outer ring for macro mode, each wedge
-    coloured by the winning model. Distinct from Stage 1's per-year
-    stacked-metric polar charts (those show ONE year's models compared by
-    metric; this shows ALL years compared by which single model won).
-    """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from pathlib import Path as _Path
-
-    sub = model_selection_df[model_selection_df["series"] == series_name]
+    sub = performance_df[performance_df["mode"] == mode]
     if sub.empty:
         return
-    years = sorted(sub["target_year"].unique())
-    n = len(years)
-    angles = np.array([i * 2 * np.pi / n for i in range(n)])
-    width = (2 * np.pi / n) * 0.9
 
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={"projection": "polar"})
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    series_list = [s for s in ALL_SERIES if s in sub["series"].unique()]
+    groups: dict = {}
+    item_colors: dict = {}
+    for series_name in series_list:
+        s_sub = sub[sub["series"] == series_name].sort_values("target_year")
+        groups[series_name] = {
+            str(int(r["target_year"])): max(float(r["RMSE"]), 0.0)
+            for _, r in s_sub.iterrows()
+        }
+        for _, r in s_sub.iterrows():
+            item_colors[(series_name, str(int(r["target_year"])))] = MODEL_COLORS.get(r["model"], "#AAAAAA")
 
-    for angle, year in zip(angles, years):
-        for mode, (bottom, height) in [("core", (0, 1)), ("macro", (1, 1))]:
-            row = sub[(sub["target_year"] == year) & (sub["mode"] == mode)]
-            if row.empty:
-                continue
-            model = row["model"].iloc[0]
-            ax.bar(angle, height, width=width, bottom=bottom,
-                   color=_MODEL_COLORS.get(model, "#AAAAAA"), edgecolor="white",
-                   linewidth=1.0, zorder=3)
-
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles)
-    ax.set_xticklabels([str(y) for y in years], fontsize=9)
-    ax.set_ylim(0, 2)
-    ax.set_yticks([0.5, 1.5])
-    ax.set_yticklabels(["core", "macro"], fontsize=8, color="#555555")
-    ax.grid(color="#EAECEE", linewidth=0.9, zorder=0)
-    ax.spines["polar"].set_visible(False)
-
-    handles = [plt.Rectangle((0, 0), 1, 1, facecolor=c, edgecolor="white", label=m)
-               for m, c in _MODEL_COLORS.items()]
-    ax.legend(handles=handles, loc="upper right", bbox_to_anchor=(1.25, 1.1), fontsize=9, title="Model")
-    ax.set_title(f"Which Model Was Selected, By Year — {series_name.capitalize()}\n"
-                 "(inner ring = core mode, outer ring = macro mode)",
-                 fontsize=12, fontweight="bold", pad=20)
-
-    _Path(figures_dir).mkdir(parents=True, exist_ok=True)
-    out_path = f"{figures_dir}/model_selection_polar_{series_name}.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    fig.savefig(out_path.replace(".png", ".pdf"), bbox_inches="tight")
-    plt.close(fig)
-    log.info("Model-selection polar chart saved → %s (%d years)", out_path, n)
+    group_colors = {s: PALETTE.get(s, "#888888") for s in series_list}
+    models_seen = sorted(sub["model"].unique())
+    out_path = f"{figures_dir}/model_selection_polar_{mode}.png"
+    plot_grouped_circular_bars(
+        groups, group_colors, out_path,
+        title=f"Rolling Walk-Forward Performance — {mode.capitalize()} Mode\n"
+              "bar = winning model's RMSE that year, colour = which model won",
+        item_colors=item_colors,
+        color_legend={m: MODEL_COLORS.get(m, "#AAAAAA") for m in models_seen},
+    )
+    log.info("Rolling performance polar chart saved → %s (%d series)", out_path, len(series_list))
 
 
 def _plot_forecast_performance_by_year(performance_df: pd.DataFrame, figures_dir: str) -> None:
     """How forecasting performed across the rolling walk-forward: the
-    WINNING model's validation RMSE by target year, one panel per series,
-    core vs macro mode as separate lines. Complements fes_rolling_trend.png
-    (which shows the FES index itself) with the underlying forecast
-    accuracy that FES is built from."""
+    WINNING model's validation RMSE by target year -- one figure PER
+    SERIES (matching forecast_vs_actual_{series}.png's pattern), core vs
+    macro mode shown as linestyle (solid/dashed), and each point MARKER
+    coloured by which model actually won that year (plotting_utils.
+    MODEL_COLORS, the same palette model_selection_polar_*.png uses)
+    instead of naming the
+    model as rotated text next to each point. Complements
+    fes_rolling_trend.png (the FES index itself) with the underlying
+    forecast accuracy that FES is built from."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from pathlib import Path as _Path
+    from src.plotting_utils import MODEL_COLORS
 
     if performance_df.empty:
         return
@@ -546,35 +556,54 @@ def _plot_forecast_performance_by_year(performance_df: pd.DataFrame, figures_dir
     if not series_list:
         return
 
-    fig, axes = plt.subplots(1, len(series_list), figsize=(5.5 * len(series_list), 4.5), squeeze=False)
-    axes = axes[0]
-    fig.patch.set_facecolor("white")
+    _Path(figures_dir).mkdir(parents=True, exist_ok=True)
+    mode_styles = {"core": "-", "macro": "--"}
 
-    for ax, series_name in zip(axes, series_list):
+    for series_name in series_list:
         sub = performance_df[performance_df["series"] == series_name].sort_values("target_year")
-        for mode, color in [("core", "#2E86AB"), ("macro", "#E67E22")]:
+        if sub.empty:
+            continue
+
+        fig, ax = plt.subplots(figsize=(7, 4.8))
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
+
+        models_seen: set[str] = set()
+        for mode, ls in mode_styles.items():
             m = sub[sub["mode"] == mode]
             if m.empty:
                 continue
-            ax.plot(m["target_year"], m["RMSE"], marker="o", linewidth=2, label=mode, color=color)
-            for _, r in m.iterrows():
-                ax.annotate(r["model"], (r["target_year"], r["RMSE"]),
-                            textcoords="offset points", xytext=(0, 6), ha="center",
-                            fontsize=6, color="#555", rotation=45)
-        ax.set_title(series_name.capitalize(), fontsize=11, fontweight="bold")
+            ax.plot(m["target_year"], m["RMSE"], linestyle=ls, linewidth=1.6,
+                     color="#B5B5B5", zorder=2)
+            point_colors = [MODEL_COLORS.get(mdl, "#AAAAAA") for mdl in m["model"]]
+            ax.scatter(m["target_year"], m["RMSE"], c=point_colors, s=90,
+                        edgecolor="white", linewidth=1.2, zorder=3)
+            models_seen.update(m["model"].unique())
+
+        ax.set_title(f"How Forecasting Performed — {series_name.capitalize()}",
+                     fontsize=12, fontweight="bold")
         ax.set_xlabel("Target year")
         ax.set_ylabel("Winning model's validation RMSE")
-        ax.legend(fontsize=8)
         ax.grid(True, color="#EAECEE", linewidth=0.8)
 
-    fig.suptitle("How Forecasting Performed — Winning Model's RMSE by Year", fontsize=13, fontweight="bold")
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    _Path(figures_dir).mkdir(parents=True, exist_ok=True)
-    out_path = f"{figures_dir}/rolling_forecast_performance_by_year.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    fig.savefig(out_path.replace(".png", ".pdf"), bbox_inches="tight")
-    plt.close(fig)
-    log.info("Forecast performance-by-year figure saved → %s", out_path)
+        mode_handles = [
+            plt.Line2D([0], [0], color="#7F7F7F", linestyle=ls, linewidth=1.8, label=mode)
+            for mode, ls in mode_styles.items() if mode in sub["mode"].unique()
+        ]
+        model_handles = [
+            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=MODEL_COLORS.get(mdl, "#AAAAAA"),
+                       markersize=9, markeredgecolor="white", label=mdl)
+            for mdl in sorted(models_seen)
+        ]
+        ax.legend(handles=mode_handles + model_handles, fontsize=8, loc="best",
+                   title="Line = mode, dot colour = winning model", title_fontsize=7.5)
+
+        fig.tight_layout()
+        out_path = f"{figures_dir}/rolling_forecast_performance_{series_name}.png"
+        fig.savefig(out_path, dpi=150, bbox_inches="tight")
+        fig.savefig(out_path.replace(".png", ".pdf"), bbox_inches="tight")
+        plt.close(fig)
+        log.info("Forecast performance-by-year figure saved → %s", out_path)
 
 
 def run_rolling(
@@ -584,6 +613,7 @@ def run_rolling(
     fast: bool = False,
     selection_basis: str = "forecast_actual",
     min_train_months: int = MIN_TRAIN_MONTHS,
+    max_target_year: int | None = DEFAULT_TARGET_YEAR,
 ) -> pd.DataFrame:
     """
     Walk-forward rolling FES: for each feasible year Y, train through Y's
@@ -597,6 +627,18 @@ def run_rolling(
     (outputs/forecasts_rolling/{year}/, outputs/tables/rolling/{year}/,
     outputs/fes/rolling/{year}/) so they don't overwrite each other or the
     single-year path's fixed-location outputs.
+
+    max_target_year : caps the dynamically-detected feasible years so the
+        walk-forward stops at this target year (and `years` is not
+        explicitly passed). Defaults to src.config.DEFAULT_TARGET_YEAR
+        (2025) -- the raw price data updates independently of (and faster
+        than) the UKHLS panel this project is built around, so leaving
+        this uncapped would silently extend the rolling result past the
+        years the household stream can actually use, into still-partial or
+        panel-uncovered years. Pass a different year (or None, to remove
+        the cap and run through every feasible year the data allows) to
+        override for a single run. Ignored when `years` is given
+        explicitly.
     """
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
@@ -613,6 +655,8 @@ def run_rolling(
 
     if years is None:
         years = _feasible_as_of_years(core_full, min_train_months)
+        if max_target_year is not None:
+            years = [y for y in years if y + 1 <= max_target_year]
     log.info("Rolling walk-forward FES: %d feasible years: %s", len(years), years)
 
     from src.preprocessing import split
@@ -726,21 +770,21 @@ def run_rolling(
         log.info("Rolling monthly FES table saved → %s (%d year x month rows)",
                   monthly_path, len(monthly_rolling_df))
 
-    _select_best_fes_variant(comparison_frames, FES_DIR)
+    winner_col = _select_best_fes_variant(comparison_frames, FES_DIR)
+    _save_selected_variant_by_year(comparison_frames, winner_col, FES_DIR)
 
     _plot_rolling_trend(rolling_df, FIGURES_DIR)
-    _plot_rolling_metrics_heatmap(comparison_frames, FIGURES_DIR)
 
     if model_selection_rows:
         model_selection_df = pd.DataFrame(model_selection_rows)
         model_selection_df.to_csv(f"{FES_DIR}/model_selection_by_year.csv", index=False)
-        for series_name in series:
-            _plot_model_selection_polar(model_selection_df, series_name, FIGURES_DIR)
 
     if performance_rows:
         performance_df = pd.DataFrame(performance_rows)
         performance_df.to_csv(f"{FES_DIR}/forecast_performance_by_year.csv", index=False)
         _plot_forecast_performance_by_year(performance_df, FIGURES_DIR)
+        for mode in ["core", "macro"]:
+            _plot_rolling_performance_polar(performance_df, mode, FIGURES_DIR)
 
     return rolling_df
 
@@ -787,6 +831,43 @@ def _select_best_fes_variant(comparison_frames: list, out_dir: str) -> str | Non
     return winner_col
 
 
+def _save_selected_variant_by_year(comparison_frames: list, winner_col: str | None, out_dir: str) -> None:
+    """
+    Selected FES variant's RMSE/Pearson r by rolling year -- replaces the
+    old fes_metrics_{rmse,pearson_r}_heatmap.png (which showed BOTH variants
+    x 3 realised-FES benchmarks per year in one grid) with a single clean
+    table for just the variant _select_best_fes_variant actually chose,
+    averaged across the 3 benchmarks per year (same averaging that
+    selection itself already uses, just kept per-year instead of collapsed
+    to one overall number).
+    """
+    if not comparison_frames or winner_col is None:
+        return
+    variant_labels = {"fes_core": "Equal_Core", "fes_macro": "Equal_Macro"}
+    winner_label = variant_labels.get(winner_col)
+    if winner_label is None:
+        return
+
+    all_comp = pd.concat(comparison_frames, ignore_index=True)
+    sub = all_comp[all_comp["FES_variant"] == winner_label]
+    if sub.empty:
+        return
+    by_year = (
+        sub.groupby("as_of_year")
+        .agg(RMSE=("RMSE", "mean"), Pearson_r=("Pearson_r", "mean"))
+        .reset_index()
+    )
+    by_year["target_year"] = by_year["as_of_year"] + 1
+    by_year["FES_variant"] = winner_label
+    by_year = by_year[["as_of_year", "target_year", "FES_variant", "RMSE", "Pearson_r"]].sort_values("as_of_year")
+
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    out_path = f"{out_dir}/fes_metrics_selected_variant_by_year.csv"
+    by_year.to_csv(out_path, index=False)
+    log.info("Selected FES variant (%s) RMSE/Pearson r by year saved -> %s (%d years)",
+              winner_label, out_path, len(by_year))
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Public run() — callable from main.py
 # ══════════════════════════════════════════════════════════════════════════════
@@ -798,9 +879,26 @@ def run(
     fes_only: bool = False,
     tune: bool = False,
     selection_basis: str = "forecast_actual",
+    target_year: int | None = DEFAULT_TARGET_YEAR,
 ) -> None:
     """
     Execute Stages 0–4.
+
+    Forecast window: train through target_year-1's December, validate on
+    target_year-1, forecast target_year. Defaults to
+    src.config.DEFAULT_TARGET_YEAR (2025) rather than fully auto-detecting
+    from the raw price data's own latest date -- the UK gas/electricity/
+    carbon series get updated independently of (and faster than) the UKHLS
+    social-science panel this project is built around (currently 2009-2024
+    interview years), so a purely data-driven "one year ahead" default can
+    silently race past the year the household stream actually needs (see
+    src.config.DEFAULT_TARGET_YEAR's comment for how this was found: raw
+    price data reaching 2026-03 pushed the old fully-dynamic default to
+    forecast 2026, one year past what the panel needs). Pass target_year
+    explicitly to forecast a different year (must still be feasible given
+    the data on hand); use --rolling for the full walk-forward backtest
+    across every feasible historical year (what the household-panel stream
+    actually uses for a genuinely per-interview-year FES signal).
 
     Parameters
     ----------
@@ -810,6 +908,13 @@ def run(
     fes_only      : skip training; recompute FES from existing forecast CSVs
     tune          : run hyperparameter tuning before final training
     selection_basis : 'forecast_actual' or 'validation'
+    target_year   : forecast exactly this year (default: DEFAULT_TARGET_YEAR,
+                    2025 -- the most recent year aligned with the UKHLS
+                    panel's own coverage). Pass a different year to
+                    override for a single run without changing the
+                    project-wide default in src.config. Ignored when
+                    fes_only=True (that path infers its window from
+                    existing forecast CSVs).
     """
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
@@ -824,15 +929,37 @@ def run(
     if fes_only:
         _stage(4, "FES computation — using existing forecast CSVs")
         ranked_df = _load_ranked_df_from_csv()
-        stage4_compute_fes(ranked_df)
+        forecast_dates = _infer_forecast_dates_from_csvs(FORECAST_DIR, series)
+        refit_end = (forecast_dates.min() - pd.DateOffset(months=1)).strftime("%Y-%m-%d")
+        log.info("--fes-only: inferred forecast window %s..%s from existing CSVs (refit_end=%s)",
+                  forecast_dates.min().date(), forecast_dates.max().date(), refit_end)
+        stage4_compute_fes(
+            ranked_df, train_start="2005-01-01", train_end=refit_end,
+            forecast_dates=forecast_dates,
+        )
         return
 
     _stage(0, "Loading raw UK data")
     stage0_load_data()
 
-    _stage(1, "Preprocessing (core + macro)")
-    (core_full, core_train, core_test,
-     macro_full, macro_train, _) = stage1_preprocess()
+    _stage(1, "Preprocessing (core + macro, full history)")
+    core_full, _, _, macro_full_raw, _, _ = stage1_preprocess()
+
+    split_train_end, split_test_start, split_test_end, refit_end, forecast_dates = (
+        _compute_default_window(core_full, override_target_year=target_year)
+    )
+    forecast_start = forecast_dates.min().strftime("%Y-%m-%d")
+    forecast_end   = forecast_dates.max().strftime("%Y-%m-%d")
+    log.info(
+        "Auto-detected forecast window: train<%s, validate=%s..%s, refit<=%s, forecast=%s..%s",
+        split_train_end, split_test_start, split_test_end, refit_end, forecast_start, forecast_end,
+    )
+
+    from src.preprocessing import split as _split
+    core_train, core_test = _split(core_full, split_train_end, split_test_start, split_test_end)
+    macro_full, macro_train, _ = _add_electricity_macro_lags(
+        core_full, macro_full_raw, split_train_end, split_test_start, split_test_end,
+    )
 
     tuned_params: dict = {}
     if tune:
@@ -844,6 +971,8 @@ def run(
             macro_train, macro_full,
             fast=fast, selection_basis=selection_basis,
             out_dir="outputs/tuning",
+            full_train_end=refit_end,
+            forecast_start=forecast_start, forecast_end=forecast_end,
         )
         _print_tuning_winners(tuned_params)
 
@@ -853,6 +982,7 @@ def run(
         core_train, core_test, core_full,
         macro_train, macro_full,
         fast=fast, model_params=tuned_params,
+        train_end=refit_end, forecast_start=forecast_start, forecast_end=forecast_end,
     )
 
     _stage(3, "Metrics & model ranking")
@@ -860,7 +990,10 @@ def run(
     _print_best(best)
 
     _stage(4, "FES construction (equal-weighted)")
-    stage4_compute_fes(ranked_df)
+    stage4_compute_fes(
+        ranked_df, train_start="2005-01-01", train_end=refit_end,
+        forecast_dates=forecast_dates,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -912,7 +1045,25 @@ def main() -> None:
                              "every feasible Y (~n_years x 24 model fits -- see "
                              "run_rolling's docstring for the cost). Ignores "
                              "--fes-only/--tune.")
+    parser.add_argument("--target-year", type=int, default=DEFAULT_TARGET_YEAR, metavar="YYYY",
+                        help="Single-year mode only: forecast exactly this year "
+                             f"(default: {DEFAULT_TARGET_YEAR}, the most recent "
+                             "year aligned with the UKHLS panel's own coverage -- "
+                             "see src.config.DEFAULT_TARGET_YEAR). Pass a "
+                             "different year to override for this run only, or "
+                             "0 to fall back to the fully dynamic "
+                             "latest-available-year detection instead.")
+    parser.add_argument("--max-target-year", type=int, default=DEFAULT_TARGET_YEAR, metavar="YYYY",
+                        help="--rolling only: cap the walk-forward so it stops at "
+                             f"this target year (default: {DEFAULT_TARGET_YEAR}, "
+                             "see src.config.DEFAULT_TARGET_YEAR) instead of "
+                             "extending into a still-partial or panel-uncovered "
+                             "year. Pass 0 to remove the cap entirely.")
     args = parser.parse_args()
+    if args.max_target_year == 0:
+        args.max_target_year = None   # explicit opt-out of the default cap
+    if args.target_year == 0:
+        args.target_year = None       # explicit opt-in to full dynamic detection
 
     models_to_run = [m for m in ALL_MODELS if m not in args.skip_models]
 
@@ -921,10 +1072,13 @@ def main() -> None:
     print(f"  Models      : {models_to_run}")
     print(f"  Fast mode   : {args.fast}")
     print(f"  Rolling     : {args.rolling}")
-    if not args.rolling:
+    if args.rolling:
+        print(f"  Max target year : {args.max_target_year or '(uncapped)'}")
+    else:
         print(f"  FES only    : {args.fes_only}")
         print(f"  Tuning      : {args.tune}")
         print(f"  Selection   : {args.selection_basis}")
+        print(f"  Target year : {args.target_year or '(dynamic)'}")
 
     t0 = time.time()
     if args.rolling:
@@ -933,6 +1087,7 @@ def main() -> None:
             models_to_run=models_to_run,
             fast=args.fast,
             selection_basis=args.selection_basis,
+            max_target_year=args.max_target_year,
         )
     else:
         run(
@@ -942,6 +1097,7 @@ def main() -> None:
             fes_only=args.fes_only,
             tune=args.tune,
             selection_basis=args.selection_basis,
+            target_year=args.target_year,
         )
     _banner(f"Forecast pipeline complete  ({time.time() - t0:.1f}s)")
 

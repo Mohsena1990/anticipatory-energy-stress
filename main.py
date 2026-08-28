@@ -8,7 +8,7 @@ Two sub-pipelines
   forecast_pipeline.py  — Stage 1 (0–4): macro data → 4 models → equal-weighted
                            FES index (single-year, or --rolling for a
                            walk-forward year-by-year forecast)
-  household_stream.py   — Stage 2–4 : UKHLS (Study 6614) household panel →
+  household_stream.py   — Stage 2–5 : UKHLS (Study 6614) household panel →
                            COR-SEM + FES-conditioned COR-CVAE (Stage 2) →
                            fuzzy/one-class vulnerability identification +
                            driver analysis (Stage 3) → policy geography
@@ -20,21 +20,24 @@ ml_pipeline.py CatBoost/SHAP stage (see project plan:
 folds vulnerability identification and driver analysis into one script.
 The legacy ENABLE-based scripts (ml_pipeline.py, src/enable_preprocessing.py,
 src/cor_sem.py, src/cor_vae.py, src/construct_validation.py,
-src/unsupervised_latent.py, src/route_comparison.py, src/route_utils.py,
-src/ml_classification.py, src/shap_explainability.py, src/ts_shap.py,
-src/fes_scenarios.py) have been removed from the repo entirely -- recoverable
-from git history if ever needed for comparison.
+src/construct_mapping.py, src/unsupervised_latent.py, src/route_comparison.py,
+src/route_utils.py, src/ml_classification.py, src/shap_explainability.py,
+src/ts_shap.py, src/fes_scenarios.py) have been removed from the repo
+entirely -- recoverable from git history if ever needed for comparison.
+src/sem_mediation.py was trimmed to just its one still-reused function
+(`ols_path`, called by src.ukhls_cor_sem) rather than removed outright,
+since that one function isn't ENABLE-specific.
 
 Run individually
 ────────────────
   python forecast_pipeline.py [options]      # Stage 1
-  python household_stream.py [--skip-cvae]   # Stage 2–4
+  python household_stream.py [--skip-cvae]   # Stage 2–5
 
 Run via orchestrator
 ────────────────────
   python main.py                              # full pipeline (all stages)
   python main.py --stage forecast             # Stage 1 only
-  python main.py --stage household            # Stage 2–4 only
+  python main.py --stage household            # Stage 2–5 only
 
 Forecast options (active when --stage forecast or all)
 ──────────────────────────────────────────────────────
@@ -44,6 +47,8 @@ Forecast options (active when --stage forecast or all)
   --tune                         hyperparameter tuning before training
   --fes-only                     skip training; recompute FES from saved CSVs
   --selection-basis validation   model selection criterion
+  --target-year 2025             single-year mode: forecast this year (default: 2025)
+  --max-target-year 2025         --rolling only: cap the walk-forward at this year (default: 2025)
 
 Household options (active when --stage household or all)
 ──────────────────────────────────────────────────────────
@@ -55,6 +60,7 @@ import argparse
 import time
 
 from src.logging_utils import setup_logger, get_logger
+from src.config import DEFAULT_TARGET_YEAR
 setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
 log = get_logger("main")
 
@@ -91,7 +97,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "all       : run both sub-pipelines in sequence (default)\n"
             "forecast  : Stage 1 (macro models + FES)\n"
-            "household : Stage 2–4 (UKHLS panel, COR-SEM/CVAE, vulnerability identification)"
+            "household : Stage 2–5 (UKHLS panel, COR-SEM/CVAE, vulnerability identification, forward prediction)"
         ),
     )
 
@@ -117,9 +123,17 @@ def _build_parser() -> argparse.ArgumentParser:
                          "Y+1, repeat for every feasible Y) instead of the single-year "
                          "path -- ~n_years x 24 model fits, 45min+ even in --fast mode. "
                          "Opt-in only, never runs by default. Ignores --fes-only/--tune.")
+    fg.add_argument("--target-year", type=int, default=DEFAULT_TARGET_YEAR, metavar="YYYY",
+                    help="Single-year mode only: forecast exactly this year "
+                         f"(default: {DEFAULT_TARGET_YEAR}, aligned with the UKHLS "
+                         "panel's own coverage -- see src.config.DEFAULT_TARGET_YEAR). "
+                         "Pass 0 for the fully dynamic latest-available-year detection.")
+    fg.add_argument("--max-target-year", type=int, default=DEFAULT_TARGET_YEAR, metavar="YYYY",
+                    help="--rolling only: cap the walk-forward at this target year "
+                         f"(default: {DEFAULT_TARGET_YEAR}). Pass 0 to remove the cap.")
 
     # ── Household options ─────────────────────────────────────────────────────
-    hg = p.add_argument_group("household options (Stage 2–4)")
+    hg = p.add_argument_group("household options (Stage 2–5)")
     hg.add_argument("--skip-cvae", action="store_true",
                     help="Skip Stage 2c (COR-CVAE, the most expensive stage)")
 
@@ -137,6 +151,8 @@ def main() -> None:
     ALL_MODELS    = ["SARIMA", "Prophet", "LSTM", "TFT"]
     models_to_run = [m for m in ALL_MODELS if m not in args.skip_models]
     series        = args.series or ["gas", "electricity", "carbon"]
+    target_year      = None if args.target_year == 0 else args.target_year
+    max_target_year  = None if args.max_target_year == 0 else args.max_target_year
 
     _banner("Anticipatory Energy–Carbon Stress Index — Full Pipeline")
     print(f"  Stage       : {args.stage}")
@@ -145,10 +161,13 @@ def main() -> None:
         print(f"  Models      : {models_to_run}")
         print(f"  Fast mode   : {args.fast}")
         print(f"  Rolling     : {args.rolling}")
-        if not args.rolling:
+        if args.rolling:
+            print(f"  Max target year : {max_target_year or '(uncapped)'}")
+        else:
             print(f"  FES only    : {args.fes_only}")
             print(f"  Tuning      : {args.tune}")
             print(f"  Selection   : {args.selection_basis}")
+            print(f"  Target year : {target_year or '(dynamic)'}")
     if args.stage in ("all", "household"):
         print(f"  COR-CVAE    : {'disabled' if args.skip_cvae else 'enabled'}")
 
@@ -161,6 +180,7 @@ def main() -> None:
             run_rolling(
                 series=series, models_to_run=models_to_run,
                 fast=args.fast, selection_basis=args.selection_basis,
+                max_target_year=max_target_year,
             )
         else:
             from forecast_pipeline import run as run_forecast
@@ -171,9 +191,10 @@ def main() -> None:
                 fes_only=args.fes_only,
                 tune=args.tune,
                 selection_basis=args.selection_basis,
+                target_year=target_year,
             )
 
-    # ── Stage 2–4 : Household stream (UKHLS COR-SEM/CVAE + vulnerability) ────
+    # ── Stage 2–5 : Household stream (UKHLS COR-SEM/CVAE + vulnerability + forward prediction) ──
     if args.stage in ("all", "household"):
         from household_stream import run as run_household
         run_household(skip_cvae=args.skip_cvae)
