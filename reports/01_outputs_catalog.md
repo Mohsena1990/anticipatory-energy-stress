@@ -1,7 +1,32 @@
 # Outputs Catalog: File-by-File Analysis
 
 **Project:** Anticipatory Fuel Stress Watch (AFSW) — Forecasting Anticipatory Energy–Carbon Stress and Household Fuel Vulnerability in the UK
-**Scope:** every table (CSV) and figure (PNG/interactive HTML) under `outputs/` — 150 CSV/PNG files plus 6 interactive HTML companions, 156 in total — organized by pipeline stage, in the order the pipeline produces them. Every file is named individually and explicitly by its exact filename (no filename is abbreviated with a pattern or shorthand), followed by a precise, numbers-grounded analysis of its contents: what it structurally contains, the specific values in it, and anything notable, surprising, or worth flagging.
+**Scope:** every table (CSV) and figure (PNG/interactive HTML) under `outputs/` — 131 CSV/PNG files (69 CSV, 62 PNG, each PNG with a duplicate vector `.pdf` twin not separately counted here) plus 6 interactive HTML companions, 137 in total, verified by direct file count as of this update — organized by pipeline stage, in the order the pipeline produces them. Every file is named individually and explicitly by its exact filename (no filename is abbreviated with a pattern or shorthand), followed by a precise, numbers-grounded analysis of its contents: what it structurally contains, the specific values in it, and anything notable, surprising, or worth flagging.
+
+---
+
+## Stage 0 — Data Description (Core & Macro Raw-Data Distributions)
+
+Descriptive-only outputs (no modeling) produced by `src/data_description_overview.py`, documented methodologically in `reports/06_methodology.md` Section 9 and narratively in `reports/05_data_description.md` Sections 3.1–3.2. Summarizes the distributions of the **core** (gas/electricity/carbon, `data/processed/core_energy_carbon.csv`) and **macro** (exogenous regressors, `data/processed/macro_controls.csv`) variables that feed Stage 1's two forecasting modes — both derived directly from the raw price/ONS/National Grid ESO series in `data/raw/` (Section 2 of `reports/05_data_description.md`).
+
+### `outputs/data_description/tables/`
+
+#### `outputs/data_description/tables/core_variable_summary_stats.csv`
+
+**Structure:** 4 rows (one per `core_energy_carbon.csv` column), columns `variable, n, n_missing, mean, std, min, p25, median, p75, max, skew, excess_kurtosis`. Zero missing values in any of the four columns (n=239 throughout, matching the file's full row count exactly).
+
+`gas_growth` (skew 2.40) and `electricity_growth` (skew 1.84) are both markedly right-skewed — large price increases are more extreme/frequent than large decreases over this window. `carbon_growth` has the mildest skew of the four (0.27) despite having by far the widest range (−670.93 to +734.73) and the largest excess kurtosis (8.66) — its extremity is driven by symmetric fat tails, not one-sided outliers, a distinction the mean/std/min/max figures already in `reports/05_data_description.md` Section 3.1 could not on their own distinguish. `electricity_index` (a price *level*, not a growth rate) has by far the lowest excess kurtosis (0.07, near-Normal), consistent with its visibly multi-modal (not fat-tailed) histogram shape described below.
+
+#### `outputs/data_description/tables/macro_variable_summary_stats.csv`
+
+**Structure:** 27 rows (every base `macro_controls.csv` column except its `_lag1`/`_lag12` duplicates and its two regime/seasonal dummy variables), same column set as the core table above.
+
+`gdp_growth` carries the single largest excess kurtosis in the table (82.99) alongside a strongly negative skew (−6.02) — both driven by one extreme observation, the 2020 COVID-lockdown GDP collapse (min −19.2%) sitting far outside an otherwise tightly clustered series (p25/median/p75 all within [−0.1%, +0.5%]). The `_yoy_growth` columns for embedded wind/solar generation and capacity are uniformly right-skewed with large excess kurtosis (up to 88.86 for `embedded_solar_generation_mean_yoy_growth`) — the same "growth off a small base is mechanically volatile" pattern documented for `carbon_growth` above, since embedded solar/wind capacity was small early in the panel. Confirms, independently of `reports/05_data_description.md`'s existing text, that the electricity-demand/generation-derived columns (`electricity_demand_mean`, the `embedded_wind_*`/`embedded_solar_*` columns, `pump_storage_pumping_mean`, `interconnector_net_flow_mean`, `holiday_share`, and their `_yoy_growth` derivatives) carry exactly **48 missing (NaN) rows each** — the pre-2009 period before `historic_demand_2009_2024.csv`'s coverage begins — correcting an earlier draft of the data-description report, which had stated these were zero-filled rather than genuinely missing for that period.
+
+### `outputs/data_description/figures/`
+
+- **`outputs/data_description/figures/core_variable_distributions.png`** — a 2×2 histogram grid (mean dotted, median dashed) for `gas_growth`, `electricity_index`, `electricity_growth`, `carbon_growth`, 2006-05–2026-03 (239 months). `carbon_growth`'s panel is visibly the widest and most sharply peaked of the four (mass concentrated near zero, with thin bars extending out to roughly ±700), the clearest visual confirmation of its high-excess-kurtosis, low-skew shape described above. `electricity_index`'s panel is visibly multi-modal rather than single-peaked — a pre-2021 cluster around 60–100, a distinct 2022-crisis-era cluster around 125–145, and a separate cluster around 190–240 for the most recent months — rather than one smooth bell shape.
+- **`outputs/data_description/figures/macro_variable_distributions.png`** — a 3×3 histogram grid for 9 representative macro columns selected as the ones most directly used as FES exogenous regressors: `inflation_growth`, `gdp_growth`, `gas_futures_price`, `electricity_demand_mean`, `embedded_wind_generation_mean`, `embedded_solar_generation_mean`, `gbp_eur_rate`, `weather_volatility`, `holiday_share`. `gdp_growth`'s panel is visually dominated by a single tall spike near zero with one isolated low outlier bar far to the left (the COVID observation); `holiday_share`'s panel is a sparse, near-zero-inflated distribution (median exactly 0.0) with three small clusters corresponding to short/long/leap-adjusted holiday months; `gbp_eur_rate` and `embedded_solar_generation_mean` both show visibly multi-modal shapes rather than single peaks, consistent with genuine structural regime shifts (post-Brexit-referendum sterling weakness; the ramp-up of UK solar deployment from near-zero in the early 2010s) rather than sampling noise.
 
 ---
 

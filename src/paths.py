@@ -76,6 +76,14 @@ UKHLS_OVERVIEW_OUT     = OUTPUTS_DIR / "ukhls_dataset_overview"
 UKHLS_OVERVIEW_TABLES  = UKHLS_OVERVIEW_OUT / "tables"
 UKHLS_OVERVIEW_FIGURES = UKHLS_OVERVIEW_OUT / "figures"
 
+# Data-description distribution figures/tables for the core (gas/electricity/
+# carbon) and macro (exogenous regressor) series, all sourced from data/raw
+# via data/processed/{core_energy_carbon,macro_controls}.csv -- feeds
+# reports/05_data_description.md. Descriptive only, no modeling.
+DATA_DESC_OUT     = OUTPUTS_DIR / "data_description"
+DATA_DESC_TABLES  = DATA_DESC_OUT / "tables"
+DATA_DESC_FIGURES = DATA_DESC_OUT / "figures"
+
 # Stage 2b — COR-SEM (Object/Condition/Personal/Energy -> Baseline Resource Stock)
 UKHLS_SEM_OUT     = OUTPUTS_DIR / "ukhls_cor_sem"
 UKHLS_SEM_TABLES  = UKHLS_SEM_OUT / "tables"
@@ -144,6 +152,7 @@ def ensure_dirs() -> None:
         PROCESSED_DIR,
         FES_DIR,
         UKHLS_OUT,
+        DATA_DESC_TABLES, DATA_DESC_FIGURES,
         UKHLS_OVERVIEW_TABLES, UKHLS_OVERVIEW_FIGURES,
         UKHLS_SEM_TABLES, UKHLS_SEM_FIGURES,
         UKHLS_CVAE_TABLES, UKHLS_CVAE_FIGURES,
