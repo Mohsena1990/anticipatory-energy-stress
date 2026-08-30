@@ -1,0 +1,9 @@
+predictor,coef,odds_ratio,p_value,significant
+fes_magnitude,3.95128,52.0017,0.0,True
+financial_strain_score,1.58081,4.8589,0.0,True
+object_score,0.35586,1.4274,0.0,True
+dvage,0.01795,1.0181,0.0,True
+heatch,-0.05026,0.951,0.1491,False
+personal_score,-0.0662,0.9359,0.0,True
+condition_score,-0.26611,0.7664,0.0,True
+energy_score,-1.17975,0.3074,0.0,True
