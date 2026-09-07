@@ -107,8 +107,15 @@ _SEM_COLS  = ["object_score", "condition_score", "personal_score", "energy_score
 # Plain controls not already summarized by the SEM factors themselves
 # (dvage/heatch were deliberately excluded from the SEM measurement model --
 # see ukhls_mapping.py's COR_FACTOR_ITEMS comments -- so they still carry
-# independent information here).
-_EXTRA_CONTROL_COLS = ["financial_strain_score", "dvage", "heatch"]
+# independent information here). lone_parent/large_family/workless_household
+# (src.ukhls_preprocessing) are new household-composition/employment
+# controls, same "plain control, not folded into the SEM" status --
+# demographic/labour-market flags, not reflective indicators of the
+# underlying resource construct.
+_EXTRA_CONTROL_COLS = [
+    "financial_strain_score", "dvage", "heatch",
+    "lone_parent", "large_family", "workless_household",
+]
 _SIGNAL_COL = "fes_magnitude"
 
 # Most recent N wave-transitions held out for walk-forward validation

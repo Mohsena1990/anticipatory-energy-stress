@@ -283,7 +283,7 @@ def stage2_train_evaluate(
 
 def stage3_evaluation(
     results: list,
-    selection_basis: str = "forecast_actual",
+    selection_basis: str = "validation",
     out_dir: str = TABLES_DIR,
     forecast_dir: str = FORECAST_DIR,
 ):
@@ -470,6 +470,7 @@ def _plot_rolling_trend(rolling_df: pd.DataFrame, figures_dir: str) -> None:
     for col, label, color in [
         ("fes_core", "FES Core (walk-forward)", "#8E44AD"),
         ("fes_macro", "FES Macro (walk-forward)", "#E74C3C"),
+        ("fes_weighted", "FES Weighted (inverse-RMSE, walk-forward)", "#F1C40F"),
         ("fes_actual", "FES Actual (realised, target year)", "#2C3E50"),
     ]:
         if col in rolling_df.columns:
@@ -611,9 +612,10 @@ def run_rolling(
     series: list | None = None,
     models_to_run: list | None = None,
     fast: bool = False,
-    selection_basis: str = "forecast_actual",
+    selection_basis: str = "validation",
     min_train_months: int = MIN_TRAIN_MONTHS,
     max_target_year: int | None = DEFAULT_TARGET_YEAR,
+    tune: bool = True,
 ) -> pd.DataFrame:
     """
     Walk-forward rolling FES: for each feasible year Y, train through Y's
@@ -639,6 +641,20 @@ def run_rolling(
         the cap and run through every feasible year the data allows) to
         override for a single run. Ignored when `years` is given
         explicitly.
+
+    tune : run src.tuning.tune_models ONCE (not once per rolling year --
+        a literal per-year call would multiply this function's already
+        ~n_years x 24-model-fit cost by another ~n_years, into many hours
+        even in --fast mode, disproportionate given src.tuning's own
+        docstring that broad grids on monthly data are more likely to
+        overfit noise than help). Tuned on the LATEST feasible year's split
+        (the most data-rich window), then those same hyperparameters are
+        reused for every rolling year's stage2_train_evaluate call --
+        a documented approximation: earlier years' much shorter training
+        windows (as little as ~24 months, see the README's own Stage 1
+        limitations) may not share the same optimal hyperparameters as the
+        latest, data-richest window, but re-tuning every year is not
+        proportionate. ON by default; pass tune=False (--no-tune) to skip.
     """
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
@@ -661,6 +677,40 @@ def run_rolling(
 
     from src.preprocessing import split
     from src.fes_calculator import compute_fes
+
+    tuned_params: dict = {}
+    if tune and years:
+        tune_as_of_year = years[-1]
+        _stage(2, f"One-time hyperparameter tuning (on the latest rolling year, "
+                  f"as_of={tune_as_of_year}) -- reused for every rolling year below")
+        tune_split_train_end  = f"{tune_as_of_year - 1}-12-01"
+        tune_split_test_start = f"{tune_as_of_year}-01-01"
+        tune_split_test_end   = f"{tune_as_of_year}-12-01"
+        tune_refit_end        = f"{tune_as_of_year}-12-01"
+        tune_forecast_dates   = pd.date_range(f"{tune_as_of_year + 1}-01-01", periods=12, freq="MS")
+
+        tune_core_train, tune_core_test = split(
+            core_full, tune_split_train_end, tune_split_test_start, tune_split_test_end,
+        )
+        tune_macro_full, tune_macro_train, _ = _add_electricity_macro_lags(
+            core_full, macro_full_raw, tune_split_train_end, tune_split_test_start, tune_split_test_end,
+        )
+        from src.tuning import tune_models
+        try:
+            tuned_params, _ = tune_models(
+                series, models_to_run,
+                tune_core_train, tune_core_test, core_full,
+                tune_macro_train, tune_macro_full,
+                fast=fast, selection_basis=selection_basis,
+                out_dir="outputs/tuning_rolling",
+                full_train_end=tune_refit_end,
+                forecast_start=tune_forecast_dates.min().strftime("%Y-%m-%d"),
+                forecast_end=tune_forecast_dates.max().strftime("%Y-%m-%d"),
+            )
+            _print_tuning_winners(tuned_params)
+        except Exception as e:
+            log.error("Rolling one-time tuning failed -- continuing with untuned defaults: %s", e, exc_info=True)
+            tuned_params = {}
 
     rows = []
     comparison_frames = []
@@ -691,6 +741,7 @@ def run_rolling(
             results = stage2_train_evaluate(
                 series, models_to_run, core_train, core_test, core_full,
                 macro_train, macro_full, fast=fast,
+                model_params=tuned_params,
                 train_end=refit_end,
                 forecast_start=forecast_dates.min().strftime("%Y-%m-%d"),
                 forecast_end=forecast_dates.max().strftime("%Y-%m-%d"),
@@ -734,8 +785,17 @@ def run_rolling(
             log.error("Rolling year as_of=%d failed: %s", as_of_year, e, exc_info=True)
             continue
 
+        # NOTE: fes_selected is included here too -- a pre-existing gap
+        # (found while adding fes_weighted below): _select_best_fes_variant
+        # can choose "Equal_Selected" as the walk-forward's winning FES
+        # variant (it's a candidate in _compare_fes_variants' benchmark),
+        # but this table never actually captured a fes_selected column for
+        # src.ukhls_preprocessing.attach_fes_delta to then read -- causing
+        # a KeyError downstream whenever Equal_Selected wins. Fixed here
+        # since fes_weighted needs the identical capture-list treatment
+        # anyway.
         row = {"as_of_year": as_of_year, "target_year": as_of_year + 1}
-        for col in ["fes_core", "fes_macro", "fes_actual"]:
+        for col in ["fes_core", "fes_macro", "fes_selected", "fes_weighted", "fes_actual"]:
             row[col] = float(monthly_df[col].mean()) if col in monthly_df.columns else float("nan")
         rows.append(row)
 
@@ -745,7 +805,7 @@ def run_rolling(
         # exactly the resolution src.ukhls_preprocessing.attach_fes_delta
         # needs to give each household-wave row a FES Magnitude specific to
         # its own interview month, not just its interview year.
-        month_detail = monthly_df[["date"] + [c for c in ["fes_core", "fes_macro", "fes_actual"] if c in monthly_df.columns]].copy()
+        month_detail = monthly_df[["date"] + [c for c in ["fes_core", "fes_macro", "fes_selected", "fes_weighted", "fes_actual"] if c in monthly_df.columns]].copy()
         month_detail["as_of_year"] = as_of_year
         monthly_frames.append(month_detail)
 
@@ -820,7 +880,10 @@ def _select_best_fes_variant(comparison_frames: list, out_dir: str) -> str | Non
     sel_path = f"{out_dir}/fes_variant_selection.csv"
     by_variant.to_csv(sel_path, index=False)
 
-    variant_to_col = {"Equal_Core": "fes_core", "Equal_Macro": "fes_macro"}
+    variant_to_col = {
+        "Equal_Core": "fes_core", "Equal_Macro": "fes_macro",
+        "Equal_Selected": "fes_selected", "Equal_Weighted": "fes_weighted",
+    }
     winner_col = variant_to_col.get(winner_label)
     log.info(
         "FES variant selection (mean RMSE across %d years x benchmarks): %s -- "
@@ -843,7 +906,10 @@ def _save_selected_variant_by_year(comparison_frames: list, winner_col: str | No
     """
     if not comparison_frames or winner_col is None:
         return
-    variant_labels = {"fes_core": "Equal_Core", "fes_macro": "Equal_Macro"}
+    variant_labels = {
+        "fes_core": "Equal_Core", "fes_macro": "Equal_Macro",
+        "fes_selected": "Equal_Selected", "fes_weighted": "Equal_Weighted",
+    }
     winner_label = variant_labels.get(winner_col)
     if winner_label is None:
         return
@@ -877,8 +943,8 @@ def run(
     models_to_run: list | None = None,
     fast: bool = False,
     fes_only: bool = False,
-    tune: bool = False,
-    selection_basis: str = "forecast_actual",
+    tune: bool = True,
+    selection_basis: str = "validation",
     target_year: int | None = DEFAULT_TARGET_YEAR,
 ) -> None:
     """
@@ -906,8 +972,23 @@ def run(
     models_to_run : models to train (default: all four)
     fast          : use fewer epochs for LSTM/TFT (development mode)
     fes_only      : skip training; recompute FES from existing forecast CSVs
-    tune          : run hyperparameter tuning before final training
-    selection_basis : 'forecast_actual' or 'validation'
+    tune          : run hyperparameter tuning (src.tuning.tune_models) before
+                    final training -- ON by default (was opt-in via --tune;
+                    now opt out with --no-tune). Real accuracy lever, adds
+                    real runtime -- see src.tuning's own docstring on why the
+                    grids are kept compact.
+    selection_basis : 'validation' (default) picks the best model/mode per
+                    series using only pre-target-year backtest information
+                    (RMSE-based rank_score) -- the genuinely ex-ante choice,
+                    consistent with this project's anticipatory framing.
+                    'forecast_actual' instead picks using the target year's
+                    now-known actuals (forecast_actual_MAE) -- a hindsight
+                    choice, useful only for retrospective "which model
+                    would have been best" reporting on an already-realised
+                    year, never for a genuinely future forecast (there are
+                    no actuals yet to select on, so it silently falls back
+                    to the validation rank in that case anyway -- see
+                    model_evaluation.apply_selection_scores).
     target_year   : forecast exactly this year (default: DEFAULT_TARGET_YEAR,
                     2025 -- the most recent year aligned with the UKHLS
                     panel's own coverage). Pass a different year to
@@ -928,7 +1009,16 @@ def run(
 
     if fes_only:
         _stage(4, "FES computation — using existing forecast CSVs")
+        # _load_ranked_df_from_csv reads back whatever selection_basis/
+        # selection_score was baked in by the LAST full run -- re-applying
+        # apply_selection_scores here makes a `--fes-only --selection-basis X`
+        # call actually take effect instead of silently keeping the old
+        # basis (rank_score and forecast_actual_* are already in the saved
+        # CSV and don't depend on selection_basis, so this is safe/cheap).
+        from src.model_evaluation import apply_selection_scores, save_metrics_table
         ranked_df = _load_ranked_df_from_csv()
+        ranked_df = apply_selection_scores(ranked_df, selection_basis)
+        save_metrics_table(ranked_df, TABLES_DIR)
         forecast_dates = _infer_forecast_dates_from_csvs(FORECAST_DIR, series)
         refit_end = (forecast_dates.min() - pd.DateOffset(months=1)).strftime("%Y-%m-%d")
         log.info("--fes-only: inferred forecast window %s..%s from existing CSVs (refit_end=%s)",
@@ -1034,17 +1124,29 @@ def main() -> None:
                         choices=ALL_SERIES,
                         help="Series to forecast (default: all three)")
     parser.add_argument("--tune", action="store_true",
-                        help="Hyperparameter tuning before final training")
+                        help="Hyperparameter tuning before final training -- ON by "
+                             "default now, this flag is a harmless no-op kept for "
+                             "backward compatibility. Use --no-tune to opt out.")
+    parser.add_argument("--no-tune", action="store_true",
+                        help="Skip hyperparameter tuning (opt out of the new "
+                             "tuning-by-default behaviour). Single-year mode: skips "
+                             "tuning entirely. --rolling mode: skips the one-time "
+                             "tuning pass (see run_rolling's docstring).")
     parser.add_argument("--selection-basis",
                         choices=["forecast_actual", "validation"],
-                        default="forecast_actual",
-                        help="Model selection criterion (default: forecast_actual)")
+                        default="validation",
+                        help="Model selection criterion. 'validation' (default) is "
+                             "the genuine, non-hindsight walk-forward backtest choice. "
+                             "'forecast_actual' selects using the target year's "
+                             "now-known actuals -- hindsight, for retrospective "
+                             "reporting on an already-realised year only.")
     parser.add_argument("--rolling", action="store_true",
                         help="Walk-forward rolling FES instead of the single-year "
                              "path: train through year Y, forecast Y+1, repeat for "
-                             "every feasible Y (~n_years x 24 model fits -- see "
+                             "every feasible Y (~n_years x 24 model fits, plus one "
+                             "hyperparameter-tuning pass by default -- see "
                              "run_rolling's docstring for the cost). Ignores "
-                             "--fes-only/--tune.")
+                             "--fes-only.")
     parser.add_argument("--target-year", type=int, default=DEFAULT_TARGET_YEAR, metavar="YYYY",
                         help="Single-year mode only: forecast exactly this year "
                              f"(default: {DEFAULT_TARGET_YEAR}, the most recent "
@@ -1064,6 +1166,7 @@ def main() -> None:
         args.max_target_year = None   # explicit opt-out of the default cap
     if args.target_year == 0:
         args.target_year = None       # explicit opt-in to full dynamic detection
+    tune = not args.no_tune           # tuning is ON by default; --no-tune opts out
 
     models_to_run = [m for m in ALL_MODELS if m not in args.skip_models]
 
@@ -1074,9 +1177,10 @@ def main() -> None:
     print(f"  Rolling     : {args.rolling}")
     if args.rolling:
         print(f"  Max target year : {args.max_target_year or '(uncapped)'}")
+        print(f"  Tuning      : {tune} (one-time pass, reused across all rolling years)")
     else:
         print(f"  FES only    : {args.fes_only}")
-        print(f"  Tuning      : {args.tune}")
+        print(f"  Tuning      : {tune}")
         print(f"  Selection   : {args.selection_basis}")
         print(f"  Target year : {args.target_year or '(dynamic)'}")
 
@@ -1088,6 +1192,7 @@ def main() -> None:
             fast=args.fast,
             selection_basis=args.selection_basis,
             max_target_year=args.max_target_year,
+            tune=tune,
         )
     else:
         run(
@@ -1095,7 +1200,7 @@ def main() -> None:
             models_to_run=models_to_run,
             fast=args.fast,
             fes_only=args.fes_only,
-            tune=args.tune,
+            tune=tune,
             selection_basis=args.selection_basis,
             target_year=args.target_year,
         )

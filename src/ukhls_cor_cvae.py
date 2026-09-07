@@ -31,9 +31,10 @@ simplification relative to Stage 2b, not swept under the rug.
 Counterfactual scenario query
 ──────────────────────────────
 `counterfactual_fes_shift()` re-encodes a household's real item vector
-under its own realised FES exposure ("current", `fes_current`) vs. the
-shared forecasted FES shock ("forecast", `fes_magnitude` -- see
-`src.ukhls_preprocessing.attach_fes_delta`) and reports the shift in
+under its own realised FES exposure ("current", `fes_current`) vs. its
+own wave's forecasted FES shock ("forecast", `fes_magnitude` -- varies by
+household interview timing, see `src.ukhls_preprocessing.attach_fes_delta`)
+and reports the shift in
 predicted vulnerability probability and the latent Mahalanobis distance
 from a "resilient anchor" (mean z of the top-quartile-by-
 fuel_to_income_ratio households). This is a SIMULATION on the trained
@@ -110,18 +111,52 @@ def build_item_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     return item_mat, all_cols
 
 
+def _group_train_val_split(
+    hidp: np.ndarray, val_split: float, seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Row indices split by household (hidp), not by individual row.
+
+    Each household contributes ~15 panel rows (one per wave, 2009-2024) whose
+    housing/health items barely change wave to wave, so a row-level shuffle
+    lets the same household land in both train and validation folds -- the
+    model can partially "recognize" it, inflating the validation metrics used
+    for early stopping.
+    """
+    groups = pd.unique(hidp)
+    rng = np.random.default_rng(seed)
+    shuffled = groups[rng.permutation(len(groups))]
+    n_val_groups = max(1, int(round(len(groups) * val_split)))
+    val_groups = set(shuffled[:n_val_groups])
+    val_mask = np.isin(hidp, list(val_groups))
+    return np.where(~val_mask)[0], np.where(val_mask)[0]
+
+
 def _prepare_inputs(
     df: pd.DataFrame, sem_scores: pd.DataFrame,
-) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray, pd.Index, dict]:
-    """Aligned (item matrix, standardized items X, FES condition, SEM factor
-    scores C, HighAEV-analogue label y) over the common valid-target index."""
+    val_split: float | None = None, seed: int | None = None,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray, pd.Index, dict, np.ndarray, np.ndarray]:
+    """
+    Aligned (item matrix, standardized items X, FES condition, SEM factor
+    scores C, HighAEV-analogue label y) over the common valid-target index,
+    plus a household-grouped (tr_idx, val_idx) split.
+
+    Scalers are fit on the training rows only (post-split), then applied to
+    the full aligned set -- fitting on the full set first would leak
+    validation-fold statistics into the scaling used for training.
+    """
     from sklearn.preprocessing import StandardScaler
+
+    val_split = config.UKHLS_VAE_VAL_SPLIT if val_split is None else val_split
+    seed = config.TF_SEED if seed is None else seed
 
     item_mat, item_cols = build_item_matrix(df)
 
     # fes_delta (row-varying: FES Magnitude minus this household-wave's own
-    # realised exposure) is the conditioning signal -- NOT fes_magnitude,
-    # which is constant this run and would produce std=0 -> NaN if scaled.
+    # realised exposure) is the conditioning signal used for training -- not
+    # fes_magnitude, which varies across the panel by interview timing but
+    # not row-by-row for a fixed household-wave, and is used instead as the
+    # scalar "shared forecast shock" in the counterfactual query below.
     # See src.ukhls_preprocessing.attach_fes_delta for the full rationale.
     needed = pd.concat([sem_scores[_SEM_FACTOR_COLS], df["fes_delta"],
                          df["high_fuel_vulnerable"]], axis=1)
@@ -130,20 +165,27 @@ def _prepare_inputs(
     item_mat = item_mat.loc[common_idx]
     aux = aux.loc[common_idx]
 
-    item_scaler = StandardScaler().fit(item_mat.values)
+    hidp = df.loc[common_idx, "hidp"].values
+    tr_idx, val_idx = _group_train_val_split(hidp, val_split, seed)
+
+    item_scaler = StandardScaler().fit(item_mat.values[tr_idx])
     X = item_scaler.transform(item_mat.values).astype(np.float32)
 
-    fes_scaler = StandardScaler().fit(aux[["fes_delta"]].values)
+    fes_scaler = StandardScaler().fit(aux[["fes_delta"]].values[tr_idx])
     Fc = fes_scaler.transform(aux[["fes_delta"]].values).astype(np.float32)
 
-    sem_scaler = StandardScaler().fit(aux[_SEM_FACTOR_COLS].values)
+    sem_scaler = StandardScaler().fit(aux[_SEM_FACTOR_COLS].values[tr_idx])
     C = sem_scaler.transform(aux[_SEM_FACTOR_COLS].values).astype(np.float32)
 
     y = aux["high_fuel_vulnerable"].values.astype(np.float32)
 
-    log.info("Stage 2c (CVAE) input: n=%d complete-case rows, %d items", len(item_mat), len(item_cols))
+    log.info(
+        "Stage 2c (CVAE) input: n=%d complete-case rows (%d households), %d items "
+        "-- %d train rows / %d val rows, split by household",
+        len(item_mat), len(np.unique(hidp)), len(item_cols), len(tr_idx), len(val_idx),
+    )
     scalers = {"item": item_scaler, "fes": fes_scaler, "sem": sem_scaler}
-    return item_mat, X, Fc, C, y, common_idx, scalers
+    return item_mat, X, Fc, C, y, common_idx, scalers, tr_idx, val_idx
 
 
 # =============================================================================
@@ -185,8 +227,9 @@ def _build_cvae_components(n_features: int, n_latent: int, hidden_dims: tuple, s
 
 def _train_cvae(
     X: np.ndarray, Fc: np.ndarray, C: np.ndarray, y: np.ndarray,
+    tr_idx: np.ndarray, val_idx: np.ndarray,
     n_latent: int, hidden_dims: tuple, epochs: int, lr: float,
-    beta: float, lam: float, gamma: float, val_split: float, seed: int,
+    beta: float, lam: float, gamma: float, seed: int,
 ) -> dict:
     import tensorflow as tf
 
@@ -194,10 +237,6 @@ def _train_cvae(
     with tf.device(device):
         np.random.seed(seed)
         n, n_features = X.shape
-        rng = np.random.default_rng(seed)
-        idx = rng.permutation(n)
-        n_val = max(1, int(n * val_split))
-        val_idx, tr_idx = idx[:n_val], idx[n_val:]
 
         def _cat(a, b):
             return tf.constant(np.concatenate([a, b], axis=1), dtype=tf.float32)
@@ -306,19 +345,21 @@ def _train_cvae(
 
 def counterfactual_fes_shift(
     result: dict, X: np.ndarray, scalers: dict, index: pd.Index,
-    fes_raw_current: np.ndarray | float, fes_raw_forecast: float,
+    fes_raw_current: np.ndarray | float, fes_raw_forecast: np.ndarray | float,
     resilient_anchor_z: np.ndarray,
     id_cols: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     For every household's real item vector, re-encode under its own
-    realised FES exposure ("current", `fes_raw_current` -- a per-row array
-    aligned to `index`, or a scalar broadcast to every row) vs. the shared
-    forecasted FES shock ("forecast", `fes_raw_forecast` -- always a
-    scalar, since FES Magnitude is constant this run), both scaled through
-    the SAME fitted fes_scaler used in training, decode the prediction head
-    under each, and report the probability shift + Mahalanobis-style
-    |z - resilient_anchor| shift.
+    realised FES exposure ("current", `fes_raw_current`) vs. its own wave's
+    forecasted FES shock ("forecast", `fes_raw_forecast`) -- each argument
+    is a per-row array aligned to `index`, or a scalar broadcast to every
+    row. FES Magnitude varies across the panel by household interview
+    timing, not a single constant, so passing a scalar broadcasts the same
+    value to every household rather than each one's own wave's value; both
+    are scaled through the SAME fitted fes_scaler used in training, decode
+    the prediction head under each, and report the probability shift +
+    Mahalanobis-style |z - resilient_anchor| shift.
 
     THIS IS A SIMULATION on the trained model, not an observation: no
     household was actually surveyed under both price regimes.
@@ -330,9 +371,11 @@ def counterfactual_fes_shift(
     fes_raw_current = np.broadcast_to(
         np.asarray(fes_raw_current, dtype=np.float64).reshape(-1), (n,)
     ).astype(np.float32)
+    fes_raw_forecast = np.broadcast_to(
+        np.asarray(fes_raw_forecast, dtype=np.float64).reshape(-1), (n,)
+    ).astype(np.float32)
     Fc_current  = fes_scaler.transform(fes_raw_current.reshape(-1, 1)).astype(np.float32)
-    fc_forecast = fes_scaler.transform([[fes_raw_forecast]]).astype(np.float32)[0, 0]
-    Fc_forecast = np.full((n, 1), fc_forecast, dtype=np.float32)
+    Fc_forecast = fes_scaler.transform(fes_raw_forecast.reshape(-1, 1)).astype(np.float32)
 
     device = "/CPU:0" if config.AE_FORCE_CPU else "/GPU:0"
     with tf.device(device):
@@ -466,7 +509,9 @@ def run(df: pd.DataFrame, sem_scores: pd.DataFrame) -> dict:
         log.error("Stage 2c (CVAE) requires SEM factor scores %s — run ukhls_cor_sem first.", missing)
         return {}
 
-    item_mat, X, Fc, C, y, common_idx, scalers = _prepare_inputs(df, sem_scores)
+    item_mat, X, Fc, C, y, common_idx, scalers, tr_idx, val_idx = _prepare_inputs(
+        df, sem_scores, val_split=config.UKHLS_VAE_VAL_SPLIT, seed=config.TF_SEED,
+    )
     if len(item_mat) < 30:
         log.warning("Too few complete-case rows (%d) for Stage 2c CVAE", len(item_mat))
         return {}
@@ -474,11 +519,11 @@ def run(df: pd.DataFrame, sem_scores: pd.DataFrame) -> dict:
     log.info("Training FES-conditioned COR-CVAE (n=%d, epochs<=%d)...", len(item_mat), config.UKHLS_VAE_EPOCHS)
     try:
         result = _train_cvae(
-            X, Fc, C, y,
+            X, Fc, C, y, tr_idx, val_idx,
             n_latent=config.UKHLS_N_LATENT_DIMS, hidden_dims=config.UKHLS_VAE_HIDDEN_DIMS,
             epochs=config.UKHLS_VAE_EPOCHS, lr=config.UKHLS_VAE_LEARNING_RATE,
             beta=config.UKHLS_VAE_BETA, lam=config.UKHLS_VAE_LAMBDA_ALIGN, gamma=config.UKHLS_VAE_GAMMA_PRED,
-            val_split=config.UKHLS_VAE_VAL_SPLIT, seed=config.TF_SEED,
+            seed=config.TF_SEED,
         )
     except Exception as e:
         log.error("Stage 2c (CVAE) training failed: %s", e)
@@ -502,26 +547,28 @@ def run(df: pd.DataFrame, sem_scores: pd.DataFrame) -> dict:
     log.info("CVAE-SEM alignment: mean |r| = %.3f (bar: >=0.40)", mean_abs_align)
 
     # ── Counterfactual FES scenario query: each household's own realised
-    # exposure (fes_current) vs. the shared forecasted shock (fes_magnitude)
-    # -- see src.ukhls_preprocessing.attach_fes_delta for the rationale. ──
+    # exposure (fes_current) vs. its own wave's forecasted shock
+    # (fes_magnitude, which varies by household interview year/month --
+    # NOT a single constant to broadcast; see attach_fes_delta) -- see
+    # src.ukhls_preprocessing.attach_fes_delta for the rationale. ──
     counterfactual_df = pd.DataFrame()
     if "fes_current" in df.columns and "fes_magnitude" in df.columns and len(item_mat.index) >= 10:
-        fes_current_row = df.loc[item_mat.index, "fes_current"].values
-        fes_magnitude    = float(df["fes_magnitude"].iloc[0])
+        fes_current_row   = df.loc[item_mat.index, "fes_current"].values
+        fes_magnitude_row = df.loc[item_mat.index, "fes_magnitude"].values
         resilient_mask = (df.loc[item_mat.index, "fuel_to_income_ratio"]
                            <= df["fuel_to_income_ratio"].quantile(config.RESILIENT_QUANTILE)).values
         resilient_anchor = result["mu"][resilient_mask].mean(axis=0) if resilient_mask.sum() > 0 else result["mu"].mean(axis=0)
         id_cols = df.loc[item_mat.index, [c for c in ["hidp", "wave", "interview_year", "gor_dv"] if c in df.columns]]
         counterfactual_df = counterfactual_fes_shift(
-            result, X, scalers, item_mat.index, fes_current_row, fes_magnitude, resilient_anchor,
+            result, X, scalers, item_mat.index, fes_current_row, fes_magnitude_row, resilient_anchor,
             id_cols=id_cols,
         )
         _save_csv(counterfactual_df, "cvae_counterfactual_fes_shift")
         log.info(
-            "Counterfactual FES shift (each household's own fes_current -> shared "
-            "fes_magnitude=%.3f): mean prob shift=%.4f, mean distance-from-resilient "
+            "Counterfactual FES shift (each household's own fes_current -> its own "
+            "wave's fes_magnitude, mean=%.3f): mean prob shift=%.4f, mean distance-from-resilient "
             "shift=%.4f -- SIMULATION on the trained model, not an observation.",
-            fes_magnitude, counterfactual_df["pred_prob_shift"].mean(), counterfactual_df["dist_shift"].mean(),
+            fes_magnitude_row.mean(), counterfactual_df["pred_prob_shift"].mean(), counterfactual_df["dist_shift"].mean(),
         )
 
     scores_named = mu_df.rename(columns={"z1": "cvae_object_z", "z2": "cvae_condition_z",

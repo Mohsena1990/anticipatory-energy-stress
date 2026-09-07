@@ -54,7 +54,10 @@ DPI          = 150
 def _save(fig: plt.Figure, path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=DPI, bbox_inches="tight")
-    fig.savefig(Path(path).with_suffix(".pdf"), bbox_inches="tight")
+    # metadata={"CreationDate": None} drops the run timestamp the pdf
+    # backend embeds by default, so re-running the pipeline on unchanged
+    # data doesn't dirty the pdf twin in git.
+    fig.savefig(Path(path).with_suffix(".pdf"), bbox_inches="tight", metadata={"CreationDate": None})
     plt.close(fig)
     log.info(f"Figure saved → {path}")
 
@@ -348,7 +351,20 @@ def plot_model_ranking_polar(
         f"shorter bar = better"
     )
     if selected_model is not None:
-        title += f"  |  selected: {selected_model}"
+        # The pipeline's own selection can be made on a different metric than
+        # the one drawn here (e.g. selection_basis='validation' picks by the
+        # 2016 walk-forward backtest even when 2017 forecast-vs-actual bars
+        # are shown, since the latter is hindsight and shouldn't drive a
+        # genuine ex-ante choice -- see fes_calculator._find_best_models /
+        # model_evaluation.apply_selection_scores). When that happens the
+        # selected wedge is not necessarily the shortest one on THIS chart,
+        # which looks like a bug if unlabelled, so say so explicitly instead
+        # of leaving a bare "selected: X" next to "shorter bar = better".
+        basis = sub["selection_basis"].iloc[0] if "selection_basis" in sub.columns else None
+        if has_forecast_actual and basis not in (None, "forecast_actual"):
+            title += f"  |  selected: {selected_model} (via {basis} backtest, not shown metrics)"
+        else:
+            title += f"  |  selected: {selected_model}"
 
     plot_grouped_circular_bars(
         groups, group_colors, out_path, title=title,

@@ -201,7 +201,7 @@ Two candidate revisions to CONDITION/PERSONAL were **empirically tested and reje
 fuel_to_income_ratio ~ baseline_score + fes_delta + baseline_score × fes_delta
 ```
 
-**Latest measurement loadings** (all correctly signed, all p<0.001):
+**Latest measurement loadings** (all correctly signed, all p<0.001, stable across reruns):
 
 | Factor | Item | Std. loading |
 |---|---|---|
@@ -210,9 +210,9 @@ fuel_to_income_ratio ~ baseline_score + fes_delta + baseline_score × fes_delta
 | PERSONAL | sf1_good / health_good / qfhigh_band | 0.85 / 0.59 / 0.38 |
 | ENERGY | fihhmnnet1_dv / fiyrinvinc_dv | 0.58 / 0.37 |
 
-**FES-moderation result:** `baseline_score` (−0.026) and `fes_delta` (−0.001) both negative and significant, as expected; the interaction `baseline_x_fes` is **positive** (+0.00024, p<0.001) — i.e. this run's data does **not** support the COR-consistent hypothesis that high-baseline households are shielded from an FES shock. Reported transparently, not hidden.
+**FES-moderation result — significant, but the sign is not identified.** `fes_delta`'s own main effect is stable and significant across every refit (coefficient ≈ −0.0006 to −0.0009, p<0.0001, always negative). The interaction term `baseline_x_fes` is *also* significant in every refit (p<0.0001) but **its sign is not stable**: rerunning Stage 2b on materially the same data has produced +0.00004 (not significant, an earlier snapshot), +0.00049, and −0.00073 across successive runs of this pipeline. The second-order structural paths explain why (`structural_paths_baseline.csv`): CONDITION/PERSONAL/ENERGY's loadings on `BASELINE` converge to roughly −500 to −1200 (standardized ≈ −1.0) against `OBJECT`'s loading, which is fixed at +1.0 only by identification convention, not estimated from data — flipping every loading's sign at once fits identically well, so which direction "more baseline resources" points is arbitrary under the current specification. **Read this as: FES matters (robustly), baseline resources matter (robustly, as a main effect), but whether resources specifically *buffer* an FES shock is not yet a result this model can support in either direction** — it needs an explicit sign constraint on the second-order loadings before the interaction's direction can be trusted. This is a stronger and more specific caveat than the CFI/TLI note below; see `reports/06_methodology.md` §3.5 for the full diagnosis.
 
-**A known tool limitation** (documented in `src/ukhls_cor_sem.py`, verified empirically against a complete-case MLW comparison): under FIML, `semopy` 2.3.11 produces CFI/TLI outside [0,1] and an implausibly small chi² regardless of specification changes — this is a fit-*statistic-computation* limitation, not evidence the measurement model itself is misspecified. Read the loadings and the FES-moderation test as the primary evidence; RMSEA/SRMR are reported alongside as a partial cross-check. The pooled 15-wave CFA also assumes measurement invariance over 2009–2024, untested here.
+**A known tool limitation** (documented in `src/ukhls_cor_sem.py`, verified empirically against a complete-case MLW comparison): under FIML, `semopy` 2.3.11 produces CFI/TLI outside [0,1] and an implausibly small chi² regardless of specification changes — this is a fit-*statistic-computation* limitation, not evidence the measurement model itself is misspecified. CFI/TLI also vary run-to-run (observed range: CFI −0.14 to −0.54, TLI −0.51 to −1.03) for the same reason the interaction's sign does. Read the loadings as the primary evidence; RMSEA/SRMR are reported alongside as a partial cross-check. The pooled 15-wave CFA also assumes measurement invariance over 2009–2024, untested here. One further, unrelated fix: rows with **zero** observed values across all 13 indicators (1 of 339,201) are now dropped before the FIML fit — such a row degenerates into a 0×0 per-pattern covariance submatrix that LAPACK cannot invert, which previously produced hundreds of spurious `DPOTRI` error lines per run without affecting any estimate (confirmed by direct before/after comparison).
 
 ### Stage 2c — COR-CVAE (`src/ukhls_cor_cvae.py`)
 
@@ -225,7 +225,11 @@ predictor(z) → high_fuel_vulnerable (sigmoid)
 Loss = recon_MSE + β·KL + λ·align(μ, SEM scores) + γ·BCE(predictor(z), label)
 ```
 
-`fes_magnitude` (constant per run before a rolling table exists) is never scaled/fed into the conditioning path — only `fes_delta` is, avoiding a std=0 StandardScaler blow-up. The **counterfactual FES-shift query** re-encodes each household's real item vector under its own realised `fes_current` vs. the shared forecast `fes_magnitude`, reporting the predicted-vulnerability probability shift — a labelled *simulation*, never presented as an observed outcome.
+`fes_magnitude` (constant per run before a rolling table exists) is never scaled/fed into the conditioning path — only `fes_delta` is, avoiding a std=0 StandardScaler blow-up. The train/validation split is **grouped by household** (`hidp`), not row-level — each household contributes ~15 near-identical wave-rows, and a row-level shuffle previously let the same household land in both folds, inflating the validation metric used for early stopping.
+
+**Latest CVAE ↔ SEM alignment** (`cvae_sem_alignment.csv`, Pearson r): z1↔OBJECT −0.79 (own factor, clearly largest), z2↔CONDITION 0.80 (own factor, clearly largest), z3↔PERSONAL 0.75 (own factor, clearly largest) — three of four latent dimensions cleanly dedicate to their intended factor. **z4 does not**: its correlation with OBJECT (0.75) now exceeds its correlation with its own intended factor, ENERGY (0.69) — z4 has drifted from "partially entangled with" to "more aligned with the wrong factor than the right one." Raw sign is an arbitrary consequence of VAE latent orientation, not an error — only the magnitude/ranking of |r| is meaningful.
+
+The **counterfactual FES-shift query** re-encodes each household's real item vector under its own realised `fes_current` vs. the shared forecast `fes_magnitude`, reporting the predicted-vulnerability probability shift — a labelled *simulation*, never presented as an observed outcome.
 
 <table>
 <tr>
@@ -248,10 +252,10 @@ Two soft, continuous outputs — deliberately **not** a hard binary classifier �
 
 | Method | Pearson r vs. ratio | Spearman r | AUC vs. `high_fuel_vulnerable` |
 |---|---|---|---|
-| Fuzzy c-means ("Resource Depleted" membership) | 0.254 | 0.367 | 0.740 |
-| One-class SVM (anomaly score, resilient reference group) | 0.165 | 0.126 | 0.619 |
+| Fuzzy c-means ("Resource Depleted" membership) | 0.262 | 0.368 | 0.745 |
+| One-class SVM (anomaly score, resilient reference group) | 0.172 | 0.133 | 0.621 |
 
-Plus a transparent **logistic driver analysis** (odds ratios, not a black-box feature-importance score) — `financial_strain_score` (OR 6.90), `tenure_security` (OR 1.40), and `health_good` (OR 1.27) are the strongest positive drivers of vulnerability; `jbstat_security` (OR 0.13) and `qfhigh_band` (OR 0.59) the strongest protective factors; `fes_delta` itself is significant (OR 0.97, p<0.001).
+Plus a transparent **logistic driver analysis** (odds ratios, not a black-box feature-importance score) — now 17 covariates, extended this iteration with `large_family`, `workless_household`, `lone_parent`, and `ieqmoecd_dv` (equivalisation factor) alongside the original set. `financial_strain_score` remains dominant by a wide margin (OR 6.87); `large_family` (OR 1.68), `tenure_security` (OR 1.56), and `health_good` (OR 1.38) are the next-strongest positive drivers; `jbstat_security` (OR 0.16), `ieqmoecd_dv` (OR 0.28), and `qfhigh_band` (OR 0.50) the strongest protective factors. **`fes_delta` is a significant, if comparatively small, independent driver** (OR 0.94, p<0.0001) — consistently significant across every stage that tests it (see the FES-importance discussion below).
 
 Policy figures (prevalence by wave, by region, region×year heatmap, vulnerability rate by FES-severity tercile):
 
@@ -273,6 +277,14 @@ Three descriptive breakdowns added to make this project's outputs directly compa
 
 **Deliberately not added as new SEM/CVAE latent variables or as covariates in the existing driver-analysis regression.** Ethnicity and disability are demographic/health covariates, not reflective indicators of an underlying continuous resource construct — forcing them into the COR-SEM/CVAE measurement model would misspecify it (JRF's own report treats them the same way: always separate stratified tables, never inputs to a single latent score). Kept out of the logistic driver analysis too, since several ethnicity categories are small-sample nationally (Chinese n=1,408, Any other Black background n=426) and adding 10 dummy variables risked destabilizing an already-validated model for no clear payoff.
 
+### Family composition and employment status
+
+Two further breakdowns, added specifically to make **two more** of this project's dimensions comparable against JRF's own framework (Table 5 p.36, family type; p.76, work status) — unlike ethnicity/disability/tenure above, these two flow *into* the driver-analysis regression (Section above) as `large_family`/`lone_parent`/`workless_household`, since family composition and employment status are theoretically upstream *causes* of resource stock, not just descriptive strata:
+
+- **Family composition** (`_derive_family_composition_group`, `src/ukhls_preprocessing.py`) — `hhtype_dv` × `nkids_dv` collapsed into 5 categories matching JRF's own family-type/large-family cross-cut (Table 5, p.36): No children (8.999.../229,491), Couple 1–2 children (3.67%/55,392), Couple 3+ children (5.27%/11,160), Lone parent 1–2 children (15.13%/16,378), Lone parent 3+ children (13.18%/2,165), Other multi-adult with children (4.32%/24,477).
+- **Employment status** (`load_wave_indresp_aggregated`, max-aggregated per household from `jbstat`/`jbft_dv`/`jbsemp`, not mean-aggregated — a household either has an employed adult or it doesn't) — Workless household (14.54%), Part-time only (9.29%), Full-time or self-employed (3.25%).
+- **Prepayment-meter flag** (`fuelduel`/`duelpay`/`elecpay`, all 15 waves) — a documented UK self-disconnection/rationing proxy, used to test a specific blind spot in the ratio-based `fuel_to_income_ratio` target (a household that copes by rationing energy use shows a *lower*, not higher, spend ratio). Prepayment-meter rate is higher among already-flagged-vulnerable households (19.0%) than not (10.5%) — some rationing is happening, but not enough to be hiding a materially different population within "not vulnerable" (`rationing_evidence_prepayment.csv`).
+
 <table>
 <tr>
 <td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_ethnicity.png" width="320"><br><sub>Vulnerability prevalence by ethnicity group</sub></td>
@@ -289,12 +301,14 @@ Three descriptive breakdowns added to make this project's outputs directly compa
 
 | Dimension | n | Spearman ρ | Pearson r | Read |
 |---|---|---|---|---|
-| Region | 12 | 0.33 (0.73 excl. NI) | −0.10 (0.68 excl. NI) | Strong once Northern Ireland's documented fuel-oil driver (below) is set aside |
+| Region | 12 | 0.73 (excl. NI) | 0.68 (excl. NI) | Strong once Northern Ireland's documented fuel-oil driver (below) is set aside |
 | Tenure | 4 | **0.80** | **0.68** | Strong agreement despite only 4 categories |
-| Ethnicity | 6 | 0.14 | 0.27 | Weak — see divergence below |
+| Family type | 2 | 1.00 | 1.00 | **New this iteration** — collapses the 5-category breakdown above into JRF's lone-parent/couple-with-children split (Table 5, p.36); ranks agree, but n=2 is a necessarily weak test |
+| Work status | 2 | 1.00 | 1.00 | **New this iteration** — collapses full-time/self-employed + part-time into JRF's "in work" vs. "not in work" split (p.76); ranks agree, same n=2 caveat |
 | Disability | 2 | — | — | Directionally consistent (ours 10.3%→12.9%, JRF 19%→29%) |
+| Ethnicity | 6 | 0.14 | 0.27 | Weak — see divergence below |
 
-Benchmark values are hardcoded from numbers explicitly **stated in JRF's report text** (Table 6 p.51 for region, p.9/42 for ethnicity, Table 8 p.67 for disability, Table 10 p.95 for tenure) — categories JRF shows only in a chart with no stated number (e.g. Indian, Chinese, Mixed ethnic groups) are left out of the benchmark rather than read off pixels.
+Benchmark values are hardcoded from numbers explicitly **stated in JRF's report text** (Table 6 p.51 for region, p.9/42 for ethnicity, Table 8 p.67 for disability, Table 10 p.95 for tenure, Table 5 p.36 for family type, p.76 for work status) — categories JRF shows only in a chart with no stated number (e.g. Indian, Chinese, Mixed ethnic groups) are left out of the benchmark rather than read off pixels. Family type and work status are the two newest dimensions — they were not computable before this iteration's household-composition/employment features (above) existed, so this is their first-ever run against JRF.
 
 **Why Northern Ireland is excluded from the region correlation coefficient, but nowhere else.** NI ranks *highest* on our fuel-specific measure (15.6%) but *lowest* in JRF's income-poverty ranking (17%) — investigated rather than assumed to be noise or a bug. Verified directly against this project's own panel data (`_save_ni_oil_heating_evidence`, `outputs/ukhls_vulnerability/tables/ni_oil_heating_evidence_*.csv`):
 
@@ -325,7 +339,7 @@ Drawn on **real UK region boundaries** (`data/geo/uk_nuts1_regions.geojson` — 
 
 1. **Resource-to-Stress Hotspot Map** — two side-by-side real maps (mean SEM `baseline_resource_score`; regional `high_fuel_vulnerable` prevalence) plus the 3×3 bivariate policy-tier legend. *Adapted from the original brief's literal bivariate "FES axis" map* — FES here is a single **national** scalar with no regional variation to map, so the second map uses the regional vulnerability-outcome prevalence instead (same underlying policy intent: cash-transfer vs. structural-infrastructure priority zones).
 2. **Fuzzy Membership Map** — real choropleth of mean "Vulnerable to Loss" fuzzy membership (the % of households near the 0.5 "about to tip" boundary is in the saved table).
-3. **Vulnerability Vector Shift Map** — arrow at each region's real centroid: mean predicted vulnerability under each household's own realised FES vs. under the shared forecast shock (reuses the Stage 2c counterfactual output) — red = rising risk, green = falling. London's arrow/label is nudged into open space with a leader line (a standard cartographic fix — London is geographically tiny and sits inside South East, so a same-length arrow at its true centroid collided with its neighbour's).
+3. **Vulnerability Vector Shift Map** — arrow at each region's real centroid: mean predicted vulnerability under each household's own realised FES vs. under the shared forecast shock (reuses the Stage 2c counterfactual output) — red = rising risk, green = falling. London's arrow/label is nudged into open space with a leader line (a standard cartographic fix — London is geographically tiny and sits inside South East, so a same-length arrow at its true centroid collided with its neighbour's). **Latest run: every region's shift is small and now negative** (falling risk under the forecast shock vs. each household's own realised exposure, magnitude 0.00001–0.00036 percentage points, largest in Northern Ireland) — a materially different reading from earlier runs, which showed small *rising*-risk shifts throughout; the sign is sensitive to exactly which forecast/realised FES values are attached (Stage 2a), so this map should be read as "the shift is small everywhere" more confidently than "the shift points in direction X."
 
 <table>
 <tr>
@@ -366,35 +380,54 @@ Every stage above answers "who is vulnerable now, and what explains it" — a **
 |---|---|
 | Held-out transitions | m→n, n→o |
 | n (train / validation) | 177,408 / 21,161 |
-| **AUC vs. actual `high_fuel_vulnerable` at t+1** | **0.758** |
-| Pearson r vs. actual `fuel_to_income_ratio` at t+1 | 0.265 |
+| **AUC vs. actual `high_fuel_vulnerable` at t+1** | **0.760** |
+| Pearson r vs. actual `fuel_to_income_ratio` at t+1 | 0.270 |
 
 An AUC of 0.76 on data the model never saw during training — genuinely forward-predicted, not fit — is the number that justifies trusting the final model's forward predictions at all.
 
-**Drivers** (final model, refit on all 14 known transitions — deliberately excludes `baseline_resource_score` alongside its own four components, which are correlated at r=0.65–0.77 and produce unstable, compensating coefficients together; the four first-order scores alone give clean per-dimension odds ratios):
+**Drivers** (final model, refit on all 14 known transitions — extended this iteration with `lone_parent`/`large_family`/`workless_household` alongside the original controls; deliberately excludes `baseline_resource_score` alongside its own four components, which are correlated at r=0.65–0.77 and produce unstable, compensating coefficients together; the four first-order scores alone give clean per-dimension odds ratios):
 
 | Predictor | Odds ratio | Direction |
 |---|---|---|
-| `financial_strain_score` | 4.82 | ↑ risk |
-| `object_score` | 1.42 | ↑ risk |
+| `financial_strain_score` | 5.46 | ↑ risk |
+| `lone_parent` | 1.52 | ↑ risk |
+| `object_score` | 1.43 | ↑ risk (counter-intuitive — see below) |
+| `workless_household` | 1.42 | ↑ risk |
 | `fes_magnitude` (the forecast signal itself) | 1.03 | ↑ risk |
-| `dvage` | 1.02 | ~neutral |
-| `heatch` | 0.94 (n.s.) | ~neutral |
-| `personal_score` | 0.93 | ↓ risk |
-| `condition_score` | 0.77 | ↓ risk |
+| `dvage` | 1.01 | ~neutral |
+| `large_family` | 0.95 (n.s.) | ~neutral |
+| `heatch` | 0.95 (n.s.) | ~neutral |
+| `personal_score` | 0.94 | ↓ risk |
+| `condition_score` | 0.89 | ↓ risk |
 | `energy_score` | 0.31 | ↓ risk |
+
+Three of the four COR-SEM factors (`personal_score`, `condition_score`, `energy_score`) behave exactly as "more baseline resource → lower future risk" predicts, with `energy_score` (essentially income) dominant. `object_score` is the one consistent exception — households with more rooms/cars/property value are predicted *more*, not less, likely to become vulnerable — plausibly because larger, older, owned housing costs more to heat (the same pattern behind the tenure reversal in External Validation below), not a data error. This means "baseline resources protect households" is well-supported for 3 of 4 dimensions, not a uniform story across all four — see the FES/COR summary below.
 
 **Application.** Refit on all 14 known transitions, then scored every wave-o household (the most recent wave) using their own profile + their own already-forecast `fes_magnitude` — genuinely unobserved. **19,140 of 19,586** wave-o households scored (446 missing ≥1 feature); mean predicted probability 0.066. Each prediction targets that household's *own* next interview year (2024 or 2025, depending on exactly when within wave o they were interviewed) and — since `fes_magnitude` already matches interview month to the same calendar month one year ahead — their own target month too, giving a month-level view of when risk peaks.
 
 <table>
 <tr>
-<td align="center" width="50%"><img src="outputs/ukhls_forward_prediction/figures/stage5_validation_roc.png" width="380"><br><sub>Walk-forward validation ROC (held-out m→n/n→o, AUC=0.758)</sub></td>
+<td align="center" width="50%"><img src="outputs/ukhls_forward_prediction/figures/stage5_validation_roc.png" width="380"><br><sub>Walk-forward validation ROC (held-out m→n/n→o, AUC=0.760)</sub></td>
 <td align="center" width="50%"><img src="outputs/ukhls_forward_prediction/figures/stage5_forward_prediction_map.png" width="380"><br><sub>Predicted forward vulnerability by UK region</sub></td>
 </tr>
 <tr>
 <td align="center" width="50%" colspan="2"><img src="outputs/ukhls_forward_prediction/figures/stage5_forward_prediction_by_month.png" width="500"><br><sub>Which target month carries the highest predicted risk</sub></td>
 </tr>
 </table>
+
+---
+
+## Does FES, and COR Theory, Actually Hold Up? A Cross-Stage Verdict
+
+Three distinct claims are tested across this pipeline, and they do not all fare equally — reported here together since no single stage's output makes this clear on its own.
+
+**FES matters — robustly, everywhere it's tested as a direct predictor.** Significant and same-signed in Stage 2b's OLS main effect (coefficient ≈ −0.0006 to −0.0009, p<0.0001, stable across every rerun), Stage 3's driver logit (OR 0.94, p<0.0001), and Stage 5's forward-prediction model (OR 1.03, p<0.0001, walk-forward AUC=0.76) — and as one of the input features to Stage 3's fuzzy c-means clustering, whose resulting "Resource Depleted" cluster reaches AUC=0.745 against the objective ratio. This is the most solid finding in the pipeline.
+
+**The four COR resource dimensions — mostly yes, with one real, consistent exception.** All 13 measurement items load positively and sensibly (Stage 2b). As Stage 5 forward-prediction covariates, `energy_score`, `condition_score`, and `personal_score` all show the theoretically expected "more resource → lower future risk" direction, with `energy_score` (income) dominant. `object_score` (housing/asset stock) is the one dimension that consistently runs the other way — more rooms/cars/property value predicts *more*, not less, future vulnerability — plausibly because larger, older, owned housing costs more to heat (see the tenure reversal in External Validation). This is a genuine, reproducible finding, not noise.
+
+**Whether resources specifically *buffer* the FES shock — not yet established.** This is the `baseline_score × fes_delta` interaction, and it's the one piece of this framework this pipeline cannot currently support in either direction: the interaction is statistically significant in every recent refit, but its **sign flips between identical reruns** (see the FES-moderation result under COR-SEM above). Given `object_score` already breaks the clean "more resources = better" direction, a *combined* second-order BASELINE score built from all four factors without a fixed sign convention is not a reliable single number to interact with FES — the fix is a sign-constrained second-order model, not yet implemented.
+
+**Bottom line:** the project's evidence that anticipated energy stress helps identify vulnerable households is strong and consistent. Its evidence that COR-theoretic baseline resources predict vulnerability is strong for three of four dimensions, with `object_score` a genuine, informative exception. Its evidence for COR theory's specific interactive/buffering claim is inconclusive, not confirmed and not refuted, pending the sign-identification fix above.
 
 ---
 
@@ -489,6 +522,9 @@ anticipatory-energy-stress/
 | `policy_vulnerability_by_ethnicity.csv` / `.png` | Vulnerability rate by household reference person's ethnicity group |
 | `policy_vulnerability_by_disability.csv` / `.png` | Vulnerability rate by whether the household contains a disabled adult |
 | `policy_vulnerability_by_tenure.csv` / `.png` | Vulnerability rate by housing tenure group |
+| `policy_vulnerability_by_family_composition.csv` / `.png` | Vulnerability rate by 5-category family-type group (new this iteration) |
+| `policy_vulnerability_by_employment.csv` / `.png` | Vulnerability rate by workless/part-time/full-time-or-self-employed (new this iteration) |
+| `rationing_evidence_prepayment.csv`, `rationing_evidence_inoutflows12.csv` | Prepayment-meter / self-reported-usage-cut rate by vulnerability status — tests the ratio target's rationing blind spot |
 | `policy_vulnerability_by_region_map.png` | Real-map companion to the ranked `by_region` bar chart |
 | `policy_map_baseline_resource_by_region.png`, `policy_map_financial_strain_by_region.png` | Real maps of mean SEM baseline-resource score and financial-strain score by region |
 | `policy_temporal_change_map.png` | Diverging real map: vulnerability-prevalence change, waves a-e vs. k-o |
@@ -496,8 +532,8 @@ anticipatory-energy-stress/
 ### External Validation (`outputs/ukhls_vulnerability/`)
 | File | Description |
 |---|---|
-| `jrf_poverty_benchmark_{region,ethnicity,disability,tenure}.csv` | Hardcoded JRF UK Poverty 2025 reference values (text-stated only, cited by page) |
-| `external_validation_{dim}_comparison.csv` | Our rate merged with JRF's, both rankings, per dimension |
+| `jrf_poverty_benchmark_{region,ethnicity,disability,tenure,family_type,work_status}.csv` | Hardcoded JRF UK Poverty 2025 reference values (text-stated only, cited by page) — family_type/work_status new this iteration |
+| `external_validation_{dim}_comparison.csv` | Our rate merged with JRF's, both rankings, per dimension (6 dimensions total) |
 | `external_validation_{dim}_bars.png` / `_scatter.png` | Comparison figures, per dimension |
 | `external_validation_wave_trend.png` | Our wave-level trend vs JRF's cost-of-living-crisis account |
 | `ni_oil_heating_evidence_by_region.csv` | % of households using oil heating, by region — the evidence behind excluding NI from the region correlation only |
@@ -525,7 +561,8 @@ anticipatory-energy-stress/
 
 ## Methodological Limitations
 
-- **FIML CFI/TLI under semopy 2.3.11** are unreliable (verified against a complete-case MLW comparison) — read loadings and the FES-moderation test as primary evidence for the SEM, not CFI/TLI.
+- **FIML CFI/TLI under semopy 2.3.11** are unreliable (verified against a complete-case MLW comparison) — read loadings as primary evidence for the SEM's measurement quality, not CFI/TLI.
+- **The second-order BASELINE factor's sign is not identified**, and this reaches further than CFI/TLI: the `baseline_score × fes_delta` interaction is significant but sign-flips across reruns (see [Does FES, and COR Theory, Actually Hold Up?](#does-fes-and-cor-theory-actually-hold-up-a-cross-stage-verdict) above) — do not cite a direction for this interaction until the second-order model has an explicit sign constraint.
 - **Pooled 15-wave CFA** assumes measurement invariance 2009–2024, untested.
 - **FES Delta's two components use different z-scoring baselines** (rolling-year train window for Magnitude vs. full-history monthly mean/std for Current, now both at month resolution) and Magnitude sums 4 z-terms while Current sums 3 (no realised analogue of forecast uncertainty) — Delta is a documented, honest approximation of shock size, not an exact matched-scale subtraction.
 - **FES Magnitude's monthly resolution matches interview month to the SAME calendar month one year ahead** (e.g. a March interview reads the forecast's March-next-year value), not literally "as of this exact day" — the walk-forward refit itself only happens at annual (December) cutoffs, so this refines *which* of the 12 already-forecast months gets attached rather than adding a new, more frequent refit.

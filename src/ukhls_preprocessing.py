@@ -62,12 +62,15 @@ from src.ukhls_mapping import (
     HH_IDENTIFIER, HH_LINK_VARS, HH_TIMING_VARS, HH_GEOGRAPHY_VARS,
     HH_FUEL_EXPENDITURE_VARS, HH_INCOME_VARS, HH_HOUSING_VARS,
     HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
-    HH_OBJECT_VARS,
+    HH_OBJECT_VARS, HH_FAMILY_VARS, HH_EQUIVALISATION_VARS,
     IND_IDENTIFIER, IND_HH_LINK, IND_FINANCIAL_VARS, IND_WELLBEING_VARS,
     IND_CONDITION_VARS, IND_PERSONAL_VARS, IND_ENERGY_VARS,
     IND_DISABILITY_VARS, IND_ETHNICITY_VAR, ETHNICITY_GROUP_RECODE,
+    IND_EMPLOYMENT_VARS, JBSTAT_EMPLOYED_CODES,
     JBSTAT_SECURITY_RECODE, QFHIGH_BAND_RECODE, TENURE_SECURITY_RECODE,
     HEATCH_GOOD_RECODE, BILL_SECURITY_RECODE,
+    HHTYPE_LONE_PARENT_CODES, HHTYPE_COUPLE_WITH_CHILDREN_CODES,
+    HHTYPE_OTHER_WITH_CHILDREN_CODES, LARGE_FAMILY_MIN_CHILDREN,
     COR_FACTOR_ITEMS,
     FUEL_POVERTY_RATIO_THRESHOLD, FUEL_POVERTY_RELATIVE_QUANTILE,
 )
@@ -116,6 +119,7 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
         [HH_IDENTIFIER] + HH_LINK_VARS + HH_TIMING_VARS + HH_GEOGRAPHY_VARS
         + HH_FUEL_EXPENDITURE_VARS + HH_INCOME_VARS + HH_HOUSING_VARS
         + HH_HARDSHIP_VARS + HH_COPING_VARS_RECENT_ONLY + HH_OBJECT_VARS
+        + HH_FAMILY_VARS + HH_EQUIVALISATION_VARS
     )
     prefixed = [f"{wave}_{c}" for c in wanted_bare]
     available = _available_columns(path)
@@ -138,7 +142,59 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
         df["heatch_good"] = df["heatch"].map(HEATCH_GOOD_RECODE)
     if "xphsdba" in df.columns:
         df["bill_security"] = df["xphsdba"].map(BILL_SECURITY_RECODE)
+
+    if "hhtype_dv" in df.columns and "nkids_dv" in df.columns:
+        df["family_composition_group"] = _derive_family_composition_group(
+            df["hhtype_dv"], df["nkids_dv"]
+        )
+        df["lone_parent"] = df["hhtype_dv"].isin(HHTYPE_LONE_PARENT_CODES).astype(float)
+        df.loc[df["hhtype_dv"].isna(), "lone_parent"] = np.nan
+        df["large_family"] = (df["nkids_dv"] >= LARGE_FAMILY_MIN_CHILDREN).astype(float)
+        df.loc[df["nkids_dv"].isna(), "large_family"] = np.nan
+
+    # Prepayment-meter flag -- same fuelduel branching compute_fuel_to_income
+    # uses (combined-bill households answer duelpay, separate-bill
+    # households answer elecpay). A well-documented UK fuel-poverty proxy
+    # for self-disconnection/rationing (see README's rationing-evidence
+    # section) -- available across ALL 15 waves, unlike inoutflows12
+    # (waves m/o only).
+    if "fuelduel" in df.columns:
+        duelpay = df.get("duelpay", pd.Series(np.nan, index=df.index))
+        elecpay = df.get("elecpay", pd.Series(np.nan, index=df.index))
+        fuelduel = df["fuelduel"]
+        # duelpay==4 / elecpay==4 collapse a NaN (unanswered) sub-question to
+        # False rather than propagating missingness, unlike compute_fuel_to_income's
+        # analogous branching above -- guard each comparison so an unanswered
+        # duelpay/elecpay stays NaN instead of silently reading as "not prepay".
+        duelpay_flag = np.where(duelpay.isna(), np.nan, (duelpay == 4).astype(float))
+        elecpay_flag = np.where(elecpay.isna(), np.nan, (elecpay == 4).astype(float))
+        prepay = pd.Series(
+            np.where(fuelduel == 1, duelpay_flag, np.where(fuelduel == 2, elecpay_flag, np.nan)),
+            index=df.index,
+        )
+        df["prepayment_meter"] = prepay.astype(float)
+        df.loc[fuelduel.isna(), "prepayment_meter"] = np.nan
+
     return df
+
+
+def _derive_family_composition_group(hhtype_dv: pd.Series, nkids_dv: pd.Series) -> pd.Series:
+    """hhtype_dv + nkids_dv -> JRF-comparable family-type group (UK Poverty
+    2025, Table 5, p.36: family type x large-family cross-cut) -- see
+    src.ukhls_mapping's HHTYPE_*_CODES comment for the code-group rationale.
+    Explicit mask assignment (not np.select) -- np.select's choicelist
+    (strings) and a np.nan default don't share a common numpy dtype and
+    raise a TypeError under recent numpy, so the "no match" case is left as
+    the Series' own NaN default instead of passed through np.select."""
+    out = pd.Series(np.nan, index=hhtype_dv.index, dtype=object)
+    out[nkids_dv.fillna(0) == 0] = "No children"
+    out[hhtype_dv.isin(HHTYPE_OTHER_WITH_CHILDREN_CODES)] = "Other multi-adult, with children"
+    out[hhtype_dv.isin(HHTYPE_COUPLE_WITH_CHILDREN_CODES)] = "Couple, 1-2 children"
+    out[hhtype_dv.isin(HHTYPE_COUPLE_WITH_CHILDREN_CODES) & (nkids_dv >= LARGE_FAMILY_MIN_CHILDREN)] = "Couple, 3+ children"
+    out[hhtype_dv.isin(HHTYPE_LONE_PARENT_CODES)] = "Lone parent, 1-2 children"
+    out[hhtype_dv.isin(HHTYPE_LONE_PARENT_CODES) & (nkids_dv >= LARGE_FAMILY_MIN_CHILDREN)] = "Lone parent, 3+ children"
+    out[hhtype_dv.isna()] = np.nan
+    return out
 
 
 # =============================================================================
@@ -155,7 +211,7 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     ind_vars = (
         IND_FINANCIAL_VARS + IND_WELLBEING_VARS
         + IND_CONDITION_VARS + IND_PERSONAL_VARS + IND_ENERGY_VARS
-        + IND_DISABILITY_VARS
+        + IND_DISABILITY_VARS + IND_EMPLOYMENT_VARS
     )
     prefixed = [f"{wave}_{c}" for c in ind_vars] + [f"{wave}_{IND_HH_LINK}"]
     available = _available_columns(path)
@@ -199,13 +255,91 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     # Recoded categorical items (finfut, jbstat, health, sf1, qfhigh_dv,
     # healthlink) are replaced by their derived ordinal/reversed columns
     # for aggregation; the raw categorical codes are not meaningfully
-    # mean-able.
+    # mean-able. jbft_dv/jbsemp/jbterm1 are likewise per-person category
+    # codes (full-time/part-time, employee/self-employed, permanent/
+    # temporary) -- averaging them produces a numerically meaningless code
+    # (e.g. 1.5 for a mixed full-/part-time household); jbft_dv/jbsemp are
+    # separately MAX-aggregated into has_fulltime_worker/has_selfemployed_worker
+    # below, so they don't need a mean-aggregated column at all. jbhrs
+    # (hours worked) stays mean-aggregated -- it's a genuine continuous value.
     RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv", "healthlink"}
+    NOT_MEANABLE_CATEGORICAL = {"jbft_dv", "jbsemp", "jbterm1"}
     DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good",
                "qfhigh_band", "disability_free"]
-    agg_cols = [c for c in ind_vars if c in df.columns and c not in RECODED]
+    agg_cols = [c for c in ind_vars
+                if c in df.columns and c not in RECODED and c not in NOT_MEANABLE_CATEGORICAL]
     agg_cols += [c for c in DERIVED if c in df.columns]
     agg = df.groupby(HH_IDENTIFIER)[agg_cols].mean()
+
+    # Employment status/hours (jbft_dv/jbsemp/jbstat) are per-person
+    # categorical flags -- meaningful at household level as "does ANY
+    # responding adult have property X" (max), not "average code value"
+    # (mean, meaningless for a categorical). A separate MAX-aggregated
+    # groupby, joined onto the mean-aggregated one above. jbft_dv/jbsemp
+    # are legitimately inapplicable (NaN) for non-workers, same
+    # structurally-missing-not-at-random pattern as hsval/carval elsewhere
+    # in this project -- households with zero employed adults correctly
+    # get has_parttime_worker/has_selfemployed_worker = 0 (via fillna(0)
+    # below, only once has_employed_adult establishes the household has no
+    # employed adult at all) rather than NaN.
+    emp_flags = pd.DataFrame(index=df.index)
+    if "jbstat" in df.columns:
+        emp_flags["is_employed"] = df["jbstat"].isin(JBSTAT_EMPLOYED_CODES).astype(float)
+    if "jbft_dv" in df.columns:
+        emp_flags["is_fulltime"] = (df["jbft_dv"] == 1).astype(float)
+        emp_flags["is_parttime"] = (df["jbft_dv"] == 2).astype(float)
+    if "jbsemp" in df.columns:
+        emp_flags["is_selfemployed"] = (df["jbsemp"] == 2).astype(float)
+    if not emp_flags.empty:
+        emp_flags[HH_IDENTIFIER] = df[HH_IDENTIFIER]
+        emp_agg = emp_flags.groupby(HH_IDENTIFIER).max()
+        rename_map = {
+            "is_employed": "has_employed_adult",
+            "is_fulltime": "has_fulltime_worker",
+            "is_parttime": "has_parttime_worker",
+            "is_selfemployed": "has_selfemployed_worker",
+        }
+        emp_agg = emp_agg.rename(columns=rename_map)
+        if "has_employed_adult" in emp_agg.columns:
+            no_employed = emp_agg["has_employed_adult"] == 0
+            for c in ["has_fulltime_worker", "has_parttime_worker", "has_selfemployed_worker"]:
+                if c in emp_agg.columns:
+                    emp_agg.loc[no_employed & emp_agg[c].isna(), c] = 0.0
+        agg = agg.join(emp_agg, how="left")
+
+        if "has_employed_adult" in agg.columns:
+            # workless_household -- JRF's headline "workless" category
+            # (p.76), approximated as "no responding adult in paid/self
+            # employment." Caveat (documented in README): this isn't
+            # JRF's working-age-only definition, so a pensioner-only
+            # household with no employed adult also reads as workless here.
+            agg["workless_household"] = 1.0 - agg["has_employed_adult"]
+
+            # 3-category grouping matching JRF's in-work/out-of-work +
+            # part-time framing (pp.76-86) -- self-employed or any
+            # full-time worker outranks a part-time-only household, since
+            # JRF finds part-time work carries a materially higher poverty
+            # rate than full-time (22% vs 8%). Explicit mask assignment
+            # (not np.select) -- see _derive_family_composition_group's
+            # comment for why: string choices + a np.nan default don't
+            # share a common numpy dtype under recent numpy.
+            emp_group = pd.Series(np.nan, index=agg.index, dtype=object)
+            emp_group[agg["has_employed_adult"] == 1] = "Part-time only"
+            # agg.get(col, 0) returns a bare Python 0 (not a length-matched
+            # Series) when jbft_dv AND jbsemp were both absent from this
+            # wave's raw file, collapsing fulltime_or_self to a scalar bool
+            # instead of a boolean mask -- build explicit zero-filled Series
+            # so the `==` comparisons always broadcast elementwise.
+            fulltime_col = agg["has_fulltime_worker"] if "has_fulltime_worker" in agg.columns \
+                else pd.Series(0, index=agg.index)
+            selfemp_col = agg["has_selfemployed_worker"] if "has_selfemployed_worker" in agg.columns \
+                else pd.Series(0, index=agg.index)
+            fulltime_or_self = (fulltime_col == 1) | (selfemp_col == 1)
+            emp_group[fulltime_or_self] = "Full-time or self-employed"
+            emp_group[agg["workless_household"] == 1] = "Workless household"
+            emp_group[agg["has_employed_adult"].isna()] = np.nan
+            agg["employment_group"] = emp_group
+
     log.info("wave %s: %d respondents -> %d households (individual aggregation)",
               wave, len(df), len(agg))
     return agg.reset_index()
@@ -368,6 +502,43 @@ def build_target(df: pd.DataFrame) -> pd.DataFrame:
     log.info("high_fuel_vulnerable (ratio>=%.0f%%): %d/%d (%.1f%%)",
               FUEL_POVERTY_RATIO_THRESHOLD * 100, n_high, n_valid,
               100.0 * n_high / n_valid if n_valid else 0.0)
+    return df
+
+
+def compute_equivalised_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Secondary, ROBUSTNESS-CHECK ratio -- NOT a replacement for
+    fuel_to_income_ratio/high_fuel_vulnerable above. The UK's own official
+    10%-of-income fuel-poverty definition is itself unequivalised, so this
+    project's primary target stays unequivalised too (anchored to that
+    government standard). But an unequivalised ratio can misclassify
+    across household sizes/compositions -- exactly what JRF's own poverty
+    methodology (Annex 1, Table 18) uses equivalisation to correct for
+    -- so this ratio equivalises net income by ieqmoecd_dv (Modified OECD
+    equivalence scale, the same scale family JRF uses) and is used
+    downstream only as a sensitivity check
+    (src.ukhls_vulnerability_classification.run_equivalisation_robustness_check),
+    never as a modelling target.
+    """
+    if "ieqmoecd_dv" not in df.columns:
+        log.warning("ieqmoecd_dv not found -- fuel_to_income_ratio_equivalised will be NaN")
+        df["fuel_to_income_ratio_equivalised"] = np.nan
+        df["high_fuel_vulnerable_equivalised"] = pd.NA
+        return df
+
+    annual_net_income = df.get("fihhmnnet1_dv", pd.Series(np.nan, index=df.index)) * 12
+    equivalised_income = annual_net_income / df["ieqmoecd_dv"]
+    ratio_eq = df["total_fuel_spend"] / equivalised_income
+    ratio_eq[annual_net_income < 1200.0] = np.nan
+    ratio_eq = ratio_eq.clip(upper=1.0)
+    df["fuel_to_income_ratio_equivalised"] = ratio_eq
+
+    df["high_fuel_vulnerable_equivalised"] = (ratio_eq >= FUEL_POVERTY_RATIO_THRESHOLD).astype("Int64")
+    df.loc[ratio_eq.isna(), "high_fuel_vulnerable_equivalised"] = pd.NA
+
+    n_valid = int(ratio_eq.notna().sum())
+    log.info("fuel_to_income_ratio_equivalised: %d/%d valid (%.1f%%)",
+              n_valid, len(df), 100.0 * n_valid / len(df) if len(df) else 0.0)
     return df
 
 
@@ -580,7 +751,7 @@ def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
         if not chosen_row.empty:
             variant_to_col = {
                 "Equal_Core": "fes_core", "Equal_Macro": "fes_macro",
-                "Equal_Selected": "fes_selected",
+                "Equal_Selected": "fes_selected", "Equal_Weighted": "fes_weighted",
             }
             fes_col = variant_to_col.get(chosen_row.iloc[0]["FES_variant"], "fes_core")
 
@@ -734,6 +905,7 @@ def run(waves: list[str] | None = None) -> pd.DataFrame:
 
     df = compute_fuel_to_income(df)
     df = build_target(df)
+    df = compute_equivalised_ratio(df)
     df = build_financial_strain_composite(df)
     df = attach_price_context(df)
     df = attach_fes_delta(df)

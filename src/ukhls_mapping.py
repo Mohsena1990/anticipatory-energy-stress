@@ -97,6 +97,26 @@ HH_HOUSING_VARS: list[str] = [
     "htpmp",       # has heat pump (later waves only)
 ]
 
+# Family composition (household-level derived variables, ~100% coverage
+# verified against o_hhresp.dta) -- JRF UK Poverty 2025 devotes a full
+# section (pp.34-41) to family type/size as one of the strongest poverty
+# predictors (lone-parent child poverty 44% vs 25% couple; large families
+# [3+ children] 45%), a dimension this project had none of until now.
+HH_FAMILY_VARS: list[str] = [
+    "hhtype_dv",   # Composition of household, LFS-version
+    "nkids_dv",    # Number of children in household
+    "nch02_dv", "nch34_dv", "nch511_dv", "nch1215_dv",  # child age bands
+    "hhsize",      # Household size, incl. absent members
+]
+
+# Modified OECD equivalence scale -- the same family of scale JRF's own
+# Annex 1 (Table 18) uses to equivalise income for household size/
+# composition. 99.8% coverage verified against o_hhresp.dta. Used as a
+# plain control + a secondary robustness-check ratio, NOT to replace the
+# primary fuel_to_income_ratio (which mirrors the UK's own unequivalised
+# official 10%-of-income fuel-poverty definition).
+HH_EQUIVALISATION_VARS: list[str] = ["ieqmoecd_dv"]
+
 # Household-level hardship/coping — general "problems paying bills" ordinal
 # is preferred over the binary council-tax-specific item where available.
 HH_HARDSHIP_VARS: list[str] = [
@@ -121,6 +141,25 @@ IND_CONDITION_VARS: list[str] = ["jbstat"]
 
 # Personal resources (individual-level): human capital / health.
 IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "qfhigh_dv"]
+
+# Employment status/hours (individual-level, aggregated to household via
+# "does ANY adult have property X" -- see
+# src.ukhls_preprocessing.load_wave_indresp_aggregated). jbstat (already in
+# IND_CONDITION_VARS) only gives an employment-SECURITY ordinal; JRF UK
+# Poverty 2025's "Work and poverty" section (pp.76-86) instead breaks
+# poverty out by work STATUS (in-work 12% vs out-of-work 43%; full-time 8%
+# vs part-time 22%), a dimension this project had none of until now.
+# jbft_dv/jbsemp verified against o_indresp.dta's value labels: jbft_dv
+# 1=FT employee/2=PT employee (employees only); jbsemp 1=Employee/
+# 2=Self-employed. jbhrs kept for potential future hours-based analysis;
+# jbsic07_cc (industry sector) deliberately left out of this pass -- see
+# README limitations.
+IND_EMPLOYMENT_VARS: list[str] = ["jbft_dv", "jbsemp", "jbhrs", "jbterm1"]
+
+# jbstat raw codes counted as "in paid or self employment" for the
+# household-level workless_household flag (src.ukhls_preprocessing) --
+# matches JBSTAT_SECURITY_RECODE's two highest-security codes.
+JBSTAT_EMPLOYED_CODES: set[int] = {1, 2}
 
 # Disability (individual-level, aggregated to household): `health` alone
 # (already in IND_PERSONAL_VARS, RECODED to health_good) only captures
@@ -333,7 +372,27 @@ ALL_HH_VARS: list[str] = (
     HH_TIMING_VARS + HH_GEOGRAPHY_VARS + HH_FUEL_EXPENDITURE_VARS
     + HH_INCOME_VARS + HH_HOUSING_VARS + HH_HARDSHIP_VARS
     + HH_COPING_VARS_RECENT_ONLY + HH_OBJECT_VARS
+    + HH_FAMILY_VARS + HH_EQUIVALISATION_VARS
 )
+
+# hhtype_dv (LFS-version household composition) -> JRF-comparable family
+# groups (UK Poverty 2025, Table 5, p.36: family type x large-family
+# cross-cut). Codes verified against o_hhresp.dta's Stata value labels
+# directly, not guessed: 4/5 = lone parent (1 ADULT + 1/2+ children only --
+# genuinely one adult present, unlike the codes below). 10/11/12 = couple
+# + 1/2/3+ children. 18/20/21/23 (2+ adults with children, explicitly NOT
+# a couple -- e.g. siblings or a parent+grandparent sharing a household)
+# are deliberately kept in their OWN "other multi-adult with children"
+# bucket rather than folded into lone-parent (would misclassify a
+# 2+-adult household as single-adult) or couple (there is no couple
+# relationship in these codes) -- JRF has no exact matching category
+# either. Large-family split (3+ children) applied afterwards using
+# nkids_dv, since hhtype_dv's own child-count granularity stops at "3 or
+# more" for couples but "2 or more" for lone parents.
+HHTYPE_LONE_PARENT_CODES: set[int] = {4, 5}
+HHTYPE_COUPLE_WITH_CHILDREN_CODES: set[int] = {10, 11, 12}
+HHTYPE_OTHER_WITH_CHILDREN_CODES: set[int] = {18, 20, 21, 23}
+LARGE_FAMILY_MIN_CHILDREN: int = 3
 
 # =============================================================================
 # Individual-level (indresp) variables — merged to household level
@@ -355,6 +414,7 @@ IND_WELLBEING_VARS: list[str] = ["scghq1_dv", "scghq2_dv"]
 ALL_IND_VARS: list[str] = (
     IND_FINANCIAL_VARS + IND_WELLBEING_VARS
     + IND_CONDITION_VARS + IND_PERSONAL_VARS + IND_ENERGY_VARS
+    + IND_EMPLOYMENT_VARS
 )
 
 # =============================================================================

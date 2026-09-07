@@ -113,11 +113,23 @@ def _build_parser() -> argparse.ArgumentParser:
                     choices=["gas", "electricity", "carbon"],
                     help="Series to forecast (default: all three)")
     fg.add_argument("--tune", action="store_true",
-                    help="Hyperparameter tuning before final training")
+                    help="Hyperparameter tuning before final training -- ON by "
+                         "default now, this flag is a harmless no-op kept for "
+                         "backward compatibility. Use --no-tune to opt out.")
+    fg.add_argument("--no-tune", action="store_true",
+                    help="Skip hyperparameter tuning (opt out of the new "
+                         "tuning-by-default behaviour). Applies to both single-year "
+                         "and --rolling mode (rolling tunes once and reuses the "
+                         "result across every rolling year -- see "
+                         "forecast_pipeline.run_rolling's docstring).")
     fg.add_argument("--selection-basis",
                     choices=["forecast_actual", "validation"],
-                    default="forecast_actual",
-                    help="Model selection criterion (default: forecast_actual)")
+                    default="validation",
+                    help="Model selection criterion. 'validation' (default) is "
+                         "the genuine, non-hindsight walk-forward backtest choice. "
+                         "'forecast_actual' selects using the target year's "
+                         "now-known actuals -- hindsight, for retrospective "
+                         "reporting on an already-realised year only.")
     fg.add_argument("--rolling", action="store_true",
                     help="Walk-forward rolling FES (train through year Y, forecast "
                          "Y+1, repeat for every feasible Y) instead of the single-year "
@@ -153,6 +165,7 @@ def main() -> None:
     series        = args.series or ["gas", "electricity", "carbon"]
     target_year      = None if args.target_year == 0 else args.target_year
     max_target_year  = None if args.max_target_year == 0 else args.max_target_year
+    tune             = not args.no_tune   # tuning is ON by default; --no-tune opts out
 
     _banner("Anticipatory Energy–Carbon Stress Index — Full Pipeline")
     print(f"  Stage       : {args.stage}")
@@ -165,7 +178,7 @@ def main() -> None:
             print(f"  Max target year : {max_target_year or '(uncapped)'}")
         else:
             print(f"  FES only    : {args.fes_only}")
-            print(f"  Tuning      : {args.tune}")
+            print(f"  Tuning      : {tune}")
             print(f"  Selection   : {args.selection_basis}")
             print(f"  Target year : {target_year or '(dynamic)'}")
     if args.stage in ("all", "household"):
@@ -181,6 +194,7 @@ def main() -> None:
                 series=series, models_to_run=models_to_run,
                 fast=args.fast, selection_basis=args.selection_basis,
                 max_target_year=max_target_year,
+                tune=tune,
             )
         else:
             from forecast_pipeline import run as run_forecast
@@ -189,7 +203,7 @@ def main() -> None:
                 models_to_run=models_to_run,
                 fast=args.fast,
                 fes_only=args.fes_only,
-                tune=args.tune,
+                tune=tune,
                 selection_basis=args.selection_basis,
                 target_year=target_year,
             )

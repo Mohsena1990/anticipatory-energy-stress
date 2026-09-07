@@ -1,2 +1,2 @@
 validation_pairs,n_train,n_validation,auc_vs_high_fuel_vulnerable_t1,pearson_r_vs_fuel_to_income_ratio_t1
-"m->n, n->o",177408,21161,0.7581,0.2653
+"m->n, n->o",177408,21161,0.7615,0.2719

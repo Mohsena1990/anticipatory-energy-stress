@@ -1,13 +1,13 @@
 region,baseline_resource_mean,vulnerable_pct,n,baseline_tertile,vulnerable_tertile,policy_tier
-East Midlands,-0.008002405001566322,8.046626270925335,24339,2,1,High resource / Mid vulnerability
-East of England,0.09150779347549859,6.502611396038207,28545,2,0,High resource / Low vulnerability
-London,-0.06546511301820884,6.875514748497697,41318,0,0,Low resource / Low vulnerability
-North East,-0.13400316816059635,8.513437323811313,12643,0,1,Low resource / Mid vulnerability
-North West,-0.04590336420139434,8.856923934243522,34392,1,2,Mid resource / High vulnerability
-Northern Ireland,-0.05851322053679626,15.61892417368762,21486,0,2,Low resource / High vulnerability
-Scotland,-0.03728455793669181,8.393017009847807,30538,1,1,Mid resource / Mid vulnerability
-South East,0.16831480480124247,5.955823931352296,40315,2,0,High resource / Low vulnerability
-South West,0.08433697267109816,6.076450581247779,27323,2,0,High resource / Low vulnerability
-Wales,-0.04736925302343312,9.11551307151906,22768,1,2,Mid resource / High vulnerability
-West Midlands,-0.019074992677975328,9.752586594691858,27592,1,2,Mid resource / High vulnerability
-Yorkshire and the Humber,-0.05828017754397649,8.371226884933524,27761,0,1,Low resource / Mid vulnerability
+East Midlands,0.024437751712363436,8.046626270925335,24339,1,1,Mid resource / Mid vulnerability
+East of England,-0.015045850619094919,6.502611396038207,28545,1,0,Mid resource / Low vulnerability
+London,-0.05971823639992304,6.875514748497697,41318,0,0,Low resource / Low vulnerability
+North East,0.05330274707427134,8.513437323811313,12643,2,1,High resource / Mid vulnerability
+North West,0.024757913043518095,8.856923934243522,34392,1,2,Mid resource / High vulnerability
+Northern Ireland,0.09287074329210605,15.61892417368762,21486,2,2,High resource / High vulnerability
+Scotland,-0.051214828085096496,8.393017009847807,30538,0,1,Low resource / Mid vulnerability
+South East,-0.05769046525399764,5.955823931352296,40315,0,0,Low resource / Low vulnerability
+South West,-0.01718090060758551,6.076450581247779,27323,0,0,Low resource / Low vulnerability
+Wales,0.06444264867457006,9.11551307151906,22768,2,2,High resource / High vulnerability
+West Midlands,0.036505155685737714,9.752586594691858,27592,2,2,High resource / High vulnerability
+Yorkshire and the Humber,0.02617632573555782,8.371226884933524,27761,1,1,Mid resource / Mid vulnerability

@@ -105,6 +105,27 @@ _PALETTE = {
     "ENERGY": "#8E44AD", "BASELINE": "#2C3E50",
 }
 
+# Human-readable item labels for the loadings figures -- the raw UKHLS
+# column names are unreadable variable codes on a plot (same rationale/style
+# as ukhls_dataset_overview._VAR_LABELS / ukhls_vulnerability_classification.
+# _PREDICTOR_LABELS). Falls back to the raw name via .get(..., name) if a
+# new item is ever added to COR_FACTOR_ITEMS without an entry here.
+_ITEM_LABELS: dict[str, str] = {
+    "hsrooms":         "Number of rooms",
+    "hsbeds":          "Number of bedrooms",
+    "ncars":           "Number of cars",
+    "carval":          "Car value",
+    "hsval":           "House value",
+    "tenure_security": "Housing tenure security",
+    "jbstat_security": "Employment status security",
+    "bill_security":   "Bill payment security",
+    "health_good":     "Self-rated health (good)",
+    "sf1_good":        "General health satisfaction (good)",
+    "qfhigh_band":     "Educational qualification level",
+    "fihhmnnet1_dv":   "Household net monthly income",
+    "fiyrinvinc_dv":   "Individual annual investment income",
+}
+
 
 # =============================================================================
 # I/O helpers
@@ -121,7 +142,7 @@ def _save_fig(fig: plt.Figure, name: str) -> None:
     paths.UKHLS_SEM_FIGURES.mkdir(parents=True, exist_ok=True)
     p = paths.UKHLS_SEM_FIGURES / f"{name}.{config.FIGURE_FORMAT}"
     fig.savefig(p, dpi=config.DPI, bbox_inches="tight")
-    fig.savefig(p.with_suffix(".pdf"), bbox_inches="tight")
+    fig.savefig(p.with_suffix(".pdf"), bbox_inches="tight", metadata={"CreationDate": None})
     plt.close(fig)
     log.info("Saved figure %s", p.name)
 
@@ -284,8 +305,20 @@ def fit_measurement_model(df: pd.DataFrame) -> dict:
     log.info("Fitting via FIML (handles structural missingness on hsval/carval/inoutflows*) "
              "— n=%d rows, %d indicators", len(std_df), len(all_cols))
 
+    fit_data = std_df[all_cols].dropna(how="all")
+    n_dropped = len(std_df) - len(fit_data)
+    if n_dropped:
+        log.warning(
+            "Dropping %d row(s) with no observed values across any of the "
+            "%d CFA indicators before FIML fit -- these carry zero "
+            "information for FIML and otherwise degenerate into a 0x0 "
+            "per-pattern covariance submatrix (semopy repeatedly logs "
+            "'DPOTRI ... illegal value' from LAPACK, once per optimizer "
+            "iteration, without affecting the fit).", n_dropped, len(all_cols),
+        )
+
     model = semopy.Model(spec)
-    model.fit(std_df[all_cols], obj="FIML")
+    model.fit(fit_data, obj="FIML")
     inspect_df = model.inspect(std_est=True)
     loadings = _loadings_from_inspect(inspect_df, _FACTORS)
     _save_csv(loadings, "cor_sem_measurement_loadings")
@@ -323,9 +356,11 @@ def fit_structural_model(std_df: pd.DataFrame, item_map: dict[str, list[str]]) -
     spec = build_structural_spec(item_map)
     all_cols = [c for cols in item_map.values() for c in cols]
 
+    fit_data = std_df[all_cols].dropna(how="all")
+
     model = semopy.Model(spec)
     try:
-        model.fit(std_df[all_cols], obj="FIML")
+        model.fit(fit_data, obj="FIML")
     except Exception as e:
         log.error("BASELINE second-order structural model failed to fit: %s", e)
         return {"admissible": False, "reason": str(e)}
@@ -392,9 +427,11 @@ def test_fes_moderation(df: pd.DataFrame, baseline_score: pd.Series) -> dict:
     baseline resources dampen the FES -> vulnerability effect. `fes_delta`
     (FES Magnitude minus each household-wave's own realised FES exposure —
     see `src.ukhls_preprocessing.attach_fes_delta`) is the row-varying shock
-    signal used here; `fes_magnitude` (the constant forward-looking national
-    shock) is reported as metadata only — it has zero variance this run, so
-    its own OLS coefficient would be inestimable.
+    signal used here; `fes_magnitude` (the forward-looking national shock,
+    which varies across the panel by household interview timing but not
+    row-by-row for a fixed household-wave) is reported as metadata only —
+    as its pooled mean, since it isn't a clean single-value moderator for
+    its own OLS coefficient.
     """
     work = df.copy()
     work["baseline_score"] = baseline_score
@@ -422,10 +459,10 @@ def test_fes_moderation(df: pd.DataFrame, baseline_score: pd.Series) -> dict:
             interaction_row["coef"], interaction_row["p_value"],
             "CONSISTENT" if cor_consistent else "not consistent",
         )
-    fes_magnitude = float(work["fes_magnitude"].iloc[0]) if "fes_magnitude" in work.columns else None
+    fes_magnitude_mean = float(work["fes_magnitude"].mean()) if "fes_magnitude" in work.columns else None
     return {
         "rows": rows, "interaction_row": interaction_row, "cor_consistent": cor_consistent,
-        "fes_magnitude": fes_magnitude,
+        "fes_magnitude": fes_magnitude_mean,
     }
 
 
@@ -442,7 +479,8 @@ def _plot_loadings(loadings: pd.DataFrame) -> None:
         axes = [axes]
     for ax, f in zip(axes, factors):
         sub = loadings[loadings["factor"] == f]
-        ax.barh(sub["item"], sub["std_loading"].abs(), color=_PALETTE.get(f, "#999"), alpha=0.85)
+        labels = [_ITEM_LABELS.get(it, it) for it in sub["item"]]
+        ax.barh(labels, sub["std_loading"].abs(), color=_PALETTE.get(f, "#999"), alpha=0.85)
         ax.axvline(config.MIN_LOADING, color="red", ls="--", lw=1, label=f"min={config.MIN_LOADING}")
         ax.set_title(f"{f} (CFA)", fontsize=9)
         ax.set_xlabel("|Standardized loading|")
@@ -473,7 +511,10 @@ def plot_factor_loadings_polar(loadings: pd.DataFrame) -> None:
     groups = {}
     for f in factors:
         sub = loadings[loadings["factor"] == f]
-        groups[f] = {row["item"]: abs(float(row["std_loading"])) for _, row in sub.iterrows()}
+        groups[f] = {
+            _ITEM_LABELS.get(row["item"], row["item"]): abs(float(row["std_loading"]))
+            for _, row in sub.iterrows()
+        }
 
     group_colors = {f: _PALETTE.get(f, "#888888") for f in factors}
     plot_grouped_circular_bars(

@@ -106,16 +106,35 @@ def _select_best_mode_per_series(ranked_df: pd.DataFrame, best: dict) -> dict:
     is therefore always a 1-vs-1 tie, which silently resolved to whichever
     mode pandas' groupby visited first (an earlier version of this function
     did exactly that, and always picked 'core'). Compares the two winning
-    models' actual forecast_actual_MAE instead (falling back to RMSE when
-    forecast-vs-actual data isn't available yet), which is on a shared,
-    directly comparable scale across modes.
+    models' actual error on a shared, directly comparable scale across
+    modes instead -- which error metric depends on `selection_basis`
+    (read from ranked_df, set by model_evaluation.apply_selection_scores):
+
+      'forecast_actual' -- uses forecast_actual_MAE (post-hoc accuracy
+        against known target-year actuals). Only meaningful for a
+        retrospective/backtested target year; deliberately hindsight and
+        should not be the default (see forecast_pipeline.run's
+        selection_basis default and its rationale).
+      'validation' (default) -- uses RMSE from the genuine walk-forward
+        backtest, computed using only pre-target-year information, so the
+        mode choice stays honestly ex-ante even when forecast_actual_MAE
+        happens to be available (e.g. when re-running FES for an
+        already-realised year for reporting purposes).
+
+    Previously this always preferred forecast_actual_MAE whenever present
+    regardless of selection_basis, which meant FES_selected's per-series
+    mode choice was silently hindsight-biased even when the caller had
+    explicitly asked for genuine walk-forward ('validation') selection.
     """
-    metric_col = (
-        "forecast_actual_MAE"
-        if "forecast_actual_MAE" in ranked_df.columns and ranked_df["forecast_actual_MAE"].notna().any()
-        else "RMSE"
-    )
+    # selection_basis is set PER (series, mode) group by apply_selection_scores
+    # (a group falls back to "validation_fallback" independently of its
+    # neighbours when only that group's forecast_actual data is entirely
+    # missing) -- reading a single global basis off ranked_df's first row and
+    # applying it to every series/mode let one fallback group silently
+    # downgrade every other, genuinely forecast_actual-tagged group to RMSE
+    # too. Resolve metric_col per (series, mode) row instead.
     selected: dict = {}
+    used_metrics: dict = {}
     for series in SERIES:
         scores: dict = {}
         for mode in MODES:
@@ -129,15 +148,75 @@ def _select_best_mode_per_series(ranked_df: pd.DataFrame, best: dict) -> dict:
             ]
             if row.empty:
                 continue
-            val = row.iloc[0].get(metric_col, np.nan)
+            row0 = row.iloc[0]
+            basis = row0.get("selection_basis", "validation")
+            metric_col = (
+                "forecast_actual_MAE"
+                if basis == "forecast_actual" and "forecast_actual_MAE" in ranked_df.columns
+                else "RMSE"
+            )
+            used_metrics[(series, mode)] = metric_col
+            val = row0.get(metric_col, np.nan)
             if pd.isna(val) and metric_col != "RMSE":
-                val = row.iloc[0].get("RMSE", np.nan)
+                val = row0.get("RMSE", np.nan)
             if not pd.isna(val):
                 scores[mode] = float(val)
         if scores:
             selected[series] = min(scores, key=scores.get)
-    log.info("Per-series mode selected for FES_selected (by %s): %s", metric_col, selected)
+    log.info("Per-series mode selected for FES_selected (metric per series/mode: %s): %s",
+              used_metrics, selected)
     return selected
+
+
+def _compute_series_weights(ranked_df: pd.DataFrame, selected_mode: dict) -> dict:
+    """
+    Data-driven weights for the new FES_Weighted variant -- added
+    ALONGSIDE the existing equal-weighted variants (FES_core/FES_macro/
+    FES_selected), never replacing them. An earlier version of this
+    project's volatility-weighted/Bayesian-Kalman FES variants were
+    deliberately dropped as unused overhead (see this module's own
+    docstring); this is a narrower, more transparent reintroduction --
+    ONE inverse-validation-RMSE weighted variant, computed openly and
+    compared against the other three in fes_comparison_metrics.csv
+    exactly like Core vs Macro vs Selected already are, so "does weighting
+    actually help" stays an inspectable, falsifiable question rather than
+    an assumed improvement.
+
+    For each series, takes the RMSE of the model already chosen as that
+    series' best (via _select_best_mode_per_series's own mode choice) --
+    the genuine walk-forward validation RMSE, not a hindsight metric.
+    weight = (1/RMSE) / mean(1/RMSE across series), normalized to mean 1.0
+    so FES_Weighted sums to roughly the same scale as the unit-weighted
+    variants (each of which implicitly uses weight=1 per series).
+    """
+    weights: dict = {}
+    for series in SERIES:
+        mode = selected_mode.get(series, "core")
+        row = ranked_df[
+            (ranked_df["series_name"] == series) & (ranked_df["mode"] == mode)
+        ]
+        if row.empty:
+            weights[series] = np.nan
+            continue
+        # Whichever model won this (series, mode) -- lowest selection_score
+        # if present, else rank_score.
+        score_col = "selection_score" if "selection_score" in row.columns else "rank_score"
+        best_row = row.loc[row[score_col].idxmin()]
+        rmse = float(best_row.get("RMSE", np.nan))
+        weights[series] = 1.0 / rmse if rmse and rmse > 1e-10 else np.nan
+
+    valid = {s: w for s, w in weights.items() if not np.isnan(w)}
+    if not valid:
+        log.warning("No valid RMSE found for any series -- FES_Weighted falls back to equal weights (1.0 each)")
+        return {s: 1.0 for s in SERIES}
+
+    mean_inv_rmse = float(np.mean(list(valid.values())))
+    normalized = {
+        s: (w / mean_inv_rmse if not np.isnan(w) else 1.0)
+        for s, w in weights.items()
+    }
+    log.info("FES_Weighted series weights (inverse validation-RMSE, normalized to mean 1.0): %s", normalized)
+    return normalized
 
 
 def _compute_actual_fes_for_window(
@@ -378,6 +457,7 @@ def _compare_fes_variants(monthly_df: pd.DataFrame) -> pd.DataFrame:
         "Equal_Core":     "fes_core",
         "Equal_Macro":    "fes_macro",
         "Equal_Selected": "fes_selected",
+        "Equal_Weighted": "fes_weighted",
     }
     actuals = {
         "Actual_RollingVol": "fes_actual_A",
@@ -490,6 +570,7 @@ def compute_fes(
     core_df = pd.read_csv(core_csv, parse_dates=["date"])
     best    = _find_best_models(ranked_df)
     selected_mode = _select_best_mode_per_series(ranked_df, best)
+    series_weights = _compute_series_weights(ranked_df, selected_mode)
     stats   = _training_stats(core_df, train_start, train_end)
 
     # ── Build per-series forecast arrays ─────────────────────────────────────
@@ -599,6 +680,20 @@ def compute_fes(
         row["z_unc_selected"] = round(z_sel_unc_agg, 5)
         row["fes_selected"] = round(float(np.nansum(z_sel_vals) + z_sel_unc_agg), 5)
 
+        # ── FES_weighted: inverse-validation-RMSE weighted composite ─────────
+        # ADDITIVE alongside FES_selected -- reuses the same per-series
+        # best-mode z-scores, just scaled by each series' data-driven
+        # weight (see _compute_series_weights) instead of an implicit 1.0.
+        # Uncertainty term reused unweighted from FES_selected (weighting
+        # it separately isn't well-motivated and keeps this bounded).
+        z_wt_vals = []
+        for series in SERIES:
+            z_wt = series_weights.get(series, 1.0) * row.get(f"z_{series}_selected", np.nan)
+            row[f"z_{series}_weighted"] = round(z_wt, 5) if pd.notna(z_wt) else np.nan
+            z_wt_vals.append(z_wt)
+        row["z_unc_weighted"] = round(z_sel_unc_agg, 5)
+        row["fes_weighted"] = round(float(np.nansum(z_wt_vals) + z_sel_unc_agg), 5)
+
         # ── FES_actual ────────────────────────────────────────────────────────
         z_actual = []
         for series in SERIES:
@@ -655,9 +750,21 @@ def compute_fes(
     # consumers (src.ukhls_preprocessing.attach_fes_delta) have both "what
     # actually happened last year" and "what we forecast for next year"
     # available together.
-    prior_year   = target_year - 1
+    # Held out from `stats`: train_end == refit_end always lands on prior_year's
+    # December (see forecast_pipeline._compute_default_window/run_rolling), so
+    # `stats` itself includes prior_year in its mean/std -- z-scoring
+    # prior_year's own realised values against it would be in-sample, not the
+    # "held-out baseline" the caller relies on. Rebuild the reference window
+    # ending one year earlier so prior_year is genuinely excluded.
+    prior_year        = target_year - 1
+    prior_stats_end   = f"{prior_year - 1}-12-01"
+    prior_stats = (
+        _training_stats(core_df, train_start, prior_stats_end)
+        if pd.Timestamp(prior_stats_end) >= pd.Timestamp(train_start)
+        else stats
+    )
     prior_dates  = pd.DatetimeIndex([d - pd.DateOffset(years=1) for d in forecast_dates])
-    prior_actual_df = _compute_actual_fes_for_window(core_df, stats, prior_dates)
+    prior_actual_df = _compute_actual_fes_for_window(core_df, prior_stats, prior_dates)
     # NOT "fes_monthly_*" -- that glob is reserved for compute_fes's own
     # target-year output and is exactly what paths.latest_fes_monthly_file()
     # scans (alphabetically, so a "fes_monthly_prior_actual_2024.csv" would
@@ -752,9 +859,9 @@ def _save_summary(
     extra_rows: list[dict] | None = None,
 ) -> None:
     rows = []
-    # Equal-weight, per-series-selected, and actual variants (have full
-    # component breakdown)
-    for mode in ["core", "macro", "selected", "actual"]:
+    # Equal-weight, per-series-selected, data-driven-weighted, and actual
+    # variants (have full component breakdown)
+    for mode in ["core", "macro", "selected", "weighted", "actual"]:
         fes_col = f"fes_{mode}"
         if fes_col not in monthly_df.columns:
             continue
@@ -772,7 +879,7 @@ def _save_summary(
                 "z_mean":    round(z_mean, 5),
             })
 
-        unc_col = f"z_unc_{mode}" if mode in ("core", "macro", "selected") else "z_real_vol_actual"
+        unc_col = f"z_unc_{mode}" if mode in ("core", "macro", "selected", "weighted") else "z_real_vol_actual"
         if unc_col in monthly_df.columns:
             rows.append({
                 "variant":   mode,
@@ -822,7 +929,7 @@ def _save_component_table(
     entry per mode; `selected_mode` (the {series: 'core'|'macro'} choice) is
     reported in the "best model" row instead.
     """
-    modes = ["core", "macro", "selected", "actual"]
+    modes = ["core", "macro", "selected", "weighted", "actual"]
     selected_mode = selected_mode or {}
     rows = []
     for series in SERIES:
@@ -836,7 +943,7 @@ def _save_component_table(
 
     # Uncertainty row
     unc_row = {"component": "Uncertainty / RealVol"}
-    for mode in ["core", "macro", "selected"]:
+    for mode in ["core", "macro", "selected", "weighted"]:
         col = f"z_unc_{mode}"
         unc_row[f"FES_{mode}"] = (
             round(float(monthly_df[col].mean()), 5) if col in monthly_df.columns else np.nan
@@ -862,6 +969,7 @@ def _save_component_table(
         mdl_list = [f"{s}:{best.get((s,mode),'?')}" for s in SERIES]
         model_row[f"FES_{mode}"] = " | ".join(mdl_list)
     model_row["FES_selected"] = " | ".join(f"{s}:{selected_mode.get(s,'?')}" for s in SERIES)
+    model_row["FES_weighted"] = "inverse-RMSE weighted (see fes_variant_selection.csv)"
     model_row["FES_actual"] = "realised values"
     rows.append(model_row)
 
@@ -889,6 +997,7 @@ _PALETTE = {
     "carbon":      "#27AE60",
     "core":        "#8E44AD",
     "macro":       "#E74C3C",
+    "weighted":    "#F1C40F",
     "actual":      "#2C3E50",
     "grid":        "#EAECEE",
 }
@@ -915,9 +1024,10 @@ def _plot_fes_comparison(monthly_df: pd.DataFrame, figures_dir: str, target_year
     months = MONTHS_SHORT[:len(monthly_df)]
 
     for col, label, colour, ls in [
-        ("fes_core",   "FES Core (core-only models)",      _PALETTE["core"],   "-"),
-        ("fes_macro",  "FES Macro (core + exogenous)",     _PALETTE["macro"],  "--"),
-        ("fes_actual", f"FES Actual (realised {target_year} values)",_PALETTE["actual"], ":"),
+        ("fes_core",     "FES Core (core-only models)",      _PALETTE["core"],     "-"),
+        ("fes_macro",    "FES Macro (core + exogenous)",     _PALETTE["macro"],    "--"),
+        ("fes_weighted", "FES Weighted (inverse-RMSE)",      _PALETTE["weighted"], "-."),
+        ("fes_actual",   f"FES Actual (realised {target_year} values)",_PALETTE["actual"], ":"),
     ]:
         if col in monthly_df.columns:
             ax.plot(months, monthly_df[col].values, color=colour,
@@ -951,24 +1061,26 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str, target_year
 
     components = [f"{s}_growth_pct" for s in SERIES] + ["uncertainty"]
     z_cols = {
-        "FES_core":   [f"z_{s}_core" for s in SERIES] + ["z_unc_core"],
-        "FES_macro":  [f"z_{s}_macro" for s in SERIES] + ["z_unc_macro"],
-        "FES_actual": [f"z_{s}_actual" for s in SERIES] + ["z_real_vol_actual"],
+        "FES_core":     [f"z_{s}_core" for s in SERIES] + ["z_unc_core"],
+        "FES_macro":    [f"z_{s}_macro" for s in SERIES] + ["z_unc_macro"],
+        "FES_weighted": [f"z_{s}_weighted" for s in SERIES] + ["z_unc_weighted"],
+        "FES_actual":   [f"z_{s}_actual" for s in SERIES] + ["z_real_vol_actual"],
     }
     colours_bar = {
-        "FES_core":   _PALETTE["core"],
-        "FES_macro":  _PALETTE["macro"],
-        "FES_actual": _PALETTE["actual"],
+        "FES_core":     _PALETTE["core"],
+        "FES_macro":    _PALETTE["macro"],
+        "FES_weighted": _PALETTE["weighted"],
+        "FES_actual":   _PALETTE["actual"],
     }
 
     x = np.arange(len(components))
-    width = 0.25
+    width = 0.19
     for k, (label, cols) in enumerate(z_cols.items()):
         vals = [
             float(monthly_df[c].mean()) if c in monthly_df.columns else 0.0
             for c in cols
         ]
-        bars = ax.bar(x + (k - 1) * width, vals, width,
+        bars = ax.bar(x + (k - (len(z_cols) - 1) / 2) * width, vals, width,
                       label=label, color=colours_bar[label],
                       edgecolor="white", linewidth=0.6)
         for bar, v in zip(bars, vals):
@@ -1002,9 +1114,9 @@ def _plot_fes_components(monthly_df: pd.DataFrame, figures_dir: str, target_year
     ax2 = axes[1]
     ax2.set_facecolor("white")
 
-    fes_labels  = ["FES Core", "FES Macro", "FES Actual"]
-    fes_cols    = ["fes_core", "fes_macro", "fes_actual"]
-    fes_colours = [_PALETTE["core"], _PALETTE["macro"], _PALETTE["actual"]]
+    fes_labels  = ["FES Core", "FES Macro", "FES Weighted", "FES Actual"]
+    fes_cols    = ["fes_core", "fes_macro", "fes_weighted", "fes_actual"]
+    fes_colours = [_PALETTE["core"], _PALETTE["macro"], _PALETTE["weighted"], _PALETTE["actual"]]
     fes_vals    = [
         float(monthly_df[c].mean()) if c in monthly_df.columns else 0.0
         for c in fes_cols

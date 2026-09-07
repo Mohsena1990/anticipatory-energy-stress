@@ -150,7 +150,7 @@ def tune_models(
     macro_train: pd.DataFrame,
     macro_full: pd.DataFrame,
     fast: bool = False,
-    selection_basis: str = "forecast_actual",
+    selection_basis: str = "validation",
     out_dir: str = "outputs/tuning",
     full_train_end: str = "2016-12-01",
     forecast_start: str = "2017-01-01",

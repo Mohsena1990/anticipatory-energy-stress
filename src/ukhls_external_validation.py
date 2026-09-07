@@ -126,6 +126,25 @@ JRF_POVERTY_RATE_BY_TENURE: dict[str, float] = {
     "Private renting":      35,
 }
 
+# p.36 -- CHILD poverty rate by family type (a different unit than the
+# other benchmarks above, which are household/adult poverty rates -- JRF's
+# own Table 5 states these as child-poverty-rate-in-family-type, not
+# family-poverty-rate). Compared against a COLLAPSED 2-category version of
+# our own household-level family_composition_group breakdown (see
+# validate_family_composition) since JRF states a rate for lone-parent vs
+# couple families overall, not separately crossed with family size the way
+# our own 5-category breakdown is.
+JRF_POVERTY_RATE_BY_FAMILY_TYPE: dict[str, float] = {
+    "Lone parent":         44,
+    "Couple with children": 25,
+}
+
+# p.76 -- in-work vs out-of-work poverty rate, working-age adults.
+JRF_POVERTY_RATE_BY_WORK_STATUS: dict[str, float] = {
+    "In work":     12,
+    "Not in work": 43,
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Generic dimension comparison engine
@@ -343,6 +362,173 @@ def _save_ni_oil_heating_evidence() -> pd.DataFrame:
     return by_region
 
 
+def _save_rationing_evidence() -> pd.DataFrame:
+    """
+    Tests a specific blind spot in the ratio-based fuel_to_income_ratio
+    target: a household that copes with cost pressure by RATIONING energy
+    use (self-disconnection, "heat or eat") would show a LOWER fuel spend
+    and so a lower ratio -- the opposite of what its true circumstances
+    warrant. JRF's own cost-of-living tracker exists precisely because
+    income-based poverty measures can miss exactly this. Two proxies,
+    checked (not assumed) against this project's own panel data:
+
+      - prepayment_meter (duelpay/elecpay==4, ALL 15 waves) -- a
+        well-documented UK fuel-poverty self-disconnection proxy.
+      - inoutflows12 ("reduced usage of utilities," waves m/o only,
+        cost-of-living-crisis module) -- a direct self-report of rationing
+        behaviour, narrower coverage but a more literal match.
+
+    If either proxy's rate among LOW-ratio ("not vulnerable") households
+    is non-trivial, that is direct evidence some households are coping by
+    cutting usage rather than showing up as high-spend -- reported
+    transparently either way, same practice as
+    _save_ni_oil_heating_evidence above.
+    """
+    df = pd.read_csv(paths.UKHLS_PANEL)
+
+    prepay_rows = []
+    if "prepayment_meter" in df.columns:
+        by_vuln = df.dropna(subset=["prepayment_meter", "high_fuel_vulnerable"]).groupby(
+            "high_fuel_vulnerable"
+        ).agg(
+            pct_prepayment_meter=("prepayment_meter", lambda s: round(100 * s.mean(), 1)),
+            n=("prepayment_meter", "size"),
+        ).reset_index()
+        by_vuln["high_fuel_vulnerable"] = by_vuln["high_fuel_vulnerable"].map({0: "Not vulnerable (ratio<10%)", 1: "Vulnerable (ratio>=10%)"})
+        prepay_rows = by_vuln
+        out_path = paths.UKHLS_VULN_TABLES / "rationing_evidence_prepayment.csv"
+        by_vuln.to_csv(out_path, index=False)
+        log.info("Rationing evidence (prepayment meter, all 15 waves) saved -> %s:\n%s", out_path, by_vuln.to_string(index=False))
+
+    inout_rows = []
+    if "inoutflows12" in df.columns:
+        sub = df.dropna(subset=["inoutflows12", "high_fuel_vulnerable"])
+        if not sub.empty:
+            by_vuln2 = sub.groupby("high_fuel_vulnerable").agg(
+                pct_reduced_utility_usage=("inoutflows12", lambda s: round(100 * s.mean(), 1)),
+                n=("inoutflows12", "size"),
+            ).reset_index()
+            by_vuln2["high_fuel_vulnerable"] = by_vuln2["high_fuel_vulnerable"].map({0: "Not vulnerable (ratio<10%)", 1: "Vulnerable (ratio>=10%)"})
+            inout_rows = by_vuln2
+            out_path2 = paths.UKHLS_VULN_TABLES / "rationing_evidence_inoutflows12.csv"
+            by_vuln2.to_csv(out_path2, index=False)
+            log.info("Rationing evidence (self-reported reduced utility usage, waves m/o) saved -> %s:\n%s",
+                      out_path2, by_vuln2.to_string(index=False))
+
+    if isinstance(prepay_rows, pd.DataFrame) and not prepay_rows.empty:
+        fig, ax = plt.subplots(figsize=(6.5, 4.5))
+        fig.patch.set_facecolor("white")
+        ax.bar(prepay_rows["high_fuel_vulnerable"], prepay_rows["pct_prepayment_meter"],
+               color=[_PALETTE["jrf"], _PALETTE["ours"]], alpha=0.85)
+        for i, r in prepay_rows.iterrows():
+            ax.text(i, r["pct_prepayment_meter"] + 0.3, f"{r['pct_prepayment_meter']:.1f}%", ha="center", fontsize=9)
+        ax.set_ylabel("% of households on a prepayment meter")
+        ax.set_title("Rationing/self-disconnection evidence:\nprepayment-meter rate, by vulnerability status (all waves)")
+        ax.grid(axis="y", color=_PALETTE["grid"])
+        fig.tight_layout()
+        out_fig = paths.UKHLS_VULN_FIGURES / "rationing_evidence_prepayment.png"
+        paths.UKHLS_VULN_FIGURES.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_fig, dpi=150, bbox_inches="tight")
+        fig.savefig(out_fig.with_suffix(".pdf"), bbox_inches="tight")
+        plt.close(fig)
+        log.info("Rationing evidence figure saved -> %s", out_fig)
+
+    return prepay_rows if isinstance(prepay_rows, pd.DataFrame) else pd.DataFrame()
+
+
+def validate_family_composition() -> pd.DataFrame:
+    """
+    Collapses our own 5-category family_composition_group breakdown
+    (src.ukhls_preprocessing._derive_family_composition_group) into JRF's
+    2 stated categories (Lone parent 44%, Couple with children 25% -- UK
+    Poverty 2025, Table 5, p.36) -- JRF states a rate for these two family
+    types overall, not separately crossed with our own large-family split,
+    so "Lone parent, 1-2/3+ children" collapse to one "Lone parent" row and
+    "Couple, 1-2/3+ children" to one "Couple with children" row (n-weighted
+    mean). Our "Other multi-adult, with children" and "No children" groups
+    have no stated JRF comparator for this specific check and are excluded
+    here (kept in full in the standalone breakdown figure)."""
+    ours_path = paths.UKHLS_VULN_TABLES / "policy_vulnerability_by_family_composition.csv"
+    ours = pd.read_csv(ours_path)
+    collapse_map = {
+        "Lone parent, 1-2 children":  "Lone parent",
+        "Lone parent, 3+ children":   "Lone parent",
+        "Couple, 1-2 children":       "Couple with children",
+        "Couple, 3+ children":        "Couple with children",
+    }
+    ours = ours[ours["group"].isin(collapse_map)].copy()
+    ours["label"] = ours["group"].map(collapse_map)
+    # Select only the columns the lambda needs before grouping, rather than
+    # passing include_groups=False (pandas>=2.2 only -- requirements.txt
+    # declares pandas>=1.5.0, so that kwarg raises TypeError on 1.5.x-2.1.x).
+    collapsed = ours.groupby("label")[["pct_vulnerable", "n"]].apply(
+        lambda g: pd.Series({
+            "pct_vulnerable": float(np.average(g["pct_vulnerable"], weights=g["n"])),
+            "n": int(g["n"].sum()),
+        }),
+    ).reset_index()
+    collapsed_path = paths.UKHLS_VULN_TABLES / "policy_vulnerability_by_family_type_collapsed.csv"
+    collapsed.to_csv(collapsed_path, index=False)
+
+    merged = compare_dimension("family_type", "policy_vulnerability_by_family_type_collapsed", "label", JRF_POVERTY_RATE_BY_FAMILY_TYPE)
+    plot_dimension_bars(
+        merged, "family_type",
+        "Ours: % high fuel-to-income vulnerable\n(household-level, pooled 2009-2024)",
+        "JRF: child poverty rate, AHC\n(Table 5, p.36)",
+        "External validation: our fuel-to-income vulnerability vs JRF's child poverty rate, by family type",
+    )
+    plot_dimension_scatter(
+        merged, "family_type",
+        "JRF child poverty rate, AHC (%)",
+        "Our fuel-to-income vulnerability, pooled 2009-2024 (%)",
+        "Family-type agreement between our vulnerability measure and JRF's child poverty rate",
+    )
+    return merged
+
+
+def validate_employment() -> pd.DataFrame:
+    """
+    Collapses our own 3-category employment_group breakdown
+    (has_employed_adult/has_fulltime_worker/etc., see
+    src.ukhls_preprocessing.load_wave_indresp_aggregated) into JRF's own
+    in-work/out-of-work split (12%/43%, UK Poverty 2025 p.76) --
+    "Full-time or self-employed" and "Part-time only" both collapse to
+    "In work" (JRF's own headline split), "Workless household" to "Not in
+    work"."""
+    ours_path = paths.UKHLS_VULN_TABLES / "policy_vulnerability_by_employment.csv"
+    ours = pd.read_csv(ours_path)
+    collapse_map = {
+        "Full-time or self-employed": "In work",
+        "Part-time only":             "In work",
+        "Workless household":         "Not in work",
+    }
+    ours = ours[ours["group"].isin(collapse_map)].copy()
+    ours["label"] = ours["group"].map(collapse_map)
+    collapsed = ours.groupby("label")[["pct_vulnerable", "n"]].apply(
+        lambda g: pd.Series({
+            "pct_vulnerable": float(np.average(g["pct_vulnerable"], weights=g["n"])),
+            "n": int(g["n"].sum()),
+        }),
+    ).reset_index()
+    collapsed_path = paths.UKHLS_VULN_TABLES / "policy_vulnerability_by_work_status_collapsed.csv"
+    collapsed.to_csv(collapsed_path, index=False)
+
+    merged = compare_dimension("work_status", "policy_vulnerability_by_work_status_collapsed", "label", JRF_POVERTY_RATE_BY_WORK_STATUS)
+    plot_dimension_bars(
+        merged, "work_status",
+        "Ours: % high fuel-to-income vulnerable\n(household-level, pooled 2009-2024)",
+        "JRF: in-work/out-of-work poverty rate, AHC\n(p.76)",
+        "External validation: our fuel-to-income vulnerability vs JRF's poverty rate, by work status",
+    )
+    plot_dimension_scatter(
+        merged, "work_status",
+        "JRF in-work/out-of-work poverty rate, AHC (%)",
+        "Our fuel-to-income vulnerability, pooled 2009-2024 (%)",
+        "Work-status agreement between our vulnerability measure and JRF's poverty rate",
+    )
+    return merged
+
+
 def validate_region() -> pd.DataFrame:
     """Northern Ireland is a documented outlier here, not noise. Verified
     directly (see _save_ni_oil_heating_evidence): 71.2% of NI households
@@ -487,6 +673,9 @@ def run() -> None:
     validate_ethnicity()
     validate_disability()
     validate_tenure()
+    validate_family_composition()
+    validate_employment()
+    _save_rationing_evidence()
     plot_wave_trend_vs_jrf_narrative()
 
 
