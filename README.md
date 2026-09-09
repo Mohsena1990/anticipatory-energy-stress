@@ -252,10 +252,10 @@ Two soft, continuous outputs — deliberately **not** a hard binary classifier �
 
 | Method | Pearson r vs. ratio | Spearman r | AUC vs. `high_fuel_vulnerable` |
 |---|---|---|---|
-| Fuzzy c-means ("Resource Depleted" membership) | 0.262 | 0.368 | 0.745 |
-| One-class SVM (anomaly score, resilient reference group) | 0.172 | 0.133 | 0.621 |
+| Fuzzy c-means ("Resource Depleted" membership) | 0.261 | 0.368 | 0.744 |
+| One-class SVM (anomaly score, resilient reference group) | 0.173 | 0.133 | 0.620 |
 
-Plus a transparent **logistic driver analysis** (odds ratios, not a black-box feature-importance score) — now 17 covariates, extended this iteration with `large_family`, `workless_household`, `lone_parent`, and `ieqmoecd_dv` (equivalisation factor) alongside the original set. `financial_strain_score` remains dominant by a wide margin (OR 6.87); `large_family` (OR 1.68), `tenure_security` (OR 1.56), and `health_good` (OR 1.38) are the next-strongest positive drivers; `jbstat_security` (OR 0.16), `ieqmoecd_dv` (OR 0.28), and `qfhigh_band` (OR 0.50) the strongest protective factors. **`fes_delta` is a significant, if comparatively small, independent driver** (OR 0.94, p<0.0001) — consistently significant across every stage that tests it (see the FES-importance discussion below).
+Plus a transparent **logistic driver analysis** (odds ratios, not a black-box feature-importance score) — now 17 covariates, extended this iteration with `large_family`, `workless_household`, `lone_parent`, and `ieqmoecd_dv` (equivalisation factor) alongside the original set. `financial_strain_score` remains dominant by a wide margin (OR 6.79); `large_family` (OR 1.68), `tenure_security` (OR 1.56), and `health_good` (OR 1.38) are the next-strongest positive drivers; `jbstat_security` (OR 0.16), `ieqmoecd_dv` (OR 0.28), and `qfhigh_band` (OR 0.50) the strongest protective factors. **`fes_delta` is a significant, if comparatively small, independent driver** (OR 0.94, p<0.0001) — consistently significant across every stage that tests it (see the FES-importance discussion below).
 
 Policy figures (prevalence by wave, by region, region×year heatmap, vulnerability rate by FES-severity tercile):
 
@@ -281,9 +281,9 @@ Three descriptive breakdowns added to make this project's outputs directly compa
 
 Two further breakdowns, added specifically to make **two more** of this project's dimensions comparable against JRF's own framework (Table 5 p.36, family type; p.76, work status) — unlike ethnicity/disability/tenure above, these two flow *into* the driver-analysis regression (Section above) as `large_family`/`lone_parent`/`workless_household`, since family composition and employment status are theoretically upstream *causes* of resource stock, not just descriptive strata:
 
-- **Family composition** (`_derive_family_composition_group`, `src/ukhls_preprocessing.py`) — `hhtype_dv` × `nkids_dv` collapsed into 5 categories matching JRF's own family-type/large-family cross-cut (Table 5, p.36): No children (8.999.../229,491), Couple 1–2 children (3.67%/55,392), Couple 3+ children (5.27%/11,160), Lone parent 1–2 children (15.13%/16,378), Lone parent 3+ children (13.18%/2,165), Other multi-adult with children (4.32%/24,477).
+- **Family composition** (`_derive_family_composition_group`, `src/ukhls_preprocessing.py`) — `hhtype_dv` × `nkids_dv` collapsed into 6 categories matching JRF's own family-type/large-family cross-cut (Table 5, p.36): No children (9.00%/229,491), Couple 1–2 children (3.67%/55,392), Couple 3+ children (5.27%/11,160), Lone parent 1–2 children (15.13%/16,378), Lone parent 3+ children (13.18%/2,165), Other multi-adult with children (4.32%/24,477).
 - **Employment status** (`load_wave_indresp_aggregated`, max-aggregated per household from `jbstat`/`jbft_dv`/`jbsemp`, not mean-aggregated — a household either has an employed adult or it doesn't) — Workless household (14.54%), Part-time only (9.29%), Full-time or self-employed (3.25%).
-- **Prepayment-meter flag** (`fuelduel`/`duelpay`/`elecpay`, all 15 waves) — a documented UK self-disconnection/rationing proxy, used to test a specific blind spot in the ratio-based `fuel_to_income_ratio` target (a household that copes by rationing energy use shows a *lower*, not higher, spend ratio). Prepayment-meter rate is higher among already-flagged-vulnerable households (19.0%) than not (10.5%) — some rationing is happening, but not enough to be hiding a materially different population within "not vulnerable" (`rationing_evidence_prepayment.csv`).
+- **Prepayment-meter flag** (`fuelduel`/`duelpay`/`elecpay`, all 15 waves) — a documented UK self-disconnection/rationing proxy, used to test a specific blind spot in the ratio-based `fuel_to_income_ratio` target (a household that copes by rationing energy use shows a *lower*, not higher, spend ratio). Prepayment-meter rate is higher among already-flagged-vulnerable households (24.9%) than not (12.9%) — some rationing is happening, but not enough to be hiding a materially different population within "not vulnerable" (`rationing_evidence_prepayment.csv`).
 
 <table>
 <tr>
@@ -303,7 +303,7 @@ Two further breakdowns, added specifically to make **two more** of this project'
 |---|---|---|---|---|
 | Region | 12 | 0.73 (excl. NI) | 0.68 (excl. NI) | Strong once Northern Ireland's documented fuel-oil driver (below) is set aside |
 | Tenure | 4 | **0.80** | **0.68** | Strong agreement despite only 4 categories |
-| Family type | 2 | 1.00 | 1.00 | **New this iteration** — collapses the 5-category breakdown above into JRF's lone-parent/couple-with-children split (Table 5, p.36); ranks agree, but n=2 is a necessarily weak test |
+| Family type | 2 | 1.00 | 1.00 | **New this iteration** — collapses the 6-category breakdown above into JRF's lone-parent/couple-with-children split (Table 5, p.36); ranks agree, but n=2 is a necessarily weak test |
 | Work status | 2 | 1.00 | 1.00 | **New this iteration** — collapses full-time/self-employed + part-time into JRF's "in work" vs. "not in work" split (p.76); ranks agree, same n=2 caveat |
 | Disability | 2 | — | — | Directionally consistent (ours 10.3%→12.9%, JRF 19%→29%) |
 | Ethnicity | 6 | 0.14 | 0.27 | Weak — see divergence below |
@@ -312,7 +312,7 @@ Benchmark values are hardcoded from numbers explicitly **stated in JRF's report 
 
 **Why Northern Ireland is excluded from the region correlation coefficient, but nowhere else.** NI ranks *highest* on our fuel-specific measure (15.6%) but *lowest* in JRF's income-poverty ranking (17%) — investigated rather than assumed to be noise or a bug. Verified directly against this project's own panel data (`_save_ni_oil_heating_evidence`, `outputs/ukhls_vulnerability/tables/ni_oil_heating_evidence_*.csv`):
 
-- 71.2% of NI households report spending on oil heating, vs 1.5–9.8% in every GB region (mains gas never reached large parts of NI).
+- 71.2% of NI households report spending on oil heating, vs 0.1–9.8% in every GB region (mains gas never reached large parts of NI).
 - **Within NI alone** (a controlled, same-region comparison): oil-heating households average £2,017/year on fuel and a 20.9% vulnerability rate, vs £1,243/year and 12.3% for non-oil NI households.
 
 That within-region gap is real signal, not an artifact of region-mapping or missing data: heating oil is bought in lump-sum deliveries, is price-volatile, and — unlike gas/electricity — sits outside Ofgem's price cap, a genuine fuel-specific cost exposure with no reason to appear in an income-based poverty measure. NI is therefore excluded **only** from the region correlation coefficient (a like-for-like check of construct agreement); it stays fully in every other regional output (maps, tables, driver analysis), where dropping it would throw away the clearest example of this project's fuel-specific measure doing exactly what it's for.
@@ -339,7 +339,7 @@ Drawn on **real UK region boundaries** (`data/geo/uk_nuts1_regions.geojson` — 
 
 1. **Resource-to-Stress Hotspot Map** — two side-by-side real maps (mean SEM `baseline_resource_score`; regional `high_fuel_vulnerable` prevalence) plus the 3×3 bivariate policy-tier legend. *Adapted from the original brief's literal bivariate "FES axis" map* — FES here is a single **national** scalar with no regional variation to map, so the second map uses the regional vulnerability-outcome prevalence instead (same underlying policy intent: cash-transfer vs. structural-infrastructure priority zones).
 2. **Fuzzy Membership Map** — real choropleth of mean "Vulnerable to Loss" fuzzy membership (the % of households near the 0.5 "about to tip" boundary is in the saved table).
-3. **Vulnerability Vector Shift Map** — arrow at each region's real centroid: mean predicted vulnerability under each household's own realised FES vs. under the shared forecast shock (reuses the Stage 2c counterfactual output) — red = rising risk, green = falling. London's arrow/label is nudged into open space with a leader line (a standard cartographic fix — London is geographically tiny and sits inside South East, so a same-length arrow at its true centroid collided with its neighbour's). **Latest run: every region's shift is small and now negative** (falling risk under the forecast shock vs. each household's own realised exposure, magnitude 0.00001–0.00036 percentage points, largest in Northern Ireland) — a materially different reading from earlier runs, which showed small *rising*-risk shifts throughout; the sign is sensitive to exactly which forecast/realised FES values are attached (Stage 2a), so this map should be read as "the shift is small everywhere" more confidently than "the shift points in direction X."
+3. **Vulnerability Vector Shift Map** — arrow at each region's real centroid: mean predicted vulnerability under each household's own realised FES vs. under the shared forecast shock (reuses the Stage 2c counterfactual output) — red = rising risk, green = falling. London's arrow/label is nudged into open space with a leader line (a standard cartographic fix — London is geographically tiny and sits inside South East, so a same-length arrow at its true centroid collided with its neighbour's). **Latest run: the shift is small and mixed in direction** — 5 of 12 regions rise under the forecast shock (East of England, London, Scotland, South East, South West), 7 fall — with magnitudes ranging roughly 0.00004 to 0.0143 percentage points and **London**, not Northern Ireland, now showing the largest-magnitude shift (Northern Ireland sits mid-ranked, 5th of 12 by magnitude); this differs from earlier runs, which showed a uniform direction throughout. The sign and ranking are sensitive to exactly which forecast/realised FES values are attached (Stage 2a), so this map should be read as "the shift is small everywhere" more confidently than "the shift points in direction X" for any specific region.
 
 <table>
 <tr>
@@ -389,21 +389,21 @@ An AUC of 0.76 on data the model never saw during training — genuinely forward
 
 | Predictor | Odds ratio | Direction |
 |---|---|---|
-| `financial_strain_score` | 5.46 | ↑ risk |
-| `lone_parent` | 1.52 | ↑ risk |
-| `object_score` | 1.43 | ↑ risk (counter-intuitive — see below) |
-| `workless_household` | 1.42 | ↑ risk |
-| `fes_magnitude` (the forecast signal itself) | 1.03 | ↑ risk |
+| `financial_strain_score` | 4.98 | ↑ risk |
+| `lone_parent` | 1.53 | ↑ risk |
+| `workless_household` | 1.43 | ↑ risk |
+| `object_score` | 1.42 | ↑ risk (counter-intuitive — see below) |
+| `fes_magnitude` (the forecast signal itself) | 1.07 | ↑ risk |
 | `dvage` | 1.01 | ~neutral |
-| `large_family` | 0.95 (n.s.) | ~neutral |
-| `heatch` | 0.95 (n.s.) | ~neutral |
-| `personal_score` | 0.94 | ↓ risk |
+| `large_family` | 0.96 (n.s.) | ~neutral |
+| `personal_score` | 0.93 | ↓ risk |
+| `heatch` | 0.92 | ↓ risk |
 | `condition_score` | 0.89 | ↓ risk |
 | `energy_score` | 0.31 | ↓ risk |
 
 Three of the four COR-SEM factors (`personal_score`, `condition_score`, `energy_score`) behave exactly as "more baseline resource → lower future risk" predicts, with `energy_score` (essentially income) dominant. `object_score` is the one consistent exception — households with more rooms/cars/property value are predicted *more*, not less, likely to become vulnerable — plausibly because larger, older, owned housing costs more to heat (the same pattern behind the tenure reversal in External Validation below), not a data error. This means "baseline resources protect households" is well-supported for 3 of 4 dimensions, not a uniform story across all four — see the FES/COR summary below.
 
-**Application.** Refit on all 14 known transitions, then scored every wave-o household (the most recent wave) using their own profile + their own already-forecast `fes_magnitude` — genuinely unobserved. **19,140 of 19,586** wave-o households scored (446 missing ≥1 feature); mean predicted probability 0.066. Each prediction targets that household's *own* next interview year (2024 or 2025, depending on exactly when within wave o they were interviewed) and — since `fes_magnitude` already matches interview month to the same calendar month one year ahead — their own target month too, giving a month-level view of when risk peaks.
+**Application.** Refit on all 14 known transitions, then scored every wave-o household (the most recent wave) using their own profile + their own already-forecast `fes_magnitude` — genuinely unobserved. **19,140 of 19,586** wave-o households scored (446 missing ≥1 feature); mean predicted probability 0.071. Each prediction targets that household's *own* next interview year (2024 or 2025, depending on exactly when within wave o they were interviewed) and — since `fes_magnitude` already matches interview month to the same calendar month one year ahead — their own target month too, giving a month-level view of when risk peaks.
 
 <table>
 <tr>
@@ -421,7 +421,7 @@ Three of the four COR-SEM factors (`personal_score`, `condition_score`, `energy_
 
 Three distinct claims are tested across this pipeline, and they do not all fare equally — reported here together since no single stage's output makes this clear on its own.
 
-**FES matters — robustly, everywhere it's tested as a direct predictor.** Significant and same-signed in Stage 2b's OLS main effect (coefficient ≈ −0.0006 to −0.0009, p<0.0001, stable across every rerun), Stage 3's driver logit (OR 0.94, p<0.0001), and Stage 5's forward-prediction model (OR 1.03, p<0.0001, walk-forward AUC=0.76) — and as one of the input features to Stage 3's fuzzy c-means clustering, whose resulting "Resource Depleted" cluster reaches AUC=0.745 against the objective ratio. This is the most solid finding in the pipeline.
+**FES matters — robustly, everywhere it's tested as a direct predictor.** Significant and same-signed in Stage 2b's OLS main effect (coefficient ≈ −0.0006 to −0.0009, p<0.0001, stable across every rerun), Stage 3's driver logit (OR 0.94, p<0.0001), and Stage 5's forward-prediction model (OR 1.07, p<0.0001, walk-forward AUC=0.76) — and as one of the input features to Stage 3's fuzzy c-means clustering, whose resulting "Resource Depleted" cluster reaches AUC=0.744 against the objective ratio. This is the most solid finding in the pipeline.
 
 **The four COR resource dimensions — mostly yes, with one real, consistent exception.** All 13 measurement items load positively and sensibly (Stage 2b). As Stage 5 forward-prediction covariates, `energy_score`, `condition_score`, and `personal_score` all show the theoretically expected "more resource → lower future risk" direction, with `energy_score` (income) dominant. `object_score` (housing/asset stock) is the one dimension that consistently runs the other way — more rooms/cars/property value predicts *more*, not less, future vulnerability — plausibly because larger, older, owned housing costs more to heat (see the tenure reversal in External Validation). This is a genuine, reproducible finding, not noise.
 
@@ -522,7 +522,7 @@ anticipatory-energy-stress/
 | `policy_vulnerability_by_ethnicity.csv` / `.png` | Vulnerability rate by household reference person's ethnicity group |
 | `policy_vulnerability_by_disability.csv` / `.png` | Vulnerability rate by whether the household contains a disabled adult |
 | `policy_vulnerability_by_tenure.csv` / `.png` | Vulnerability rate by housing tenure group |
-| `policy_vulnerability_by_family_composition.csv` / `.png` | Vulnerability rate by 5-category family-type group (new this iteration) |
+| `policy_vulnerability_by_family_composition.csv` / `.png` | Vulnerability rate by 6-category family-type group (new this iteration) |
 | `policy_vulnerability_by_employment.csv` / `.png` | Vulnerability rate by workless/part-time/full-time-or-self-employed (new this iteration) |
 | `rationing_evidence_prepayment.csv`, `rationing_evidence_inoutflows12.csv` | Prepayment-meter / self-reported-usage-cut rate by vulnerability status — tests the ratio target's rationing blind spot |
 | `policy_vulnerability_by_region_map.png` | Real-map companion to the ranked `by_region` bar chart |
@@ -571,7 +571,7 @@ anticipatory-energy-stress/
 - **CVAE item preparation median-imputes** remaining missing values (the SEM instead uses FIML natively) — a real simplification, not swept under the rug.
 - **`sf1_good`'s coverage collapses** from ~99% (waves a–e) to 0.3–11% (waves f–o) — kept in the model after an empirical test showed removing it makes CFI/TLI worse, but this is a real, documented data-quality asymmetry across waves.
 - **Rolling walk-forward's earliest feasible years** have thin training windows (as little as ~24 months) — forecast quality for those years is inherently weaker than for later years with a full decade+ of history.
-- **Stage 5's household linkage covers only ~70-75% of households per wave transition** (`hrpid_t == hrpid_{t+1}` direct match, verified against the raw wave a/b files) — normal UKHLS attrition and household-reference-person turnover, not a bug, but the model is trained/validated/applied on the linked subset only, and attrition itself may correlate with vulnerability (not corrected for here).
+- **Stage 5's household linkage covers only ~72-85% of households per wave transition** (`hrpid_t == hrpid_{t+1}` direct match, verified against the raw wave a/b files) — normal UKHLS attrition and household-reference-person turnover, not a bug, but the model is trained/validated/applied on the linked subset only, and attrition itself may correlate with vulnerability (not corrected for here).
 - **Stage 5's features inherit Stage 2b's pooled-CFA limitation**: the COR-SEM/COR-CVAE scores used as "time t" features are fit on the whole 2009–2024 panel, so they carry a mild amount of whole-panel information into every wave's features — a second-order effect on the features, not a leak of the actual t+1 label, but worth restating here since Stage 5's central claim ("genuinely forward") is narrower than Stage 2b/3's.
 - **Stage 5 tracks the household reference person, not a fixed dwelling** — if the reference person moves to a different household between waves, `hrpid` still links them; this is "same person," not "same address."
 - **Ethnicity is attributed via the household reference person only**, not every household member — a household with a mixed-ethnicity composition is represented by one person's group. **Disability is observed only for responding adults** (indresp), so the disability breakdown compares against JRF's "disabled adults only" row specifically, not its broader family-composition categories that include children.
