@@ -40,7 +40,7 @@ Sections 3.1 and 3.2 below also include generated distribution figures and full 
 
 ### 2.3 `gas.csv` (ONS series CZDA, dataset MM23)
 
-**Structure:** a 2-column ONS statistical export (`Title`, `RPI:Percentage change over 12 months - Gas`), with a 6-row metadata header (CDID, source dataset ID, unit=%, release date 22-04-2026, next release 20-05-2026) preceding the data body. The data body itself mixes three frequencies in a single column (annual, quarterly, monthly rows are interleaved by label, not separated into distinct columns), requiring frequency-filtering before use — the project's own loader (`src/data_loader.py`) handles this filtering.
+**Structure:** a 2-column ONS statistical export (`Title`, `RPI:Percentage change over 12 months - Gas`), with an 8-row metadata header (Title, CDID, Source dataset ID, PreUnit, Unit=%, Release date 22-04-2026, Next release 20 May 2026, Important notes) preceding the data body. The data body itself mixes three frequencies in a single column (annual, quarterly, monthly rows are interleaved by label, not separated into distinct columns), requiring frequency-filtering before use — the project's own loader (`src/data_loader.py`) handles this filtering.
 
 **Coverage:** 38 annual rows (1988–2025), 153 quarterly rows (1988 Q1–2026 Q1), 459 monthly rows (1988 JAN–2026 MAR).
 
@@ -72,7 +72,7 @@ Sections 3.1 and 3.2 below also include generated distribution figures and full 
 
 ### 2.7 `mgdp.csv` (ONS Monthly GDP by industry, chained-volume-measure, seasonally adjusted)
 
-**Structure:** a wide ONS export, 356 total rows × 208 columns; the first 6 rows are metadata (CDID, unit, release/next-release dates, notes), followed by 350 monthly observation rows.
+**Structure:** a wide ONS export, 357 total rows × 208 columns; the first 7 rows are metadata (Title, CDID, PreUnit, Unit, Release Date, Next release, Important Notes), followed by 350 monthly observation rows.
 
 **Coverage:** **January 1997 to February 2026**.
 
@@ -133,7 +133,7 @@ The skew/excess-kurtosis columns quantify this more precisely: `carbon_growth`'s
 
 **Distribution (selected columns):** `inflation_growth` mean 1.56%, max 6.63%; `gdp_growth` mean 0.13%, max 9.30%; `gas_futures_price` mean 72.82, max 544.68 (consistent with the raw gas-futures file in Section 2.2); `gbp_eur_rate` mean 1.224, max 1.508; `electricity_demand_mean` mean 31,215.8, max 43,693.0; `holiday_share` mean 0.0206, max 0.10; `post_2016_electricity_regime` mean 0.482 (≈48% of the sample period falls after 2016); `winter_dummy` mean 0.424 (≈42% of months are winter months, consistent with a 4-of-12-months winter definition plus some rounding).
 
-**Full distribution table (all 27 base, non-lagged, non-dummy columns):**
+**Full distribution table (all 28 base, non-lagged, non-dummy columns):**
 
 | Variable | Mean | Std | Min | p25 | Median | p75 | Max | N (non-null) | N missing | Skew | Excess kurtosis |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -222,7 +222,7 @@ Two patterns are worth noting: (1) row counts decline fairly steadily from wave 
 
 Individual-level files are far wider than household-level files (up to 3,974 variables at wave n, vs. a maximum of 600 for hhresp), reflecting the much larger individual questionnaire instrument, and are correspondingly larger on disk (up to 176MB for a single wave's `indresp.dta`). This project's own preprocessing reads only a deliberately small, named subset of these thousands of available individual-level variables per wave (documented in full in `src/ukhls_mapping.py`'s variable registry) — the vast majority of each `indresp` file's content is not used by this analysis, which is a normal and expected consequence of UKHLS's breadth as a general-purpose household panel rather than a survey purpose-built for this project's specific research questions.
 
-**Variables added this iteration:** `HH_FAMILY_VARS`/`HH_EQUIVALISATION_VARS` (household file — `hhtype_dv`, `nkids_dv`, and related fields feeding the family-composition group and OECD-modified equivalisation scale) and `IND_EMPLOYMENT_VARS` (individual file — `jbstat`, `jbft_dv`, `jbsemp`, feeding the employment-status construct), plus `fuelduel`/`duelpay`/`elecpay` (household file — the prepayment-meter/rationing proxy). All four additions are read from variables already present in the raw wave files documented above; no new raw data files were required.
+**Variables added this iteration:** `HH_FAMILY_VARS`/`HH_EQUIVALISATION_VARS` (household file — `hhtype_dv`, `nkids_dv`, and related fields feeding the family-composition group and OECD-modified equivalisation scale) and `IND_EMPLOYMENT_VARS` (individual file — `jbft_dv`, `jbsemp`, plus `jbhrs`/`jbterm1`, feeding the work-status construct; `jbstat` itself is a pre-existing variable, part of the separate `IND_CONDITION_VARS` list already used for the employment-security COR indicator, not one of this iteration's additions), plus `fuelduel`/`duelpay`/`elecpay` (household file — the prepayment-meter/rationing proxy). All these additions are read from variables already present in the raw wave files documented above; no new raw data files were required.
 
 ### 4.3 Implications for the merged analysis panel
 
