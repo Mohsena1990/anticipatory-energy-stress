@@ -25,8 +25,10 @@ Stage 1 — Forecasting (forecast_pipeline.py)
              ↓
   Equal-weighted FES index (sum of z-scored components)
              ↓
-  Single-year (train→2016, forecast 2017) OR
-  Rolling walk-forward (train through year Y, forecast Y+1, for every feasible Y)
+  Single-year diagnostic (train through the year before the selected target
+  year, forecast the selected target year) OR
+  Rolling walk-forward -- the reported path (train through year Y, forecast
+  Y+1, for every feasible Y, capped at 2025)
              ↓
   FES variant selection: Equal_Core vs Equal_Macro vs Equal_Selected vs Equal_Weighted,
   lowest mean RMSE vs realised FES wins
