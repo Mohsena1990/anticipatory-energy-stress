@@ -197,6 +197,7 @@ def plot_grouped_circular_bars(
         degrees and matplotlib does not adjust it for polar transforms."""
         return theta_offset + theta_direction * theta
 
+    item_label_texts: list = []
     for g in group_labels:
         is_hl = g in highlight_groups
         gcolor = group_colors.get(g, "#888888")
@@ -243,11 +244,12 @@ def plot_grouped_circular_bars(
             flipped = 90 < rot_deg < 270
             ha = "right" if flipped else "left"
             label_rot = rot_deg + 180 if flipped else rot_deg
-            ax.text(
+            txt = ax.text(
                 center, label_r, f"{item_label}",
                 rotation=label_rot, rotation_mode="anchor",
                 ha=ha, va="center", fontsize=8, color="#333333",
             )
+            item_label_texts.append(txt)
 
             # Value, on the colourful bar itself (mid-radius of the wedge) --
             # white with a dark stroke so it stays legible against any of the
@@ -270,7 +272,19 @@ def plot_grouped_circular_bars(
             fontsize=9, framealpha=0.95, title="Bar colour", title_fontsize=9.5,
         )
 
-    ax.set_title(title, fontsize=13, fontweight="bold", pad=24)
+    if title:
+        # A plain fixed `pad` overlaps a long, near-vertical item label at
+        # the top of the circle (rotated label text can extend well past
+        # r_max) -- so measure where the item labels actually render and
+        # place the title above the highest one, instead of guessing a pad.
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        label_top_px = max(
+            (t.get_window_extent(renderer).y1 for t in item_label_texts),
+            default=ax.get_window_extent(renderer).y1,
+        )
+        title_y = (label_top_px + 10) / fig.bbox.height
+        fig.suptitle(title, fontsize=13, fontweight="bold", y=title_y, va="bottom")
     _save(fig, out_path)
 
 
