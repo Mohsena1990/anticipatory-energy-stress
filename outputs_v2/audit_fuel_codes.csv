@@ -1,0 +1,172 @@
+variable,code,label,household_fuels,fuelduel,n,routing_meaning,v1_treatment,correct_treatment
+fuelduel,-9,missing,elec+gas,-9.0,<10,item nonresponse (amount unknown),NaN -> whole household dropped from outcome,missing (unknown amount): household spend missing
+fuelduel,-8,inapplicable,elec_only,-8.0,50603,not applicable (routed out: fuel not used / billing branch not taken),NaN -> whole household dropped from outcome,structural zero / not applicable
+fuelduel,-8,inapplicable,gas_only,-8.0,4278,not applicable (routed out: fuel not used / billing branch not taken),NaN -> whole household dropped from outcome,structural zero / not applicable
+fuelduel,-8,inapplicable,neither_elec_nor_gas,-8.0,6511,not applicable (routed out: fuel not used / billing branch not taken),NaN -> whole household dropped from outcome,structural zero / not applicable
+fuelduel,-2,refusal,elec+gas,-2.0,195,item nonresponse (amount unknown),NaN -> whole household dropped from outcome,missing (unknown amount): household spend missing
+fuelduel,-1,don't know,elec+gas,-1.0,3490,item nonresponse (amount unknown),NaN -> whole household dropped from outcome,missing (unknown amount): household spend missing
+fuelduel,1,One bill/one bill,elec+gas,1.0,150954,one combined gas+elec bill,selects billing branch,use value
+fuelduel,1,One bill/one bill,elec+gas,2.0,123163,one combined gas+elec bill,selects billing branch,use value
+fuelduel,1,One bill/one bill,elec_only,2.0,<10,one combined gas+elec bill,selects billing branch,use value
+fuelhave1,-9,missing,,,204,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave1,-8,inapplicable,,,282,not applicable (routed out: fuel not used / billing branch not taken),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave1,-2,refusal,,,321,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave1,-1,don't know,,,519,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave1,0,Not mentioned/not mentioned,,,9463,fuel not used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave1,1,Mentioned,,,328412,fuel used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,-9,missing,,,204,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,-8,inapplicable,,,282,not applicable (routed out: fuel not used / billing branch not taken),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,-2,refusal,,,321,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,-1,don't know,,,519,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,0,Not mentioned/not mentioned,,,55789,fuel not used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave2,1,Mentioned,,,282086,fuel used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,-9,missing,,,204,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,-8,inapplicable,,,282,not applicable (routed out: fuel not used / billing branch not taken),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,-2,refusal,,,321,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,-1,don't know,,,519,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,0,Not mentioned/not mentioned,,,306599,fuel not used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave3,1,Mentioned,,,31276,fuel used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,-9,missing,,,204,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,-8,inapplicable,,,282,not applicable (routed out: fuel not used / billing branch not taken),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,-2,refusal,,,321,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,-1,don't know,,,519,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,0,Not mentioned/not mentioned,,,307033,fuel not used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave4,1,Mentioned,,,30842,fuel used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,-9,missing,,,204,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,-8,inapplicable,,,282,not applicable (routed out: fuel not used / billing branch not taken),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,-2,refusal,,,321,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,-1,don't know,,,519,item nonresponse (amount unknown),not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,0,Not mentioned/not mentioned,,,336693,fuel not used,not used by v1 outcome,defines routing (which amounts are required)
+fuelhave96,1,Mentioned,,,1182,fuel used,not used by v1 outcome,defines routing (which amounts are required)
+xpduely,-9,missing,elec+gas,1.0,22,item nonresponse (amount unknown),NaN -> household dropped,missing (unknown amount): household spend missing
+xpduely,-8,inapplicable,elec+gas,-9.0,<10,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,elec+gas,-2.0,195,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,elec+gas,-1.0,3490,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,elec+gas,2.0,123163,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,elec_only,-8.0,50603,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,elec_only,2.0,<10,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,gas_only,-8.0,4278,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-8,inapplicable,neither_elec_nor_gas,-8.0,6511,not applicable (routed out: fuel not used / billing branch not taken),ignored (branch not taken),structural zero / not applicable
+xpduely,-2,refusal,elec+gas,1.0,1498,item nonresponse (amount unknown),NaN -> household dropped,missing (unknown amount): household spend missing
+xpduely,-1,don't know,elec+gas,1.0,15164,item nonresponse (amount unknown),NaN -> household dropped,missing (unknown amount): household spend missing
+xpduely,0,zero amount,elec+gas,1.0,236,reported zero spend,used as reported,use value
+xpduely,1,positive amount,elec+gas,1.0,134034,reported amount,used as reported,use value
+xpelecy,-9,missing,elec+gas,-9.0,<10,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-9,missing,elec+gas,2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpelecy,-9,missing,elec_only,-8.0,<10,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-8,inapplicable,elec+gas,1.0,150953,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpelecy,-8,inapplicable,gas_only,-8.0,4278,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpelecy,-8,inapplicable,neither_elec_nor_gas,-8.0,6511,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpelecy,-2,refusal,elec+gas,-2.0,108,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-2,refusal,elec+gas,-1.0,15,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-2,refusal,elec+gas,2.0,848,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpelecy,-2,refusal,elec_only,-8.0,426,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-1,don't know,elec+gas,-2.0,56,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-1,don't know,elec+gas,-1.0,3077,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,-1,don't know,elec+gas,2.0,11614,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpelecy,-1,don't know,elec_only,-8.0,4568,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpelecy,0,zero amount,elec+gas,-2.0,25,reported zero spend,used as reported,use value
+xpelecy,0,zero amount,elec+gas,-1.0,200,reported zero spend,used as reported,use value
+xpelecy,0,zero amount,elec+gas,2.0,560,reported zero spend,used as reported,use value
+xpelecy,0,zero amount,elec_only,-8.0,962,reported zero spend,used as reported,use value
+xpelecy,1,positive amount,elec+gas,-2.0,<10,reported amount,used as reported,use value
+xpelecy,1,positive amount,elec+gas,-1.0,198,reported amount,used as reported,use value
+xpelecy,1,positive amount,elec+gas,1.0,<10,reported amount,used as reported,use value
+xpelecy,1,positive amount,elec+gas,2.0,110137,reported amount,used as reported,use value
+xpelecy,1,positive amount,elec_only,-8.0,44646,reported amount,used as reported,use value
+xpelecy,1,positive amount,elec_only,2.0,<10,reported amount,used as reported,use value
+xpgasy,-9,missing,elec+gas,-9.0,<10,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-9,missing,elec+gas,2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpgasy,-8,inapplicable,elec+gas,1.0,150953,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpgasy,-8,inapplicable,elec_only,-8.0,50603,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpgasy,-8,inapplicable,neither_elec_nor_gas,-8.0,6511,not applicable (routed out: fuel not used / billing branch not taken),ignored: household dropped because fuelduel is NaN,structural zero / not applicable
+xpgasy,-2,refusal,elec+gas,-2.0,102,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-2,refusal,elec+gas,-1.0,27,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-2,refusal,elec+gas,2.0,827,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpgasy,-2,refusal,gas_only,-8.0,63,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-1,don't know,elec+gas,-2.0,65,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-1,don't know,elec+gas,-1.0,3049,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,-1,don't know,elec+gas,2.0,11537,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpgasy,-1,don't know,gas_only,-8.0,528,item nonresponse (amount unknown),ignored: household dropped because fuelduel is NaN,missing (unknown amount): household spend missing
+xpgasy,0,zero amount,elec+gas,-2.0,18,reported zero spend,used as reported,use value
+xpgasy,0,zero amount,elec+gas,-1.0,198,reported zero spend,used as reported,use value
+xpgasy,0,zero amount,elec+gas,2.0,1232,reported zero spend,used as reported,use value
+xpgasy,0,zero amount,gas_only,-8.0,114,reported zero spend,used as reported,use value
+xpgasy,1,positive amount,elec+gas,-2.0,10,reported amount,used as reported,use value
+xpgasy,1,positive amount,elec+gas,-1.0,216,reported amount,used as reported,use value
+xpgasy,1,positive amount,elec+gas,1.0,<10,reported amount,used as reported,use value
+xpgasy,1,positive amount,elec+gas,2.0,109561,reported amount,used as reported,use value
+xpgasy,1,positive amount,elec_only,2.0,<10,reported amount,used as reported,use value
+xpgasy,1,positive amount,gas_only,-8.0,3573,reported amount,used as reported,use value
+xpoily,-9,missing,elec+gas,2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-8,inapplicable,elec+gas,-9.0,<10,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec+gas,-2.0,191,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec+gas,-1.0,3466,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec+gas,1.0,150695,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec+gas,2.0,118973,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec_only,-8.0,27629,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,elec_only,2.0,<10,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,gas_only,-8.0,4150,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-8,inapplicable,neither_elec_nor_gas,-8.0,2814,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpoily,-2,refusal,elec+gas,-2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,elec+gas,-1.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,elec+gas,1.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,elec+gas,2.0,32,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,elec_only,-8.0,93,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,gas_only,-8.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-2,refusal,neither_elec_nor_gas,-8.0,19,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,elec+gas,-1.0,16,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,elec+gas,1.0,46,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,elec+gas,2.0,161,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,elec_only,-8.0,937,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,gas_only,-8.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,-1,don't know,neither_elec_nor_gas,-8.0,142,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpoily,0,zero amount,elec+gas,-2.0,<10,reported zero spend,used as reported,use value
+xpoily,0,zero amount,elec+gas,-1.0,<10,reported zero spend,used as reported,use value
+xpoily,0,zero amount,elec+gas,1.0,53,reported zero spend,used as reported,use value
+xpoily,0,zero amount,elec+gas,2.0,111,reported zero spend,used as reported,use value
+xpoily,0,zero amount,elec_only,-8.0,444,reported zero spend,used as reported,use value
+xpoily,0,zero amount,gas_only,-8.0,<10,reported zero spend,used as reported,use value
+xpoily,0,zero amount,neither_elec_nor_gas,-8.0,58,reported zero spend,used as reported,use value
+xpoily,1,positive amount,elec+gas,-1.0,<10,reported amount,used as reported,use value
+xpoily,1,positive amount,elec+gas,1.0,154,reported amount,used as reported,use value
+xpoily,1,positive amount,elec+gas,2.0,3885,reported amount,used as reported,use value
+xpoily,1,positive amount,elec_only,-8.0,21500,reported amount,used as reported,use value
+xpoily,1,positive amount,gas_only,-8.0,118,reported amount,used as reported,use value
+xpoily,1,positive amount,neither_elec_nor_gas,-8.0,3478,reported amount,used as reported,use value
+xpsfly,-9,missing,elec+gas,2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-8,inapplicable,elec+gas,-9.0,<10,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec+gas,-2.0,189,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec+gas,-1.0,3374,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec+gas,1.0,141855,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec+gas,2.0,115602,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec_only,-8.0,37931,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,elec_only,2.0,<10,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,gas_only,-8.0,3962,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-8,inapplicable,neither_elec_nor_gas,-8.0,5439,not applicable (routed out: fuel not used / billing branch not taken),NaN -> filled with 0 (correct),structural zero / not applicable
+xpsfly,-2,refusal,elec+gas,-2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-2,refusal,elec+gas,1.0,50,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-2,refusal,elec+gas,2.0,40,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-2,refusal,elec_only,-8.0,39,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-2,refusal,gas_only,-8.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-2,refusal,neither_elec_nor_gas,-8.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,elec+gas,-2.0,<10,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,elec+gas,-1.0,61,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,elec+gas,1.0,357,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,elec+gas,2.0,272,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,elec_only,-8.0,433,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,gas_only,-8.0,16,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,-1,don't know,neither_elec_nor_gas,-8.0,48,item nonresponse (amount unknown),NaN -> filled with 0 (spend understated),missing (unknown amount): household spend missing
+xpsfly,0,zero amount,elec+gas,-1.0,21,reported zero spend,used as reported,use value
+xpsfly,0,zero amount,elec+gas,1.0,2592,reported zero spend,used as reported,use value
+xpsfly,0,zero amount,elec+gas,2.0,1927,reported zero spend,used as reported,use value
+xpsfly,0,zero amount,elec_only,-8.0,2506,reported zero spend,used as reported,use value
+xpsfly,0,zero amount,gas_only,-8.0,77,reported zero spend,used as reported,use value
+xpsfly,0,zero amount,neither_elec_nor_gas,-8.0,129,reported zero spend,used as reported,use value
+xpsfly,1,positive amount,elec+gas,-2.0,<10,reported amount,used as reported,use value
+xpsfly,1,positive amount,elec+gas,-1.0,34,reported amount,used as reported,use value
+xpsfly,1,positive amount,elec+gas,1.0,6100,reported amount,used as reported,use value
+xpsfly,1,positive amount,elec+gas,2.0,5321,reported amount,used as reported,use value
+xpsfly,1,positive amount,elec_only,-8.0,9694,reported amount,used as reported,use value
+xpsfly,1,positive amount,gas_only,-8.0,221,reported amount,used as reported,use value
+xpsfly,1,positive amount,neither_elec_nor_gas,-8.0,888,reported amount,used as reported,use value

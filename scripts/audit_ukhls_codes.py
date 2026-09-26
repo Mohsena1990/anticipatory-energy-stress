@@ -1,0 +1,278 @@
+"""
+Stage 1 audit (analysis_plan_rerun.md): how the v1 outcome treats UKHLS
+fuel-expenditure codes. Read-only: changes no pipeline code or v1 output.
+
+Compares, row by row, v1's `compute_fuel_to_income` spend rule with a
+routing-aware reference rule built from the UKHLS questionnaire routing:
+
+  fuelhave1..4  "which fuels does the household use" (elec/gas/oil/other)
+  fuelduel      asked only if elec AND gas are used (1 one bill, 2 separately)
+  xpduely       asked if fuelduel == 1
+  xpelecy/xpgasy asked if fuelduel == 2, or if fuelduel is DK/refused,
+                 or if only that one of elec/gas is used
+  xpoily        asked if fuelhave3 == 1;  xpsfly asked if fuelhave4 == 1
+
+Negative codes: -8 inapplicable (routed out -> true structural zero or not
+applicable), -1 don't know / -2 refused / -9 missing (item nonresponse ->
+unknown amount, never zero).
+
+Outputs (outputs_v2/):
+  audit_fuel_codes.csv                   code dictionary + pooled counts
+  audit/fuel_status_by_region_wave.csv   v1-vs-reference row status
+  audit/zero_filled_components_by_region_wave.csv
+  audit/fuelduel_by_region_year.csv
+  audit/ni_oil_lost_by_wave.csv
+  audit/indicative_prevalence.csv        v1 vs reference 10% rate (no fix)
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from src.paths import OUTPUTS_DIR, V1_OUTPUTS_DIR, UKHLS_RAW_DIR  # noqa: E402
+
+OUT = OUTPUTS_DIR
+AUD = OUT / "audit"
+AUD.mkdir(parents=True, exist_ok=True)
+
+WAVES = "abcdefghijklmno"
+FUEL = ["fuelduel", "xpduely", "xpgasy", "xpelecy", "xpoily", "xpsfly"]
+HAVE = ["fuelhave1", "fuelhave2", "fuelhave3", "fuelhave4", "fuelhave96"]
+NONRESP = (-1, -2, -9)
+GOR = {1: "North East", 2: "North West", 3: "Yorkshire and the Humber",
+       4: "East Midlands", 5: "West Midlands", 6: "East of England",
+       7: "London", 8: "South East", 9: "South West", 10: "Wales",
+       11: "Scotland", 12: "Northern Ireland"}
+LABEL = {-1: "don't know", -2: "refusal", -8: "inapplicable", -9: "missing"}
+
+
+def load_raw() -> tuple[pd.DataFrame, dict]:
+    frames, labels = [], {}
+    for w in WAVES:
+        p = UKHLS_RAW_DIR / f"{w}_hhresp.dta"
+        r = pd.io.stata.StataReader(p)
+        avail = set(r.variable_labels())
+        cols = [f"{w}_{v}" for v in ["hidp", "gor_dv", "fihhmnnet1_dv"] + FUEL + HAVE
+                if f"{w}_{v}" in avail]
+        d = pd.read_stata(p, columns=cols, convert_categoricals=False)
+        d.columns = [c[2:] for c in d.columns]
+        d["wave"] = w
+        frames.append(d)
+        r2 = pd.io.stata.StataReader(p)
+        r2.read(nrows=1)
+        vl = r2.value_labels()
+        for name, lbl in zip(r2._varlist, r2._lbllist):
+            bare = name[2:]
+            if bare in FUEL + HAVE and lbl in vl:
+                for k, v in vl[lbl].items():
+                    labels.setdefault((bare, int(k)), set()).add(v.strip())
+    return pd.concat(frames, ignore_index=True), labels
+
+
+def v1_spend(df: pd.DataFrame) -> pd.Series:
+    """Exact replica of v1 src.ukhls_preprocessing.compute_fuel_to_income spend."""
+    x = df[FUEL].where(df[FUEL] >= 0)          # v1: every negative code -> NaN
+    separate = x.xpgasy.fillna(0) + x.xpelecy.fillna(0)
+    eg = np.where(x.fuelduel == 1, x.xpduely,
+                  np.where(x.fuelduel == 2, separate, np.nan))
+    eg = pd.Series(eg, index=df.index)
+    tot = eg + x.xpoily.fillna(0) + x.xpsfly.fillna(0)
+    tot[eg.isna()] = np.nan
+    return tot
+
+
+def reference_spend(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Routing-aware spend and a per-row status reason."""
+    elec, gas = df.fuelhave1 == 1, df.fuelhave2 == 1
+    oil, oth = df.fuelhave3 == 1, df.fuelhave4 == 1
+    module_nr = (df[HAVE[:4]] < 0).any(axis=1)
+
+    def val(c):
+        return df[c].where(df[c] >= 0)
+
+    both = elec & gas
+    eg = pd.Series(np.nan, index=df.index)
+    eg[both & (df.fuelduel == 1)] = val("xpduely")
+    sep_rows = both & ((df.fuelduel == 2) | df.fuelduel.isin(NONRESP))
+    eg[sep_rows] = val("xpgasy") + val("xpelecy")     # NaN if either unknown
+    eg[elec & ~gas] = val("xpelecy")
+    eg[gas & ~elec] = val("xpgasy")
+
+    oil_v = pd.Series(0.0, index=df.index)
+    oil_v[oil] = val("xpoily")
+    oth_v = pd.Series(0.0, index=df.index)
+    oth_v[oth] = val("xpsfly")
+    tot = eg + oil_v + oth_v
+
+    reason = pd.Series("observed", index=df.index)
+    reason[tot.isna()] = "item_nonresponse"
+    reason[~elec & ~gas & (oil | oth)] = "elec_not_reported"   # ambiguous routing
+    reason[~elec & ~gas & ~oil & ~oth] = "no_fuel_reported"
+    reason[module_nr] = "fuelhave_module_nonresponse"
+    tot[reason != "observed"] = np.nan
+    # gas-only / elec-not-reported households are kept but flagged separately
+    reason[(reason == "observed") & gas & ~elec] = "observed_gas_only"
+    return tot, reason
+
+
+def status(v1: pd.Series, ref: pd.Series, reason: pd.Series) -> pd.Series:
+    s = pd.Series("", index=v1.index)
+    both = v1.notna() & ref.notna()
+    s[both & np.isclose(v1, ref)] = "A_same"
+    s[both & ~np.isclose(v1, ref)] = "A2_valid_but_different"
+    s[v1.notna() & ref.isna()] = "B_v1_zero_filled_really_missing"
+    s[v1.isna() & ref.notna()] = "C_v1_dropped_but_observed"
+    s[v1.isna() & ref.isna()] = "D_dropped_" + reason[v1.isna() & ref.isna()]
+    return s
+
+
+def code_dictionary(df, labels) -> pd.DataFrame:
+    elec, gas = df.fuelhave1 == 1, df.fuelhave2 == 1
+    ctx = np.select([elec & gas, elec & ~gas, gas & ~elec],
+                    ["elec+gas", "elec_only", "gas_only"], "neither_elec_nor_gas")
+    rows = []
+    for v in FUEL:
+        s = df[v]
+        cats = np.where(s < 0, s, np.where(s == 0, 0, 1)).astype(int)
+        t = pd.DataFrame({"code": cats, "context": ctx, "fuelduel": df.fuelduel})
+        for (code, c, fd), n in t.groupby(["code", "context", "fuelduel"]).size().items():
+            lab = ("positive amount" if code == 1 and v != "fuelduel"
+                   else "zero amount" if code == 0 and v != "fuelduel"
+                   else "/".join(sorted(labels.get((v, code), {LABEL.get(code, "")}))))
+            rows.append(dict(variable=v, code=code, label=lab, household_fuels=c,
+                             fuelduel=int(fd), n=int(n),
+                             routing_meaning=_meaning(v, code),
+                             v1_treatment=_v1(v, code, fd),
+                             correct_treatment=_correct(v, code)))
+    for v in HAVE:
+        for code, n in df[v].value_counts().items():
+            rows.append(dict(variable=v, code=int(code),
+                             label="/".join(sorted(labels.get((v, int(code)), {""}))),
+                             household_fuels="", fuelduel=np.nan, n=int(n),
+                             routing_meaning=_meaning(v, int(code)),
+                             v1_treatment="not used by v1 outcome",
+                             correct_treatment="defines routing (which amounts are required)"))
+    return pd.DataFrame(rows).sort_values(["variable", "code", "household_fuels", "fuelduel"])
+
+
+def _meaning(v, code):
+    if code == -8:
+        return "not applicable (routed out: fuel not used / billing branch not taken)"
+    if code in NONRESP:
+        return "item nonresponse (amount unknown)"
+    if v.startswith("fuelhave"):
+        return "fuel used" if code == 1 else "fuel not used" if code == 0 else ""
+    if v == "fuelduel":
+        return {1: "one combined gas+elec bill", 2: "separate gas and elec bills"}.get(code, "")
+    return "reported amount" if code == 1 else "reported zero spend"
+
+
+def _v1(v, code, fd):
+    if code >= 0:
+        return "used as reported" if v != "fuelduel" else "selects billing branch"
+    if v == "fuelduel":
+        return "NaN -> whole household dropped from outcome"
+    if v == "xpduely":
+        return "NaN -> household dropped" if fd == 1 else "ignored (branch not taken)"
+    if v in ("xpgasy", "xpelecy"):
+        if fd == 2:
+            return "NaN -> filled with 0 (spend understated)" if code != -8 else "0 (correct)"
+        return "ignored: household dropped because fuelduel is NaN"
+    return "NaN -> filled with 0" + (" (spend understated)" if code != -8 else " (correct)")
+
+
+def _correct(v, code):
+    if code == -8:
+        return "structural zero / not applicable"
+    if code in NONRESP:
+        return "missing (unknown amount): household spend missing"
+    return "use value"
+
+
+def main() -> None:
+    df, labels = load_raw()
+    panel = pd.read_csv(V1_OUTPUTS_DIR / "ukhls_cleaned" / "ukhls_panel.csv",
+                        usecols=["hidp", "wave", "interview_year", "total_fuel_spend",
+                                 "fuel_to_income_ratio", "high_fuel_vulnerable"])
+    df = df.merge(panel, on=["hidp", "wave"], how="left", validate="1:1")
+    df["region"] = df.gor_dv.map(GOR).fillna("Missing region")
+
+    df["v1_spend"] = v1_spend(df)
+    # Replication check against the frozen v1 panel.
+    mism = ~((df.v1_spend.isna() & df.total_fuel_spend.isna())
+             | np.isclose(df.v1_spend, df.total_fuel_spend))
+    print(f"v1 replication: {int(mism.sum())} mismatches of {len(df)} rows")
+    assert mism.sum() == 0, "audit v1 replica does not reproduce v1 panel"
+
+    df["ref_spend"], df["ref_reason"] = reference_spend(df)
+    df["status"] = status(df.v1_spend, df.ref_spend, df.ref_reason)
+
+    code_dictionary(df, labels).to_csv(OUT / "audit_fuel_codes.csv", index=False)
+
+    (df.groupby(["region", "wave", "status"]).size().unstack(fill_value=0)
+       .reset_index().to_csv(AUD / "fuel_status_by_region_wave.csv", index=False))
+
+    # Components silently zero-filled by v1 among rows v1 kept.
+    kept = df.v1_spend.notna()
+    comp = pd.DataFrame({
+        "xpelecy_nonresp_zeroed": kept & (df.fuelduel == 2) & df.xpelecy.isin(NONRESP),
+        "xpgasy_nonresp_zeroed": kept & (df.fuelduel == 2) & df.xpgasy.isin(NONRESP),
+        "xpoily_nonresp_zeroed": kept & df.xpoily.isin(NONRESP),
+        "xpsfly_nonresp_zeroed": kept & df.xpsfly.isin(NONRESP),
+    })
+    comp["any_component_zeroed"] = comp.any(axis=1)
+    comp[["region", "wave"]] = df[["region", "wave"]]
+    comp.groupby(["region", "wave"]).sum().reset_index().to_csv(
+        AUD / "zero_filled_components_by_region_wave.csv", index=False)
+
+    fd = df.fuelduel.map({1: "1_one_bill", 2: "2_separate", -8: "-8_inapplicable",
+                          -1: "-1_dont_know", -2: "-2_refused", -9: "-9_missing"})
+    (pd.crosstab([df.region, df.interview_year], fd).reset_index()
+       .to_csv(AUD / "fuelduel_by_region_year.csv", index=False))
+
+    ni = df[df.region == "Northern Ireland"]
+    ni_oil = ni.fuelhave3 == 1
+    lost = ni_oil & ni.v1_spend.isna() & (ni.fuelduel < 0)
+    ni_tab = pd.DataFrame({
+        "ni_households": ni.groupby("wave").size(),
+        "ni_oil_households": ni_oil.groupby(ni.wave).sum(),
+        "ni_oil_dropped_by_fuelduel_rule": lost.groupby(ni.wave).sum(),
+        "of_which_recoverable_under_reference": (lost & ni.ref_spend.notna()).groupby(ni.wave).sum(),
+        "ni_oil_kept_by_v1": (ni_oil & ni.v1_spend.notna()).groupby(ni.wave).sum(),
+    }).reset_index()
+    ni_tab.loc[len(ni_tab)] = ["all"] + ni_tab.iloc[:, 1:].sum().tolist()
+    ni_tab.to_csv(AUD / "ni_oil_lost_by_wave.csv", index=False)
+
+    # Indicative only (no fix applied): 10% rate under v1 vs reference spend,
+    # same income denominator and guards as v1.
+    inc = df.fihhmnnet1_dv.where(df.fihhmnnet1_dv >= 0) * 12
+    def rate(spend):
+        r = (spend / inc).where(inc >= 1200).clip(upper=1.0)
+        return (r >= 0.10).where(r.notna())
+    df["v1_flag"], df["ref_flag"] = rate(df.v1_spend), rate(df.ref_spend)
+    assert np.allclose(df.v1_flag.dropna(), df.high_fuel_vulnerable[df.v1_flag.notna()])
+    g = lambda k: df.groupby(k).agg(
+        v1_n=("v1_flag", "count"), v1_pct=("v1_flag", lambda s: 100 * s.mean()),
+        ref_n=("ref_flag", "count"), ref_pct=("ref_flag", lambda s: 100 * s.mean()))
+    ind = pd.concat([g("region").assign(level="region"),
+                     g("wave").assign(level="wave"),
+                     df.assign(all="UK").groupby("all").agg(
+                         v1_n=("v1_flag", "count"), v1_pct=("v1_flag", lambda s: 100 * s.mean()),
+                         ref_n=("ref_flag", "count"), ref_pct=("ref_flag", lambda s: 100 * s.mean()))
+                     .assign(level="all")])
+    ind.index.name = "group"
+    ind.reset_index().to_csv(AUD / "indicative_prevalence.csv", index=False)
+
+    print(df.status.value_counts().to_string())
+    print(comp.drop(columns=["region", "wave"]).sum().to_string())
+    print(ni_tab.to_string(index=False))
+    print(ind.round(2).to_string())
+
+
+if __name__ == "__main__":
+    main()
