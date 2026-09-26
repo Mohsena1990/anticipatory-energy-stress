@@ -60,8 +60,8 @@ from src.logging_utils import get_logger
 from src.ukhls_mapping import (
     WAVE_LETTERS, WAVE_FIELDWORK_START_YEAR, MISSING_CODES,
     HH_IDENTIFIER, HH_LINK_VARS, HH_TIMING_VARS, HH_GEOGRAPHY_VARS,
-    HH_FUEL_EXPENDITURE_VARS, HH_INCOME_VARS, HH_HOUSING_VARS,
-    HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
+    HH_FUEL_EXPENDITURE_VARS, FUEL_NONRESPONSE_CODES, FUEL_AMOUNT_VARS,
+    HH_INCOME_VARS, HH_HOUSING_VARS, HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
     HH_OBJECT_VARS, HH_FAMILY_VARS, HH_EQUIVALISATION_VARS,
     IND_IDENTIFIER, IND_HH_LINK, IND_FINANCIAL_VARS, IND_WELLBEING_VARS,
     IND_CONDITION_VARS, IND_PERSONAL_VARS, IND_ENERGY_VARS,
@@ -133,7 +133,13 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
     df = df.rename(columns={c: c[len(wave) + 1:] for c in present})
     df["wave"] = wave
 
-    numeric_cols = [c for c in df.columns if c not in ("wave",)]
+    # Keep item nonresponse distinguishable from -8 inapplicable for the fuel
+    # amounts: the generic recode below turns both into NaN.
+    for col in FUEL_AMOUNT_VARS:
+        if col in df.columns:
+            df[f"{col}_nr"] = df[col].isin(FUEL_NONRESPONSE_CODES)
+
+    numeric_cols = [c for c in df.columns if c not in ("wave",) and not c.endswith("_nr")]
     df = _recode_missing(df, numeric_cols)
 
     if "tenure_dv" in df.columns:
@@ -168,12 +174,15 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
         # duelpay/elecpay stays NaN instead of silently reading as "not prepay".
         duelpay_flag = np.where(duelpay.isna(), np.nan, (duelpay == 4).astype(float))
         elecpay_flag = np.where(elecpay.isna(), np.nan, (elecpay == 4).astype(float))
+        # Electricity-only households skip fuelduel (-8) and answer elecpay
+        # directly -- same routing as the A1 outcome.
+        elec_only = (df["fuelhave1"] == 1) & (df["fuelhave2"] == 0)
         prepay = pd.Series(
-            np.where(fuelduel == 1, duelpay_flag, np.where(fuelduel == 2, elecpay_flag, np.nan)),
+            np.where(fuelduel == 1, duelpay_flag,
+                     np.where((fuelduel == 2) | elec_only, elecpay_flag, np.nan)),
             index=df.index,
         )
         df["prepayment_meter"] = prepay.astype(float)
-        df.loc[fuelduel.isna(), "prepayment_meter"] = np.nan
 
     return df
 
@@ -423,61 +432,130 @@ def build_full_panel(waves: list[str] | None = None) -> pd.DataFrame:
 # STEP 5 — Fuel-to-income ratio
 # =============================================================================
 
+_MIN_PLAUSIBLE_ANNUAL_INCOME = 1200.0
+
+# Outcome variants (analysis_plan_rerun.md amendment A1). Suffix "" is the
+# primary outcome; the others are sensitivity / comparison versions.
+FUEL_OUTCOME_VARIANTS = ("", "_s1", "_s2", "_v1")
+
+
+def _routed_fuel_spend(df: pd.DataFrame, nonresp_as_zero: bool) -> pd.Series:
+    """Annual fuel spend following the UKHLS questionnaire routing.
+
+    fuelduel is asked only of households using BOTH electricity and gas, so
+    single-fuel households are routed straight to xpelecy / xpgasy. A required
+    amount that is item nonresponse gives NaN, or 0 when nonresp_as_zero
+    (the S1 lower bound). Structural -8 zeros (fuel not used) are 0.
+    """
+    def amount(col: str) -> pd.Series:
+        s = df.get(col, pd.Series(np.nan, index=df.index))
+        if nonresp_as_zero:
+            nr = df.get(f"{col}_nr", pd.Series(False, index=df.index))
+            s = s.where(~nr, 0.0)
+        return s
+
+    elec, gas = df["fuelhave1"] == 1, df["fuelhave2"] == 1
+    fuelduel = df["fuelduel"]
+    duel_nr = df.get("fuelduel_nr", pd.Series(False, index=df.index))
+
+    elec_gas = pd.Series(0.0, index=df.index)
+    both = elec & gas
+    elec_gas[both & (fuelduel == 1)] = amount("xpduely")
+    # Separate bills, or billing type unknown (xpgasy/xpelecy are then asked).
+    elec_gas[both & ((fuelduel == 2) | duel_nr)] = amount("xpgasy") + amount("xpelecy")
+    elec_gas[elec & ~gas] = amount("xpelecy")
+    elec_gas[gas & ~elec] = amount("xpgasy")
+
+    oil = pd.Series(0.0, index=df.index)
+    oil[df["fuelhave3"] == 1] = amount("xpoily")
+    other = pd.Series(0.0, index=df.index)
+    other[df["fuelhave4"] == 1] = amount("xpsfly")
+    return elec_gas + oil + other
+
+
+def _v1_fuel_spend(df: pd.DataFrame) -> pd.Series:
+    """The submitted-draft-v1 rule, kept only as a comparison column: drops
+    every household with fuelduel missing (incl. -8, i.e. not dual-fuel) and
+    zero-fills nonresponse on the separate/oil/other amounts."""
+    combined = df.get("xpduely", pd.Series(np.nan, index=df.index))
+    separate = (df.get("xpgasy", pd.Series(0.0, index=df.index)).fillna(0)
+                + df.get("xpelecy", pd.Series(0.0, index=df.index)).fillna(0))
+    fuelduel = df["fuelduel"]
+    elec_gas = pd.Series(
+        np.where(fuelduel == 1, combined, np.where(fuelduel == 2, separate, np.nan)),
+        index=df.index)
+    total = (elec_gas + df.get("xpoily", pd.Series(0.0, index=df.index)).fillna(0)
+             + df.get("xpsfly", pd.Series(0.0, index=df.index)).fillna(0))
+    total[elec_gas.isna()] = np.nan
+    return total
+
+
+def _fuel_outcome_exclusion(df: pd.DataFrame, primary_raw: pd.Series) -> pd.Series:
+    """First A1 exclusion reason per row ("in_scope" if none), in the order
+    used by the sample-flow reconciliation."""
+    elec, gas = df["fuelhave1"] == 1, df["fuelhave2"] == 1
+    oil, other = df["fuelhave3"] == 1, df["fuelhave4"] == 1
+    reason = pd.Series("in_scope", index=df.index)
+    reason[primary_raw.isna()] = "item_nonresponse"
+    reason[~elec & ~gas & (oil | other)] = "elec_not_reported_oil_or_other_only"
+    reason[gas & ~elec] = "elec_not_reported_gas_only"
+    reason[~elec & ~gas & ~oil & ~other] = "no_fuel_reported"
+    reason[df[["fuelhave1", "fuelhave2", "fuelhave3", "fuelhave4"]].isna().any(axis=1)] = \
+        "fuelhave_module_nonresponse"
+    return reason
+
+
+def _ratio(spend: pd.Series, annual_net_income: pd.Series) -> pd.Series:
+    # Implausible near-zero or negative incomes (< GBP 1,200/yr) are set to
+    # NaN; >100% of income is capped at 1.0 (kept as severe hardship).
+    ratio = spend / annual_net_income
+    ratio[annual_net_income < _MIN_PLAUSIBLE_ANNUAL_INCOME] = np.nan
+    return ratio.clip(upper=1.0)
+
+
 def compute_fuel_to_income(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Total annual fuel spend: combined gas+electricity bill (fuelduel==1)
-    OR separate gas+electricity spend (fuelduel==2), plus oil/other fuel
-    for off-grid heating. NaN when the billing-type question itself was
-    unanswered (not the same as a genuine zero).
+    Fuel-to-income ratio, amendment A1 (analysis_plan_rerun.md).
+
+    Primary (`fuel_to_income_ratio`): routing-aware spend, complete-case on
+    every required amount, electricity use reported.
+    `_s1`: lower bound -- item nonresponse amounts set to 0.
+    `_s2`: primary + households not reporting electricity (gas-only,
+           oil/other-only), spend as reported.
+    `_v1`: submitted-draft-v1 rule, for comparison only.
+    `fuel_outcome_exclusion` records why a row is outside the primary outcome.
     """
-    combined = df.get("xpduely", pd.Series(np.nan, index=df.index))
-    separate = (
-        df.get("xpgasy", pd.Series(0.0, index=df.index)).fillna(0)
-        + df.get("xpelecy", pd.Series(0.0, index=df.index)).fillna(0)
-    )
-    fuelduel = df.get("fuelduel", pd.Series(np.nan, index=df.index))
-    elec_gas_spend = pd.Series(
-        np.where(fuelduel == 1, combined, np.where(fuelduel == 2, separate, np.nan)),
-        index=df.index,
-    )
+    primary_raw = _routed_fuel_spend(df, nonresp_as_zero=False)
+    reason = _fuel_outcome_exclusion(df, primary_raw)
+    in_scope = reason == "in_scope"
+    elec_not_reported = reason.str.startswith("elec_not_reported")
 
-    oil = df.get("xpoily", pd.Series(0.0, index=df.index)).fillna(0)
-    other = df.get("xpsfly", pd.Series(0.0, index=df.index)).fillna(0)
-    total_fuel_spend = elec_gas_spend + oil + other
-    total_fuel_spend[elec_gas_spend.isna()] = np.nan
-    df["total_fuel_spend"] = total_fuel_spend
-
+    spend = {
+        "": primary_raw.where(in_scope),
+        "_s1": _routed_fuel_spend(df, nonresp_as_zero=True).where(
+            in_scope | (reason == "item_nonresponse")),
+        "_s2": primary_raw.where(in_scope | elec_not_reported),
+        "_v1": _v1_fuel_spend(df),
+    }
     annual_net_income = df.get("fihhmnnet1_dv", pd.Series(np.nan, index=df.index)) * 12
-    ratio = total_fuel_spend / annual_net_income
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        df[f"total_fuel_spend{suffix}"] = spend[suffix]
+        df[f"fuel_to_income_ratio{suffix}"] = _ratio(spend[suffix], annual_net_income)
 
-    # Guard against implausible near-zero-income denominators: a handful of
-    # rows report annual net income under GBP 1,200 (GBP 100/month) --
-    # almost certainly a transient reporting artifact (e.g. a month with
-    # unreported benefit income), not a real sustained income level. Left
-    # unguarded, dividing by these produces ratios up to 2,778x income,
-    # which silently destroys Pearson-correlation-based validation
-    # (discovered via Stage 3's own validation step) even though the
-    # binary high_fuel_vulnerable threshold below is unaffected by it.
-    _MIN_PLAUSIBLE_ANNUAL_INCOME = 1200.0
-    ratio[annual_net_income < _MIN_PLAUSIBLE_ANNUAL_INCOME] = np.nan
+    income_excluded = in_scope & df["fuel_to_income_ratio"].isna()
+    reason[income_excluded & annual_net_income.isna()] = "income_missing"
+    reason[income_excluded & annual_net_income.notna()] = "income_below_1200"
+    df["fuel_outcome_exclusion"] = reason
 
-    # Hard sanity cap: spending >100% of net income on fuel alone for a
-    # full year, while not physically impossible, is implausible at scale
-    # and affects only ~0.27% of rows -- winsorized rather than dropped so
-    # these households (real, severe hardship in most cases) stay in the
-    # sample as "very high" rather than becoming absurd outliers.
-    n_capped = int((ratio > 1.0).sum())
-    if n_capped:
-        log.info("fuel_to_income_ratio: capping %d rows (%.2f%%) at 1.0 "
-                  "(uncapped max was %.1f)", n_capped,
-                  100.0 * n_capped / ratio.notna().sum(), ratio.max())
-    ratio = ratio.clip(upper=1.0)
-
-    df["fuel_to_income_ratio"] = ratio
-
-    n_valid = int(ratio.notna().sum())
-    log.info("fuel_to_income_ratio: %d/%d valid (%.1f%%)",
-              n_valid, len(df), 100.0 * n_valid / len(df))
+    n_capped = int((primary_raw.where(in_scope) / annual_net_income)
+                   .where(annual_net_income >= _MIN_PLAUSIBLE_ANNUAL_INCOME).gt(1.0).sum())
+    log.info("fuel_to_income_ratio: %d rows capped at 1.0", n_capped)
+    for r, n in reason.value_counts().items():
+        log.info("fuel_outcome_exclusion: %-40s %7d", r, n)
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        n_valid = int(df[f"fuel_to_income_ratio{suffix}"].notna().sum())
+        log.info("fuel_to_income_ratio%-4s: %d/%d valid (%.1f%%)",
+                  suffix, n_valid, len(df), 100.0 * n_valid / len(df))
     return df
 
 
@@ -487,9 +565,12 @@ def build_target(df: pd.DataFrame) -> pd.DataFrame:
     high_fuel_vulnerable_relative: within-wave P75 version, for continuity
     with the old AEV_QUANTILE convention.
     """
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        r = df[f"fuel_to_income_ratio{suffix}"]
+        df[f"high_fuel_vulnerable{suffix}"] = (r >= FUEL_POVERTY_RATIO_THRESHOLD).astype("Int64")
+        df.loc[r.isna(), f"high_fuel_vulnerable{suffix}"] = pd.NA
+
     ratio = df["fuel_to_income_ratio"]
-    df["high_fuel_vulnerable"] = (ratio >= FUEL_POVERTY_RATIO_THRESHOLD).astype("Int64")
-    df.loc[ratio.isna(), "high_fuel_vulnerable"] = pd.NA
 
     wave_thresh = df.groupby("wave")["fuel_to_income_ratio"].transform(
         lambda x: x.quantile(FUEL_POVERTY_RELATIVE_QUANTILE)

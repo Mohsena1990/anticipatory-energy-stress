@@ -82,7 +82,19 @@ HH_FUEL_EXPENDITURE_VARS: list[str] = [
     "xpsfly",     # other/solid fuel annual spend
     "duelpay",    # combined-bill payment method (4=prepayment meter)
     "elecpay",    # electricity payment method (4=prepayment meter)
+    # Fuels used (1=mentioned). These define the questionnaire routing:
+    # fuelduel is asked only if elec AND gas are used, so fuelduel=-8 means
+    # "not dual-fuel", not missing (analysis_plan_rerun.md amendment A1).
+    "fuelhave1",  # electricity
+    "fuelhave2",  # gas
+    "fuelhave3",  # oil
+    "fuelhave4",  # other fuel, incl. solid fuel
 ]
+
+# Fuel amounts whose item nonresponse (-1 DK, -2 refused, -9 missing) must be
+# told apart from -8 inapplicable before the generic missing-code recode.
+FUEL_NONRESPONSE_CODES: list[int] = [-1, -2, -9]
+FUEL_AMOUNT_VARS: list[str] = ["fuelduel", "xpduely", "xpgasy", "xpelecy", "xpoily", "xpsfly"]
 
 HH_INCOME_VARS: list[str] = [
     "fihhmngrs_dv",   # gross household income, month before interview
