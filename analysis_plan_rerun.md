@@ -223,6 +223,49 @@ Both are given weighted (per-wave household `_xw` weight: `hhdenus_xw` in wave a
   - sensitivity and PPV at the top 5% and top 10% of predicted risk;
   - ΔAUC P1−P0 and P2−P1 with bootstrap CIs.
 
+### Amendment A6 (2026-09-26): Stage 6 specification, fixed before any Stage 6 code
+
+- **Transitions.** Consecutive-wave pairs t → t+1 linked by `hrpid`. Reference
+  persons appearing twice within a wave are excluded, as in v1. Outcome:
+  `high_fuel_vulnerable` (A1 primary) at t+1.
+- **Split.** Train on transitions a→b … l→m; validate on m→n and n→o.
+- **P0 (benchmark only, not merged into the main model):** `fuel_to_income_ratio`
+  and `high_fuel_vulnerable` at t.
+- **P1 (main model):** household predictors at t:
+  - `finnow`, `scghq1_dv`, `finfut_risk` (strain components separately, as in
+    Stage 3);
+  - `dvage`, `heatch`, `lone_parent`, `large_family`, `workless_household`;
+  - the four resource domain composites (OBJECT, CONDITION, PERSONAL, ENERGY),
+    rebuilt as in (a).
+- **P2 = P1 + `fes_magnitude_growth3`** for the household's t+1 interview month.
+  This is the December (Y_{t+1} − 1) vintage, published before the outcome year
+  begins. The t+1 interview month is a scheduling quantity, not outcome
+  information.
+  - *Sensitivity P2b:* P2 + `fes_delta_growth3` observed at wave t, on its own
+    common sample. It loses transitions whose wave-t interview was in 2009,
+    which have no FES.
+- **(a) Standardisation uses training-transition statistics only.**
+  - Continuous predictors are z-scored with training means and SDs.
+  - Resource composites are rebuilt: items z-scored with training statistics
+    (monetary items log(1 + max(x, 0)) first); the domain mean is taken where
+    ≥ 50% of items are observed; the domain score is re-standardised with
+    training statistics.
+  - FES terms are z-scored with training statistics.
+  - Binary predictors are left unscaled.
+- **(b) One common sample.** P0, P1 and P2 are fitted and compared on
+  transitions with the t+1 outcome and all P0, P1 and P2 predictors observed.
+  Report the number of linked transitions, the exclusions by reason, and N for
+  training and validation.
+- **Estimator.** Unpenalised logistic regression.
+- **Metrics (validation set).**
+  - ROC-AUC with a 95% CI from 2,000 bootstrap replicates resampling wave-t PSUs.
+  - PR-AUC and the prevalence baseline.
+  - Calibration slope (coefficient on logit p) and calibration-in-the-large
+    (intercept with logit p as an offset).
+  - AUC for each validation transition separately.
+  - Sensitivity and PPV at the top 5% and top 10% of predicted risk.
+  - Paired bootstrap ΔAUC for P1 − P0 and P2 − P1.
+
 ## Stage 7 — Scope
 
 - CVAE, fuzzy c-means and one-class SVM move to an appendix. No main-text claims
@@ -267,3 +310,8 @@ The work stops after each stage for approval.
 | 2026-09-26 | 4 | H1 supported if the R × Delta interaction is **negative** (p < 0.05) | **Supported if positive** (p < 0.05); significant negative = 'contrary to COR'; otherwise 'not supported'. Plus predicted Delta slopes at R p10/p50/p90 | Delta = forecast − realised and R is oriented higher = more resources, so COR buffering means resources flatten the negative Delta slope, i.e. a positive interaction. The original rule predates the fixed sign convention. Author decision | No: set before any Stage 4 H1 fit. Stage 3 main-effect Delta results had been seen |
 | 2026-09-26 | 3 | (not in plan) | Added sensitivity `sens_no_qualification`: the primary specification without `qfhigh_band` | Highest qualification is the only missing control for 26,925 of the 52,251 households lost to complete-case estimation (61%; 11.7% missing among 274,128 with outcome and FES). Author decision | Yes: the primary model had been seen |
 | 2026-09-26 | 3 | NI-oil decomposition reported as the share of log-odds | NI gap reported as **average marginal effects** (percentage points, NI vs South East, delta-method CIs with PSU-clustered covariance) for models a, b, b+rural, c, c+rural; log-odds share not used in the thesis. Also AME of oil. Per-SD comparison table of continuous predictors, with the equivalence scale flagged as partly mechanical | Author decision | Yes: Stage 3 ORs had been seen |
+| 2026-09-26 | 6 | P1 = P0 + social variables | **P0 is a benchmark only; P1 excludes current burden** (A6) | Author decision: compare social prediction against the current-burden benchmark rather than nesting it | Stage 3–5 results seen; no Stage 6 model fitted |
+| 2026-09-26 | 6 | P1 'financial strain' (composite) | Strain components entered separately in P1 (A6), consistent with the Stage 3 decision | Composite is not a coherent scale (α = 0.27) | No Stage 6 model fitted |
+| 2026-09-26 | 6 | P2 = P1 + FES (terms unspecified) | P2 = P1 + `fes_magnitude_growth3` at the t+1 interview month (Dec Y_{t+1} − 1 vintage); P2b adds `fes_delta_growth3` at t | Pre-specification of the FES term and its timing (author request) | No Stage 6 model fitted |
+| 2026-09-26 | 6 | Standardisation unspecified | All predictor standardisation and resource composites use training-transition statistics only (A6 (a)) | Avoid leakage from validation waves | No Stage 6 model fitted |
+| 2026-09-26 | 6 | Sample per model | One common sample for P0/P1/P2 (A6 (b)); N and exclusions reported | Comparability of metrics across models | No Stage 6 model fitted |
