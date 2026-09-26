@@ -1,0 +1,7 @@
+fes,tercile,n,fes_range,pct_vulnerable_weighted
+fes_magnitude_growth3,low,91376,-2.34 to -1.59,8.113962331109228
+fes_magnitude_growth3,middle,91376,-1.59 to -0.49,9.137515324294048
+fes_magnitude_growth3,high,91376,-0.49 to 6.47,8.763952052905804
+fes_delta_growth3,low,91376,-15.59 to -0.63,8.654319170568794
+fes_delta_growth3,middle,91376,-0.63 to 0.24,8.8319597615173
+fes_delta_growth3,high,91376,0.24 to 3.50,8.33797952512787
