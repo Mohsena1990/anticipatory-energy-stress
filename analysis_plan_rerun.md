@@ -162,10 +162,20 @@ Both are given weighted (per-wave household `_xw` weight: `hhdenus_xw` in wave a
     fixed in Stage 1.
 - **H1 sensitivity:** R including ENERGY. **[proposed]** Also a logit on
   `high_fuel_vulnerable` with the same terms.
-- **H1 decision rule [proposed]:**
-  - *Supported* if the interaction is negative with p < 0.05 in the primary model.
-  - *Contradicted* if it is positive with p < 0.05.
+- **H1 decision rule [proposed]:** ~~*Supported* if the interaction is negative with
+  p < 0.05; *contradicted* if positive with p < 0.05; *not supported* otherwise.~~
+  **Superseded 2026-09-26 (see §9):** the direction was written before FES Delta's
+  sign convention was fixed.
+  - **Current rule.** FES Delta = forecast − realised, and R is oriented so higher =
+    more resources. COR predicts a **positive** R × Delta interaction: resources
+    flatten the negative Delta slope.
+  - *Supported* if the interaction is positive with p < 0.05 under the primary
+    specification.
+  - *Contrary to COR* if it is negative with p < 0.05.
   - *Not supported* otherwise.
+  - Also report predicted Delta slopes, with 95% CIs, at low, median and high R
+    (10th, 50th and 90th percentiles of R in the estimation sample).
+  - Primary FES term = `fes_delta_growth3`.
   - Report the sensitivity results beside the primary, not in place of it.
 - Regenerate **only** the maps that depend on the resource score: the
   baseline-resource map and the resource × vulnerability hotspot map.
@@ -254,3 +264,4 @@ The work stops after each stage for approval.
 | 2026-09-26 | 2/5 | Interview timing from `interview_year`/`interview_month` (as in v1) | **These now come from the actual household interview date** (`intdatey`/`intdatem`), not the UKHLS *sample month* (`month`, the address issue month) that v1 used. Sample year/month are kept as `sample_year`/`sample_month`. Affects the FES vintage and month (Stage 2), the JRF time windows (Stage 5) and by-year tables. Only 24–75% of households per wave are interviewed in their sample month; 3.5–10% in a different calendar year. The interview date is missing for 7 rows (sample month used). 300 interviews fall in 2025 | Timing error found while attaching FES (2,468 wave-f households had no sample month) | No: found before any FES-dependent model; JRF and by-year tables rerun |
 | 2026-09-26 | 2/3/6 | Primary FES = 4-term index (3 growth z-terms + forecast uncertainty); growth-only as sensitivity | **Primary FES = growth-only 3-term index** (`fes_magnitude_growth3`, `fes_delta_growth3`) in every household model (Stages 3, 4-H1, 6). The 4-term index (`fes_magnitude`, `fes_delta`) becomes the sensitivity | v2 95% prediction-interval coverage is 28–48% (gas 32%, electricity 48%, carbon 28%), so the uncertainty term is mis-scaled. Author decision 2026-09-26, based on forecast diagnostics only | No: forecast diagnostics only; no household model had been fitted |
 | 2026-09-26 | 3 | Two-way clustering on PSU × 'interview month' | Second dimension = interview **year-month** (the unit at which FES varies, ≈185 clusters). Calendar month alone would give only 12 clusters. Observed-only `urban_dv` variant fitted for the primary specification only; the filled `urban_dv` block is fitted for every specification. Nested NI-oil models share one estimation sample within each block | Clarification of scope | No: set in the script before the first fit |
+| 2026-09-26 | 4 | H1 supported if the R × Delta interaction is **negative** (p < 0.05) | **Supported if positive** (p < 0.05); significant negative = 'contrary to COR'; otherwise 'not supported'. Plus predicted Delta slopes at R p10/p50/p90 | Delta = forecast − realised and R is oriented higher = more resources, so COR buffering means resources flatten the negative Delta slope, i.e. a positive interaction. The original rule predates the fixed sign convention. Author decision | No: set before any Stage 4 H1 fit. Stage 3 main-effect Delta results had been seen |
