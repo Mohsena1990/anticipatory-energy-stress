@@ -18,7 +18,12 @@ Sensitivities (reported beside the primary): R including ENERGY; logit on
 high_fuel_vulnerable (slopes on the log-odds scale); 4-term FES Delta.
 
 Outputs (outputs_v2/stage4/): h1_coefficients.csv, h1_slopes.csv,
-  h1_decision.csv
+  h1_decision.csv,
+  h1_buffering_bound.csv   largest buffering compatible with the primary
+                           interaction CI: slope difference R p90 - p10, per
+                           unit and per SD of Delta, in pp of income
+  h1_logit_prob_slopes.csv logit sensitivity: average marginal effect of Delta
+                           on P(vulnerable), pp per SD of Delta, at R p10/p50/p90
 """
 from __future__ import annotations
 
@@ -66,6 +71,25 @@ def fit(df: pd.DataFrame, r: str, d: str, y: str, est: str):
     return res, sub
 
 
+def logit_prob_slope(res, sub: pd.DataFrame, r: str, d: str, rv: float) -> tuple[float, float]:
+    """AME of Delta on P(y=1) with R fixed at rv (other terms observed):
+    mean[p(1-p)(b_D + b_RxD * rv)], delta-method SE (clustered covariance)."""
+    X = pd.DataFrame(res.model.exog, columns=res.model.exog_names)
+    X[r] = rv
+    X["RxD"] = rv * sub[d].values
+    b = res.params.values
+    pr = 1 / (1 + np.exp(-X.values @ b))
+    w = pr * (1 - pr)
+    k = res.params.index
+    s_ = res.params[d] + res.params["RxD"] * rv
+    est = float(np.mean(w * s_))
+    grad = (X.values * (w * (1 - 2 * pr) * s_)[:, None]).mean(axis=0)
+    grad[k.get_loc(d)] += w.mean()
+    grad[k.get_loc("RxD")] += w.mean() * rv
+    se = float(np.sqrt(grad @ res.cov_params().values @ grad))
+    return est, se
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     df = load()
@@ -93,6 +117,30 @@ def main() -> None:
                    "contrary to COR" if b < 0 and p < 0.05 else "not supported")
         decisions.append(dict(model=name, interaction=b, p=p, verdict=verdict,
                               governs_H1=(name == "primary"), n=int(res.nobs)))
+        if name == "primary":
+            r10, r90 = float(sub[r].quantile(0.10)), float(sub[r].quantile(0.90))
+            sd_d = float(sub[d].std())
+            ci_i = res.conf_int().loc["RxD"]
+            rows = []
+            for label, bi in [("point estimate", res.params["RxD"]), ("CI lower", ci_i[0]),
+                              ("CI upper (max buffering)", ci_i[1])]:
+                diff = bi * (r90 - r10)
+                rows.append(dict(interaction=label, b_RxD=bi, R_p10=r10, R_p90=r90, sd_delta=sd_d,
+                                 slope_diff_p90_minus_p10_per_unit_delta=diff,
+                                 slope_diff_per_sd_delta_ratio=diff * sd_d,
+                                 slope_diff_per_sd_delta_pp_income=100 * diff * sd_d,
+                                 slope_p10_per_sd_delta_pp_income=100 * sd_d * (res.params[d] + res.params["RxD"] * r10)))
+            pd.DataFrame(rows).to_csv(OUT / "h1_buffering_bound.csv", index=False)
+        if est == "logit":
+            sd_d = float(sub[d].std())
+            prob = []
+            for q in [0.10, 0.50, 0.90]:
+                rv = float(sub[r].quantile(q))
+                e, se_ = logit_prob_slope(res, sub, r, d, rv)
+                prob.append(dict(model=name, R_percentile=int(q * 100), R_value=rv, sd_delta=sd_d,
+                                 pp_per_sd_delta=100 * e * sd_d, ci_low=100 * (e - 1.96 * se_) * sd_d,
+                                 ci_high=100 * (e + 1.96 * se_) * sd_d))
+            pd.DataFrame(prob).to_csv(OUT / "h1_logit_prob_slopes.csv", index=False)
     pd.DataFrame(coefs).to_csv(OUT / "h1_coefficients.csv", index=False)
     pd.DataFrame(slopes).to_csv(OUT / "h1_slopes.csv", index=False)
     pd.DataFrame(decisions).to_csv(OUT / "h1_decision.csv", index=False)

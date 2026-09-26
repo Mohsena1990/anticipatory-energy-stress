@@ -108,7 +108,7 @@ SPEC: dict[str, dict] = {
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"stage4/h1_slopes.csv", "stage3/year_fe.csv", "fes_eval/thesis_table_forecast_accuracy.csv",
+EXEMPT = {"stage4/h1_slopes.csv", "stage4/h1_buffering_bound.csv", "stage4/h1_logit_prob_slopes.csv", "stage3/year_fe.csv", "fes_eval/thesis_table_forecast_accuracy.csv",
           "fes_eval/appendix_table_mase.csv", "fes_eval/thesis_table_relrmse_by_year.csv",
           "fes_eval/forecast_accuracy_by_year.csv", "fes_eval/forecast_accuracy_pooled.csv",
           "fes_eval/diebold_mariano.csv", "fes_eval/uncertainty_pi.csv", "fes_eval/model_wins.csv",
