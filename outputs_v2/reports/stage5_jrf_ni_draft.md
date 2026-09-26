@@ -11,16 +11,16 @@ Fuel vulnerability (annual fuel spend ≥ 10% of net household income; routing-c
 - **Tenure** agrees most closely (Spearman ρ = 0.80, four categories): social renters 14.3% and mortgage holders 5.9%. The exception is **outright owners**: third of four on JRF income poverty (14%) but second on fuel vulnerability, at 13.8% (95% CI 12.7–15.0), above private renters (11.4%, JRF 35%).
 - **Work status, family type and disability** rank in the same order as JRF: workless 22.5% vs in work 7.0%; lone parent 20.8% vs couple with children 7.8%; households with a disabled adult 14.3% vs none 9.5%.
 - **Region** shows no agreement (ρ = -0.10 for all 12 regions; 0.18 excluding NI). The earlier finding that other regions track income poverty once NI is removed does not hold on the corrected outcome with time-matched, weighted rates.
-- **Ethnicity** agrees weakly (ρ = 0.26). Black Caribbean households have the highest fuel vulnerability, 17.8% (95% CI 10.2–26.6), while Bangladeshi households, highest on JRF income poverty (56%), are at 11.3% (n = 223). Wide intervals: not a basis for group targeting.
+- **Ethnicity**: the comparison is inconclusive (ρ = 0.26; confidence intervals are wide for every minority group). Black Caribbean households have the highest point estimate, 17.8% (95% CI 10.2–26.6), while Bangladeshi households, highest on JRF income poverty (56%), are at 11.3% (n = 223). The intervals overlap too widely to establish either agreement or divergence; not a basis for group targeting.
 
 ## Northern Ireland
 
 - NI has the highest rate of the 12 regions: 14.4% (95% CI 12.1–17.0), rank 1 (95% CI 1–2), ranked first in 95% of bootstrap replicates. The next region, Wales, is at 11.4% (9.4–13.6); the lowest, London, at 6.7%.
 - This holds under the lower-bound outcome (13.2%, P(rank 1) = 0.99) and in the April 2020–March 2023 window (14.2%, P(rank 1) = 1.00).
-- JRF places NI lowest of the 12 regions for income poverty (17%), so NI's high fuel vulnerability is not explained by higher income poverty.
+- NI's high fuel vulnerability does not reflect higher income poverty: NI has the lowest JRF income-poverty rate of the UK nations (17%).
 - Heating oil is the main fuel-system difference: 73% of NI households use oil (weighted, primary window), against 0.3–10.6% in other regions (pooled, unweighted). Within NI, oil-heated households are at 18.2% (95% CI 14.8–21.7) against 8.6% (95% CI 5.7–11.9) for other NI households.
 - In the driver model (interviews 2010–2025, n = 221,778), the NI gap relative to the South East is 6.8 percentage points (5.8–7.9) with region fixed effects only. Adding oil use reduces it to 2.4 pp (1.4–3.4); oil itself is associated with 5.8 pp higher probability. Controlling for rural location leaves the NI gap at 2.5 pp and the oil effect at 4.9 pp. The oil penalty is no larger in NI than elsewhere (NI × oil model: NI gap 2.6 pp).
-- Reading: about 65% of NI's gap over the South East is associated with heating-oil dependence, a fuel-system exposure that income-poverty measures do not capture. A residual gap of about 2.5 pp remains after oil, rurality and the household controls.
+- Reading: around two-thirds of NI's excess risk (6.8 → 2.4 pp) is accounted for by heating-oil use, a fuel-system exposure that income-poverty measures do not capture; a gap of about 2.4–2.5 pp remains after controlling for oil and rurality.
 
 ## Boundaries
 

@@ -356,11 +356,13 @@ def write_report(t52, oil, ame, regci, nioil, ag) -> None:
         f"{rho('region','excl. Northern Ireland'):.2f} excluding NI). The earlier finding that other "
         "regions track income poverty once NI is removed does not hold on the corrected outcome with "
         "time-matched, weighted rates.",
-        f"- **Ethnicity** agrees weakly (ρ = {rho('ethnicity'):.2f}). Black Caribbean households have the "
-        f"highest fuel vulnerability, {fmt_ci(g('ethnicity','Black Caribbean').pct, g('ethnicity','Black Caribbean').ci_low, g('ethnicity','Black Caribbean').ci_high)}, "
+        f"- **Ethnicity**: the comparison is inconclusive (ρ = {rho('ethnicity'):.2f}; confidence intervals are "
+        "wide for every minority group). Black Caribbean households have the highest point estimate, "
+        f"{fmt_ci(g('ethnicity','Black Caribbean').pct, g('ethnicity','Black Caribbean').ci_low, g('ethnicity','Black Caribbean').ci_high)}, "
         f"while Bangladeshi households, highest on JRF income poverty (56%), are at "
         f"{g('ethnicity','Bangladeshi').pct:.1f}% (n = {int(g('ethnicity','Bangladeshi').n)}). "
-        "Wide intervals: not a basis for group targeting.",
+        "The intervals overlap too widely to establish either agreement or divergence; not a basis for group "
+        "targeting.",
         "",
         "## Northern Ireland",
         "",
@@ -373,8 +375,8 @@ def write_report(t52, oil, ame, regci, nioil, ag) -> None:
         f"- This holds under the lower-bound outcome ({nis1.loc['primary','pct_weighted']:.1f}%, P(rank 1) = "
         f"{nis1.loc['primary','p_rank1']:.2f}) and in the April 2020–March 2023 window "
         f"({ni.loc['sensitivity','pct_weighted']:.1f}%, P(rank 1) = {ni.loc['sensitivity','p_rank1']:.2f}).",
-        "- JRF places NI lowest of the 12 regions for income poverty (17%), so NI's high fuel vulnerability "
-        "is not explained by higher income poverty.",
+        "- NI's high fuel vulnerability does not reflect higher income poverty: NI has the lowest JRF "
+        "income-poverty rate of the UK nations (17%).",
         f"- Heating oil is the main fuel-system difference: {w.oil_share_pct_weighted:.0f}% of NI households "
         f"use oil (weighted, primary window), against {osr.min():.1f}–{osr.max():.1f}% in other regions (pooled, unweighted). "
         f"Within NI, oil-heated households are at "
@@ -390,10 +392,10 @@ def write_report(t52, oil, ame, regci, nioil, ag) -> None:
         f"location leaves the NI gap at {A('ni_b_oil_rural_filled').ame_pp:.1f} pp and the oil effect at "
         f"{A('ni_b_oil_rural_filled','oil vs no oil').ame_pp:.1f} pp. The oil penalty is no larger in NI than "
         f"elsewhere (NI × oil model: NI gap {A('ni_c_ni_x_oil_filled').ame_pp:.1f} pp).",
-        f"- Reading: about {100*(1-A('ni_b_oil_filled').ame_pp/A('ni_a_regionFE_filled').ame_pp):.0f}% of NI's "
-        "gap over the South East is associated with heating-oil dependence, a fuel-system exposure that "
-        f"income-poverty measures do not capture. A residual gap of about {A('ni_b_oil_rural_filled').ame_pp:.1f} pp "
-        "remains after oil, rurality and the household controls.",
+        f"- Reading: around two-thirds of NI's excess risk ({A('ni_a_regionFE_filled').ame_pp:.1f} → "
+        f"{A('ni_b_oil_filled').ame_pp:.1f} pp) is accounted for by heating-oil use, a fuel-system exposure that "
+        f"income-poverty measures do not capture; a gap of about {A('ni_b_oil_filled').ame_pp:.1f}–"
+        f"{A('ni_b_oil_rural_filled').ame_pp:.1f} pp remains after controlling for oil and rurality.",
         "",
         "## Boundaries",
         "",
