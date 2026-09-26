@@ -14,6 +14,7 @@ Outputs (outputs_v2/descriptives/):
                                   ethnicity, disability (pooled over waves)
   prevalence_region_by_year.csv   interview year x region, masked n<100
   strain_structure.csv            strain item correlations, alpha, coverage
+  strain_item_correlations.csv    finnow, finfut_risk, GHQ, xphsdba, age (household level)
   trend_primary_with_s1_band.{png,pdf}
 """
 from __future__ import annotations
@@ -48,7 +49,7 @@ def load() -> pd.DataFrame:
              "family_composition_group", "employment_group", "ethnicity_group",
              "disability_free", "hh_xw", "fuelhave3", "fuel_to_income_ratio",
              "financial_strain_score", "financial_strain_score_v1",
-             "financial_strain_score_lag1", "finnow", "finfut_risk", "scghq1_dv", "xphsdba"]
+             "financial_strain_score_lag1", "finnow", "finfut_risk", "scghq1_dv", "xphsdba", "dvage"]
             + list(VARIANTS.values()))
     df = pd.read_csv(UKHLS_PANEL, usecols=lambda c: c in cols)
     df["region"] = df.gor_dv.map(GOR)
@@ -160,6 +161,9 @@ def main() -> None:
     groups.to_csv(OUT / "prevalence_by_group.csv", index=False)
     region_by_year(df).to_csv(OUT / "prevalence_region_by_year.csv", index=False)
     strain_structure(df).to_csv(OUT / "strain_structure.csv", index=False)
+    items = ["finnow", "finfut_risk", "scghq1_dv", "xphsdba", "dvage"]
+    pd.concat({"pearson": df[items].corr(), "spearman": df[items].corr("spearman")}).round(4).to_csv(
+        OUT / "strain_item_correlations.csv")
 
     pd.set_option("display.width", 200)
     cols = ["wave", "start_year"] + [f"{v}_pct_weighted" for v in VARIANTS] + ["primary_pct_unweighted", "primary_n"]

@@ -1,0 +1,11 @@
+,,finnow,finfut_risk,scghq1_dv,xphsdba,dvage
+pearson,finnow,1.0,0.0233,0.3489,0.3084,-0.2133
+pearson,finfut_risk,0.0233,1.0,0.1026,-0.0368,0.3095
+pearson,scghq1_dv,0.3489,0.1026,1.0,0.1664,-0.0804
+pearson,xphsdba,0.3084,-0.0368,0.1664,1.0,-0.1448
+pearson,dvage,-0.2133,0.3095,-0.0804,-0.1448,1.0
+spearman,finnow,1.0,0.0077,0.3129,0.2719,-0.2184
+spearman,finfut_risk,0.0077,1.0,0.0868,-0.0423,0.3285
+spearman,scghq1_dv,0.3129,0.0868,1.0,0.1406,-0.0981
+spearman,xphsdba,0.2719,-0.0423,0.1406,1.0,-0.155
+spearman,dvage,-0.2184,0.3285,-0.0981,-0.155,1.0
