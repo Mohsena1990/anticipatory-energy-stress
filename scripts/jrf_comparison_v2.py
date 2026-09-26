@@ -16,8 +16,9 @@ Outputs (outputs_v2/jrf/):
   jrf_comparison.csv        category-level JRF vs UKHLS (weighted + unweighted)
   jrf_agreement.csv         Spearman/Pearson per dimension (weighted rates)
   ni_oil.csv                NI oil share and oil vs non-oil rates
-  region_window_ci.csv      weighted regional rates in the region window
-                            (Apr 2020-Mar 2023) with PSU-bootstrap 95% CIs
+  region_window_ci.csv      weighted regional rates, primary window (Apr 2021-
+                            Mar 2023) and sensitivity (Apr 2020-Mar 2023),
+                            with PSU-bootstrap 95% CIs
                             and rank distributions (1 = highest)
 
 Bootstrap: 2,000 replicates resampling primary sampling units (psu) with
@@ -46,7 +47,8 @@ GOR = {1: "North East", 2: "North West", 3: "Yorkshire and the Humber", 4: "East
 TENURE = {1: "Owned outright", 2: "Buying with mortgage", 3: "Social renting", 4: "Social renting",
           5: "Private renting", 6: "Private renting", 7: "Private renting"}
 
-FY_2020_23 = ("2020-04", "2023-03")
+FY_2021_23 = ("2021-04", "2023-03")   # DWP 3-year averages exclude 2020/21
+FY_2020_23 = ("2020-04", "2023-03")   # sensitivity window
 FY_2022_23 = ("2022-04", "2023-03")
 
 JRF = {
@@ -56,17 +58,19 @@ JRF = {
                 "South East": 19, "South West": 19, "Wales": 21, "Scotland": 21,
                 "Northern Ireland": 17},
         population="People (all ages)", measure="Relative poverty, AHC",
-        period="'2021–2023' (HBAI 3-year average, FY 2020/21–2022/23)", source="Table 6, p.51",
-        window=FY_2020_23, ukhls_unit="Household (gor_dv)",
+        period="'2021–2023': HBAI '3-year' average of FY 2021/22 and 2022/23 only (DWP excludes 2020/21)",
+        source="Table 6, p.51; exclusion of 2020/21: note p.43, Annex p.162",
+        window=FY_2021_23, sensitivity_window=FY_2020_23, ukhls_unit="Household (gor_dv)",
         ukhls_definition="Region of household",
-        notes="Table title reads 2021–2023; read as HBAI 3-year average ending 2022/23. "
-              "JRF 'East' = East of England."),
+        notes="JRF 'East' = East of England. Sensitivity window adds Apr 2020-Mar 2021."),
     "ethnicity": dict(
         values={"White": 19, "Pakistani": 49, "Bangladeshi": 56, "Black African": 40,
                 "Black Caribbean": 30, "Any other Asian background": 34},
         population="People in households, by ethnicity of household head",
-        measure="Relative poverty, AHC", period="FY 2020/21–2022/23 (3-year average)",
-        source="p.9 and p.42 (text); Figure 13, p.43", window=FY_2020_23,
+        measure="Relative poverty, AHC",
+        period="FY 2021/22 and 2022/23 (text says 2020/21-2022/23; note p.43: 2020/21 excluded)",
+        source="p.9 and p.42 (text); Figure 13 and note, p.43; Annex p.162",
+        window=FY_2021_23, sensitivity_window=FY_2020_23,
         ukhls_unit="Household (ethnicity of household reference person)",
         ukhls_definition="ethnicity_group of HRP",
         notes="Only categories with a rate stated in JRF text are compared."),
@@ -160,26 +164,31 @@ def window_rate(g: pd.DataFrame, flag: str) -> tuple[float, float, int]:
 def compare(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     meta, rows, agree = [], [], []
     for dim, spec in JRF.items():
-        lo, hi = spec["window"]
+      windows = [("primary", spec["window"])]
+      if "sensitivity_window" in spec:
+        windows.append(("sensitivity", spec["sensitivity_window"]))
+      for window_label, (lo, hi) in windows:
         win = df[(df.ym >= lo) & (df.ym <= hi)]
         for cat, jrf_val in spec["values"].items():
             g = win[win[dim] == cat]
             w, u, n = window_rate(g, "high_fuel_vulnerable")
             s1w, _, _ = window_rate(g, "high_fuel_vulnerable_s1")
             masked = n < MIN_CELL_N
-            rows.append(dict(dimension=dim, category=cat, jrf_poverty_rate_pct=jrf_val,
+            rows.append(dict(dimension=dim, window=window_label, ukhls_window=f"{lo} to {hi}",
+                             category=cat, jrf_poverty_rate_pct=jrf_val,
                              ukhls_n=n, fuel_vuln_pct_weighted=np.nan if masked else w,
                              fuel_vuln_pct_unweighted=np.nan if masked else u,
                              fuel_vuln_s1_pct_weighted=np.nan if masked else s1w,
                              waves_in_window=",".join(sorted(g.wave.unique())), masked=masked))
-        meta.append(dict(dimension=dim, jrf_population=spec["population"], jrf_measure=spec["measure"],
+        meta.append(dict(dimension=dim, window=window_label,
+                         jrf_population=spec["population"], jrf_measure=spec["measure"],
                          jrf_period=spec["period"], jrf_source=spec["source"],
                          ukhls_window=f"interviews {lo} to {hi}", ukhls_unit=spec["ukhls_unit"],
                          ukhls_definition=spec["ukhls_definition"],
                          ukhls_waves=",".join(sorted(win.wave.unique())),
                          n_categories=len(spec["values"]), notes=spec["notes"]))
     comp = pd.DataFrame(rows)
-    for dim, sub in comp.groupby("dimension", sort=False):
+    for (dim, window_label), sub in comp.groupby(["dimension", "window"], sort=False):
         for label, s in [("all", sub), ("excl. Northern Ireland", sub[sub.category != "Northern Ireland"])]:
             if label != "all" and dim != "region":
                 continue
@@ -189,7 +198,7 @@ def compare(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
             r = stats.pearsonr(s.jrf_poverty_rate_pct, s.fuel_vuln_pct_weighted)[0] if k > 2 else np.nan
             same_order = (np.sign(np.diff(s.jrf_poverty_rate_pct.values))
                           == np.sign(np.diff(s.fuel_vuln_pct_weighted.values))).all() if k == 2 else np.nan
-            agree.append(dict(dimension=dim, subset=label, n_categories=k, spearman_rho=rho,
+            agree.append(dict(dimension=dim, window=window_label, subset=label, n_categories=k, spearman_rho=rho,
                               pearson_r=r, two_group_same_direction=same_order))
     return pd.DataFrame(meta), comp, pd.DataFrame(agree)
 
@@ -204,8 +213,9 @@ def load_psu() -> pd.DataFrame:
     return pd.concat(frames)
 
 
-def region_window_ci(df: pd.DataFrame, n_boot: int = 2000, seed: int = 20260926) -> pd.DataFrame:
-    lo, hi = FY_2020_23
+def region_window_ci(df: pd.DataFrame, window: tuple[str, str], window_label: str,
+                     n_boot: int = 2000, seed: int = 20260926) -> pd.DataFrame:
+    lo, hi = window
     regions = list(GOR.values())
     out = []
     for flag, label in [("high_fuel_vulnerable", "primary"), ("high_fuel_vulnerable_s1", "s1_lower_bound")]:
@@ -233,7 +243,7 @@ def region_window_ci(df: pd.DataFrame, n_boot: int = 2000, seed: int = 20260926)
         ranks = (-boots).argsort(axis=1).argsort(axis=1) + 1
         point_rank = (-point).argsort().argsort() + 1
         for i, r in enumerate(regions):
-            out.append(dict(outcome=label, region=r, n=int(win[win.region == r].shape[0]),
+            out.append(dict(window=window_label, ukhls_window=f"{lo} to {hi}", outcome=label, region=r, n=int(win[win.region == r].shape[0]),
                             n_psu=int((N.reshape(len(psus), len(regions), n_w)[:, i, :].sum(axis=1) > 0).sum()),
                             pct_weighted=point[i],
                             ci95_low=np.percentile(boots[:, i], 2.5), ci95_high=np.percentile(boots[:, i], 97.5),
@@ -249,7 +259,8 @@ def ni_oil(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     ni = df[df.region == "Northern Ireland"]
     for label, sub in [("all waves (wave-mean)", ni),
-                       ("FY 2020/21-2022/23 window", ni[(ni.ym >= FY_2020_23[0]) & (ni.ym <= FY_2020_23[1])])]:
+                       ("primary window Apr 2021-Mar 2023", ni[(ni.ym >= FY_2021_23[0]) & (ni.ym <= FY_2021_23[1])]),
+                       ("sensitivity window Apr 2020-Mar 2023", ni[(ni.ym >= FY_2020_23[0]) & (ni.ym <= FY_2020_23[1])])]:
         valid = sub[sub.fuelhave3.notna()]
         share_u = 100 * (valid.fuelhave3 == 1).mean()
         share_w = np.average([np.average(gw.fuelhave3 == 1, weights=gw.hh_xw)
@@ -278,9 +289,10 @@ def main() -> None:
     ni = ni_oil(df)
     ni.to_csv(OUT / "ni_oil.csv", index=False)
     ni.attrs["other_regions"].to_csv(OUT / "oil_share_by_region.csv", index=False)
-    ci = region_window_ci(df)
+    ci = pd.concat([region_window_ci(df, FY_2021_23, "primary"),
+                    region_window_ci(df, FY_2020_23, "sensitivity")], ignore_index=True)
     ci.to_csv(OUT / "region_window_ci.csv", index=False)
-    print(ci.sort_values(["outcome", "rank"]).round(2).to_string(index=False))
+    print(ci.sort_values(["window", "outcome", "rank"]).round(2).to_string(index=False))
 
     pd.set_option("display.width", 220)
     print(meta[["dimension", "jrf_period", "ukhls_window", "ukhls_waves"]].to_string(index=False))
