@@ -124,6 +124,10 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
     prefixed = [f"{wave}_{c}" for c in wanted_bare]
     available = _available_columns(path)
     present = [c for c in prefixed if c in available]
+    # Household cross-sectional weight: name varies by wave (hhdenus_xw,
+    # hhdenub_xw, hhdenui_xw, hhdeng2_xw) -- loaded as `hh_xw`.
+    xw_cols = sorted(c for c in available if c.startswith(f"{wave}_") and c.endswith("_xw"))
+    present += xw_cols[:1]
     missing = sorted(set(prefixed) - set(present))
     if missing:
         log.debug("wave %s hhresp: %d requested vars absent (%s)",
@@ -131,6 +135,9 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
 
     df = pd.read_stata(path, columns=present, convert_categoricals=False)
     df = df.rename(columns={c: c[len(wave) + 1:] for c in present})
+    if xw_cols:
+        df = df.rename(columns={xw_cols[0][len(wave) + 1:]: "hh_xw"})
+        df["hh_xw_name"] = xw_cols[0][len(wave) + 1:]
     df["wave"] = wave
 
     # Keep item nonresponse distinguishable from -8 inapplicable for the fuel
@@ -634,23 +641,49 @@ def _normalize_01(s: pd.Series) -> pd.Series:
     return (s - lo) / (hi - lo)
 
 
+STRAIN_ITEMS = ["finnow", "finfut_risk", "scghq1_dv"]
+STRAIN_ITEMS_V1 = STRAIN_ITEMS + ["xphsdba"]
+
+
 def build_financial_strain_composite(df: pd.DataFrame) -> pd.DataFrame:
     """
-    One combined financial/psychological strain composite (context/feature,
-    NOT the target): finnow + finfut_risk + GHQ distress + bill arrears,
-    each min-max normalized across the full panel, row-mean (missing-aware).
-    UKHLS lacks item batteries as rich as ENABLE's per-dimension blocks, so
-    this collapses the old 4-construct COR design into a single score.
+    Financial/psychological strain: row mean (missing-aware) of min-max
+    normalised items (analysis_plan_rerun.md Stage 3).
+
+    financial_strain_score       primary: finnow + finfut_risk + GHQ distress.
+                                 Bill arrears (xphsdba) is left out because
+                                 it already enters the driver model as
+                                 bill_security.
+    financial_strain_score_v1    submitted-draft-v1 version incl. xphsdba
+                                 (sensitivity A).
+    financial_strain_score_lag1  the same household's primary strain at the
+                                 previous wave, linked by hrpid exactly as
+                                 Stage 5 links transitions (sensitivity B).
     """
-    components = []
-    for col in ["finnow", "finfut_risk", "scghq1_dv", "xphsdba"]:
-        if col in df.columns:
-            components.append(_normalize_01(df[col]))
-    if not components:
+    norm = {c: _normalize_01(df[c]) for c in STRAIN_ITEMS_V1 if c in df.columns}
+    if not norm:
         log.warning("No components available for financial_strain_score")
-        df["financial_strain_score"] = np.nan
+        for c in ["financial_strain_score", "financial_strain_score_v1", "financial_strain_score_lag1"]:
+            df[c] = np.nan
         return df
-    df["financial_strain_score"] = pd.concat(components, axis=1).mean(axis=1)
+    df["financial_strain_score"] = pd.concat(
+        [norm[c] for c in STRAIN_ITEMS if c in norm], axis=1).mean(axis=1)
+    df["financial_strain_score_v1"] = pd.concat(list(norm.values()), axis=1).mean(axis=1)
+
+    df["financial_strain_score_lag1"] = np.nan
+    if "hrpid" in df.columns:
+        next_wave = {w: WAVE_LETTERS[i + 1] for i, w in enumerate(WAVE_LETTERS[:-1])}
+        prev = (df[["wave", "hrpid", "financial_strain_score"]]
+                .dropna(subset=["hrpid"]).drop_duplicates(subset=["wave", "hrpid"], keep=False))
+        prev = prev.assign(wave=prev["wave"].map(next_wave)).dropna(subset=["wave"])
+        lag = df[["wave", "hrpid"]].merge(
+            prev.rename(columns={"financial_strain_score": "lag"}),
+            on=["wave", "hrpid"], how="left")["lag"]
+        df["financial_strain_score_lag1"] = lag.values
+    log.info("financial_strain_score: %d valid | _v1: %d | _lag1: %d",
+             df["financial_strain_score"].notna().sum(),
+             df["financial_strain_score_v1"].notna().sum(),
+             df["financial_strain_score_lag1"].notna().sum())
     return df
 
 
