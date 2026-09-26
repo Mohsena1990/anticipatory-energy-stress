@@ -1,0 +1,5 @@
+model,interaction,p,verdict,governs_H1,n
+primary,-3.375886740674436e-05,0.16266442740348064,not supported,True,269372
+sens_R_with_energy,1.803627092488418e-05,0.40016556637323253,not supported,False,269372
+sens_logit_binary,-0.003519177661416503,0.0009594699730071167,contrary to COR,False,269372
+sens_fes_4term,-6.9911402047625e-06,0.755302808905708,not supported,False,269372

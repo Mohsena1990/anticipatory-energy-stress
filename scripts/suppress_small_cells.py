@@ -96,6 +96,8 @@ SPEC: dict[str, dict] = {
     "stage3/thesis_table_primary.csv": dict(counts=["n"]),
     "stage3/thesis_table_per_sd.csv": dict(counts=["n"]),
     "stage3/ni_oil_ame.csv": dict(counts=["n"]),
+    "stage4/h1_coefficients.csv": dict(counts=["n", "n_psu"]),
+    "stage4/h1_decision.csv": dict(counts=["n"]),
     "descriptives/prevalence_by_interview_year.csv": dict(
         counts=["primary_n", "s1_lower_bound_n"],
         rates={"primary_pct_weighted": ("primary_n", 100),
@@ -104,7 +106,7 @@ SPEC: dict[str, dict] = {
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"stage3/year_fe.csv", "fes_eval/thesis_table_forecast_accuracy.csv",
+EXEMPT = {"stage4/h1_slopes.csv", "stage3/year_fe.csv", "fes_eval/thesis_table_forecast_accuracy.csv",
           "fes_eval/appendix_table_mase.csv", "fes_eval/thesis_table_relrmse_by_year.csv",
           "fes_eval/forecast_accuracy_by_year.csv", "fes_eval/forecast_accuracy_pooled.csv",
           "fes_eval/diebold_mariano.csv", "fes_eval/uncertainty_pi.csv", "fes_eval/model_wins.csv",
