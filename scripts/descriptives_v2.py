@@ -15,7 +15,9 @@ Outputs (outputs_v2/descriptives/):
   prevalence_region_by_year.csv   interview year x region, masked n<100
   strain_structure.csv            strain item correlations, alpha, coverage
   strain_item_correlations.csv    finnow, finfut_risk, GHQ, xphsdba, age (household level)
-  trend_primary_with_s1_band.{png,pdf}
+  trend_primary_with_s1_band.{png,pdf}          main: by wave, fieldwork-period labels
+  prevalence_by_interview_year.csv
+  trend_by_interview_year_supplementary.{png,pdf}
 """
 from __future__ import annotations
 
@@ -68,7 +70,11 @@ def wrate(flag: pd.Series, w: pd.Series) -> float:
 def by_wave(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for wave, g in df.groupby("wave"):
+        yrs = g.interview_year.dropna()
         r = {"wave": wave, "start_year": 2009 + "abcdefghijklmno".index(wave),
+             # 1st-99th percentile of interview years: excludes a handful of
+             # very early/late interviews that would overstate the period.
+             "fieldwork_first_year": int(yrs.quantile(0.01)), "fieldwork_last_year": int(yrs.quantile(0.99)),
              "n_households": len(g), "n_zero_weight": int((g.hh_xw == 0).sum())}
         for name, col in VARIANTS.items():
             f = g[col]
@@ -124,21 +130,61 @@ def strain_structure(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def trend_figure(w: pd.DataFrame) -> None:
+def by_interview_year(df: pd.DataFrame) -> pd.DataFrame:
+    """Same window estimator as the JRF comparison: per-wave weighted rates
+    among that year's interviews, averaged by in-year n."""
+    rows = []
+    for yr, g in df.groupby("interview_year"):
+        r = {"interview_year": int(yr), "waves": ",".join(sorted(g.wave.unique()))}
+        for name, col in [("primary", "high_fuel_vulnerable"), ("s1_lower_bound", "high_fuel_vulnerable_s1")]:
+            gg = g[g[col].notna() & (g.hh_xw > 0)]
+            parts = [(np.average(x[col], weights=x.hh_xw), len(x)) for _, x in gg.groupby("wave")]
+            r[f"{name}_n"] = int(g[col].notna().sum())
+            r[f"{name}_pct_weighted"] = (100 * np.average([a for a, _ in parts], weights=[b for _, b in parts])
+                                         if parts else np.nan)
+        rows.append(r)
+    return pd.DataFrame(rows)
+
+
+def trend_by_year_figure(y: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(8.5, 4.2))
+    full = y[y.primary_n >= 1000]
+    ax.fill_between(full.interview_year, full.s1_lower_bound_pct_weighted, full.primary_pct_weighted,
+                    color="#2E5077", alpha=0.18, lw=0, label="Lower bound (S1: non-response amounts counted as £0)")
+    ax.plot(full.interview_year, full.primary_pct_weighted, color="#2E5077", lw=2.2, marker="o", ms=4,
+            label="Primary (complete-case, routing-corrected)")
+    part = y[y.primary_n < 1000]
+    if not part.empty:
+        ax.plot(part.interview_year, part.primary_pct_weighted, ls="none", marker="o", ms=5, mfc="white",
+                mec="#2E5077", label=f"Partial year (n < 1,000)")
+    ax.set_xlabel("Interview year (actual household interview date)")
+    ax.set_ylabel("% households with fuel spend ≥ 10% of net income\n(weighted)")
+    ax.set_xticks(y.interview_year)
+    ax.tick_params(axis="x", labelsize=8, rotation=45)
+    ax.grid(axis="y", color="#EAECEE")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.set_ylim(0, y.primary_pct_weighted.max() * 1.15)
+    ax.legend(frameon=False, fontsize=8, loc="lower left")
+    fig.tight_layout()
+    for ext in ("png", "pdf"):
+        fig.savefig(OUT / f"trend_by_interview_year_supplementary.{ext}", dpi=200)
+    plt.close(fig)
+
+
+def trend_figure(w: pd.DataFrame) -> None:
+    fig, ax = plt.subplots(figsize=(9, 4.4))
     x = w.start_year
     ax.fill_between(x, w.s1_lower_bound_pct_weighted, w.primary_pct_weighted,
                     color="#2E5077", alpha=0.18, lw=0,
                     label="Lower bound (S1: non-response amounts counted as £0)")
     ax.plot(x, w.primary_pct_weighted, color="#2E5077", lw=2.2, marker="o", ms=4,
             label="Primary (complete-case, routing-corrected)")
-    for xi, yi, lab in zip(x, w.primary_pct_weighted, w.wave):
-        ax.annotate(lab, (xi, yi), textcoords="offset points", xytext=(0, 7),
-                    ha="center", fontsize=7, color="#555")
-    ax.set_xlabel("UKHLS wave (fieldwork start year)")
+    ax.set_xlabel("UKHLS wave (fieldwork period: 1st–99th percentile of interview dates)")
     ax.set_ylabel("% households with fuel spend ≥ 10% of net income\n(weighted)")
     ax.set_xticks(x)
-    ax.tick_params(axis="x", labelsize=8)
+    ax.set_xticklabels([f"{wv}\n{a}–{str(b)[2:]}" for wv, a, b in
+                        zip(w.wave, w.fieldwork_first_year, w.fieldwork_last_year)])
+    ax.tick_params(axis="x", labelsize=7.5)
     ax.grid(axis="y", color="#EAECEE")
     ax.spines[["top", "right"]].set_visible(False)
     ax.set_ylim(0, max(w.primary_pct_weighted.max(), w.s1_lower_bound_pct_weighted.max()) * 1.15)
@@ -155,6 +201,9 @@ def main() -> None:
     w = by_wave(df)
     w.to_csv(OUT / "prevalence_by_wave.csv", index=False)
     trend_figure(w)
+    yr = by_interview_year(df)
+    yr.to_csv(OUT / "prevalence_by_interview_year.csv", index=False)
+    trend_by_year_figure(yr)
     groups = pd.concat([pooled_group(df, d) for d in
                         ["region", "tenure", "family_composition_group", "employment_group",
                          "ethnicity_group", "disability"]], ignore_index=True)

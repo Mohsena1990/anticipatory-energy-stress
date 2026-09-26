@@ -86,7 +86,11 @@ SPECS = {  # name: (strain terms, fes term, outcome, extra FE)
     "sens_fes_4term": (STRAIN, "fes_delta", "high_fuel_vulnerable", []),
     "sens_outcome_s1": (STRAIN, "fes_delta_growth3", "high_fuel_vulnerable_s1", []),
     "sens_outcome_s2": (STRAIN, "fes_delta_growth3", "high_fuel_vulnerable_s2", []),
+    # qfhigh_band is the only missing control for 61% of the complete-case loss
+    # (author decision 2026-09-26): primary specification without it.
+    "sens_no_qualification": (STRAIN, "fes_delta_growth3", "high_fuel_vulnerable", []),
 }
+DROP_CONTROLS = {"sens_no_qualification": ["qfhigh_band"]}
 
 
 def load() -> pd.DataFrame:
@@ -122,6 +126,37 @@ def fit(df: pd.DataFrame, y: str, terms: list[str], fe: list[str], two_way: bool
     return res
 
 
+def ame(res, contrast: str) -> tuple[float, float]:
+    """Average marginal effect (percentage points) with delta-method SE using
+    the model's (clustered) covariance.
+      contrast="ni":  P(NI) - P(South East), averaged over all sample rows; all
+                      region dummies set to 0 in both arms, NI x oil = oil in
+                      the NI arm and 0 otherwise.
+      contrast="oil": P(oil) - P(no oil); NI x oil = NI in the oil arm."""
+    X = pd.DataFrame(res.model.exog, columns=res.model.exog_names)
+    X1, X0 = X.copy(), X.copy()
+    if contrast == "ni":
+        reg = [c for c in X if c.startswith("region_")]
+        X1[reg] = 0.0
+        X0[reg] = 0.0
+        X1["region_Northern Ireland"] = 1.0
+        if "ni_x_oil" in X:
+            X1["ni_x_oil"] = X["oil"]
+            X0["ni_x_oil"] = 0.0
+    else:
+        X1["oil"], X0["oil"] = 1.0, 0.0
+        if "ni_x_oil" in X:
+            ni = X.get("region_Northern Ireland", 0.0)
+            X1["ni_x_oil"], X0["ni_x_oil"] = ni, 0.0
+    b = res.params.values
+    p1 = 1 / (1 + np.exp(-X1.values @ b))
+    p0 = 1 / (1 + np.exp(-X0.values @ b))
+    est = float(np.mean(p1 - p0))
+    grad = (X1.values * (p1 * (1 - p1))[:, None] - X0.values * (p0 * (1 - p0))[:, None]).mean(axis=0)
+    se = float(np.sqrt(grad @ res.cov_params().values @ grad))
+    return 100 * est, 100 * se
+
+
 def tidy(res, model: str, spec: str, df: pd.DataFrame, cluster: str, y: str) -> tuple[pd.DataFrame, dict]:
     ci = res.conf_int()
     rows = []
@@ -142,8 +177,11 @@ def tidy(res, model: str, spec: str, df: pd.DataFrame, cluster: str, y: str) -> 
     return pd.DataFrame(rows), summ
 
 
+AMES: list[dict] = []
+
+
 def run_spec(df, spec, strain, fes, y, extra_fe, coefs, summs, flows):
-    terms = CONTROLS + strain + [fes]
+    terms = [c for c in CONTROLS if c not in DROP_CONTROLS.get(spec, [])] + strain + [fes]
     need = terms + [y, "psu", "interview_year", "year_month"] + extra_fe
     base = df.dropna(subset=need)
     flows.append(dict(spec=spec, step="complete case on model variables (FES => 2010+)", n=len(base)))
@@ -175,6 +213,11 @@ def run_spec(df, spec, strain, fes, y, extra_fe, coefs, summs, flows):
         for name, extra in seq:
             r = fit(sub, y, terms + extra, fe + ["region"])
             c, s = tidy(r, f"ni_{name}_{block}", spec, sub, "psu", y)
+            for contrast in ["ni"] + (["oil"] if "oil" in extra else []):
+                est, se = ame(r, contrast)
+                AMES.append(dict(spec=spec, model=f"ni_{name}_{block}", n=int(r.nobs),
+                                 contrast={"ni": "NI vs South East", "oil": "oil vs no oil"}[contrast],
+                                 ame_pp=est, se_pp=se, ci_low_pp=est - 1.96 * se, ci_high_pp=est + 1.96 * se))
             c["term"] = c["term"].replace({"rural_tmp": "rural"})
             c["label"] = c["term"].map(lambda t: LABELS.get(t, t))
             coefs.append(c); summs.append(s)
@@ -234,7 +277,20 @@ def main() -> None:
     ni_w.columns = ["_".join([c for c in col if c]).strip("_") for col in ni_w.columns]
     ni_w.to_csv(OUT / "ni_oil_sequence.csv", index=False)
 
+    pd.DataFrame(AMES).to_csv(OUT / "ni_oil_ame.csv", index=False)
+
     prim = coef_nofe[(coef_nofe.spec == "primary") & (coef_nofe.model == "main")]
+    # Per-SD comparison: continuous predictors ranked by |log OR per SD|.
+    cont = prim[prim.sd_in_sample.notna()].copy()
+    cont["log_OR_per_sd"] = np.log(cont.OR_per_sd)
+    cont["OR_per_sd_ci_low"] = np.exp(np.log(cont.OR_ci_low) * cont.sd_in_sample)
+    cont["OR_per_sd_ci_high"] = np.exp(np.log(cont.OR_ci_high) * cont.sd_in_sample)
+    cont["note"] = np.where(cont.term == "ieqmoecd_dv",
+                            "partly mechanical: outcome uses unequivalised income, so larger households "
+                            "have more income per fuel need", "")
+    cont = cont.reindex(cont.log_OR_per_sd.abs().sort_values(ascending=False).index)
+    cont[["label", "term", "sd_in_sample", "OR_per_sd", "OR_per_sd_ci_low", "OR_per_sd_ci_high",
+          "log_OR_per_sd", "p", "note", "n"]].to_csv(OUT / "thesis_table_per_sd.csv", index=False)
     prim[["label", "term", "OR", "OR_ci_low", "OR_ci_high", "p", "OR_per_sd", "sd_in_sample", "n"]] \
         .sort_values("OR_per_sd", ascending=False).to_csv(OUT / "thesis_table_primary.csv", index=False)
     forest(coef)

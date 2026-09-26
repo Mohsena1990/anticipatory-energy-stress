@@ -94,6 +94,12 @@ SPEC: dict[str, dict] = {
     "stage3/sample_flow.csv": dict(counts=["n"]),
     "stage3/ni_oil_sequence.csv": dict(counts=["n"]),
     "stage3/thesis_table_primary.csv": dict(counts=["n"]),
+    "stage3/thesis_table_per_sd.csv": dict(counts=["n"]),
+    "stage3/ni_oil_ame.csv": dict(counts=["n"]),
+    "descriptives/prevalence_by_interview_year.csv": dict(
+        counts=["primary_n", "s1_lower_bound_n"],
+        rates={"primary_pct_weighted": ("primary_n", 100),
+               "s1_lower_bound_pct_weighted": ("s1_lower_bound_n", 100)}),
 }
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
