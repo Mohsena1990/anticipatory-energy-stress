@@ -216,6 +216,25 @@ def main() -> None:
     if ann:
         pd.concat(ann).to_csv(OUT / "fes_annual.csv", index=False)
 
+    # Thesis tables (author decision 2026-09-26): relative RMSE vs naive and
+    # seasonal naive with DM p-values in the main text; MASE in an appendix;
+    # per-year relative RMSE to show where gains are concentrated.
+    models = ["v1_core", "v1_macro", "v2_core"]
+    dmw = dm.pivot_table(index=["version", "series"], columns="benchmark", values="p_value").add_prefix("DM_p_vs_")
+    main_tab = (pooled[pooled.version.isin(models)]
+                .set_index(["version", "series"])[["RMSE", "relRMSE_vs_naive", "relRMSE_vs_snaive"]]
+                .join(dmw).reset_index()
+                [["series", "version", "RMSE", "relRMSE_vs_naive", "DM_p_vs_naive",
+                  "relRMSE_vs_snaive", "DM_p_vs_snaive"]]
+                .sort_values(["series", "version"]))
+    main_tab.to_csv(OUT / "thesis_table_forecast_accuracy.csv", index=False)
+    (pooled[pooled.version.isin(models + ["naive", "snaive"])][["series", "version", "MAE", "MASE"]]
+        .sort_values(["series", "version"]).to_csv(OUT / "appendix_table_mase.csv", index=False))
+    by = by_year.set_index(["series", "target_year", "version"]).RMSE.unstack("version")
+    per_year = pd.concat({f"{m}_relRMSE_vs_{b}": by[m] / by[b] for m in models for b in ["naive", "snaive"]},
+                         axis=1).reset_index()
+    per_year.to_csv(OUT / "thesis_table_relrmse_by_year.csv", index=False)
+
     pd.set_option("display.width", 200)
     cols = ["version", "series", "RMSE", "MAE", "relRMSE_vs_naive", "relRMSE_vs_snaive", "MASE",
             "sign_agreement_pct", "pearson_r"]
