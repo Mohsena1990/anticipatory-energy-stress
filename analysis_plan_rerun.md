@@ -41,6 +41,60 @@ Variables: `xpduely`, `xpgasy`, `xpelecy`, `xpoily`, `xpsfly`, `fuelduel`, plus
    outcome becomes the primary outcome for every later stage, and the old outcome
    is reported only as a comparison.
 
+### Amendment A1 (2026-09-26): fixed outcome, set after the Stage 1 audit
+
+Status: approved by the author on 2026-09-26. Indicative Stage 1 prevalence had
+already been seen (logged in §9). Committed before any Stage 2 code.
+
+**Primary outcome, v2.** Spend is the routing-aware sum:
+
+- **electricity + gas households:**
+  - `fuelduel` = 1 → `xpduely`;
+  - `fuelduel` = 2, or don't know / refused → `xpgasy` + `xpelecy`.
+- **electricity-only households:** `xpelecy`.
+- **plus oil and other fuel:** `xpoily` if `fuelhave3` = 1, and `xpsfly` if
+  `fuelhave4` = 1. Otherwise these are structural zeros (−8).
+
+Rules:
+
+1. **Item nonresponse** (−1, −2, −9) on any required amount means the household's
+   spend is **missing**. The primary analysis is complete-case.
+   - *Sensitivity S1, lower bound:* those amounts are set to £0 (the v1
+     zero-fill), with the routing otherwise correct.
+2. **Electricity not reported** (`fuelhave1` ≠ 1 while some other fuel is
+   reported): this covers gas-only households *and* oil- or other-fuel-only
+   households. Their spend is probably incomplete, so they are **excluded from the
+   primary analysis**.
+   - *Sensitivity S2* includes both groups, with spend as reported.
+3. **Excluded from all versions:** households where the fuel-use module is
+   nonresponse, and households reporting no fuel.
+4. **Denominator and guards unchanged from v1:** 12 × `fihhmnnet1_dv`. The ratio is
+   set to NaN if annual income is below £1,200, and capped at 1.0. The
+   high-vulnerability threshold stays at 10%.
+5. **Oil use** is defined as `fuelhave3` = 1, never as `xpoily` > 0.
+
+**Additional Stage 1 deliverables (audit, no inference):**
+
+- A sample-flow reconciliation from 339,201 rows to the analytical n, one line per
+  exclusion, including the £1,200 income guard.
+- An explanation of the 1-row and ~2,100-row gaps in the Stage 1 counts.
+- A table comparing missing-spend and observed-spend households by region,
+  tenure (`tenure_dv`), income band (within-wave quintile of `fihhmnnet1_dv`) and
+  wave.
+- Fuel included in rent: `elecpay`, `gaspay` and `duelpay` code 5, available from
+  waves c–o (absent in a and b). Report it, together with tenure, for the gas-only group and the
+  electricity-not-reported group.
+
+**Northern Ireland.** No NI text in the thesis is rewritten until the Stage 5
+time-matched JRF comparison has been recomputed on the fixed sample. Stage 5
+reports:
+
+- the NI oil share;
+- oil vs non-oil vulnerability rates within NI.
+
+Both are given weighted (per-wave household `_xw` weight: `hhdenus_xw` in wave a,
+`hhdenub_xw` in b–e, `hhdenui_xw` in f–m, `hhdeng2_xw` in n–o) and unweighted.
+
 ## Stage 2 — FES
 
 - **Mode:** core only (target series only, no exogenous macro regressors).
@@ -182,4 +236,4 @@ The work stops after each stage for approval.
 
 | Date | Stage | Plan said | Did instead | Reason | Seen results first? |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-09-26 | 1 | "If a fix is needed, the fixed outcome becomes primary" (fix not specified) | Amendment A1 defines the fixed outcome and sensitivities S1 and S2 | The Stage 1 audit found that v1 zero-fills nonresponse and drops routed-out (−8) `fuelduel` households | Yes: indicative prevalence under a draft rule (UK 8.89% vs 7.93%) |
