@@ -667,9 +667,11 @@ def build_financial_strain_composite(df: pd.DataFrame) -> pd.DataFrame:
                                  bill_security.
     financial_strain_score_v1    submitted-draft-v1 version incl. xphsdba
                                  (sensitivity A).
-    financial_strain_score_lag1  the same household's primary strain at the
-                                 previous wave, linked by hrpid exactly as
-                                 Stage 5 links transitions (sensitivity B).
+    *_lag1                       previous-wave values (hrpid link, as in
+                                 Stage 5) of each component and composite,
+                                 for the lagged-strain check.
+    Primary driver specification (plan deviation 2026-09-26) enters the
+    components separately; the composites are sensitivities.
     """
     norm = {c: _normalize_01(df[c]) for c in STRAIN_ITEMS_V1 if c in df.columns}
     if not norm:
@@ -681,16 +683,23 @@ def build_financial_strain_composite(df: pd.DataFrame) -> pd.DataFrame:
         [norm[c] for c in STRAIN_ITEMS if c in norm], axis=1).mean(axis=1)
     df["financial_strain_score_v1"] = pd.concat(list(norm.values()), axis=1).mean(axis=1)
 
-    df["financial_strain_score_lag1"] = np.nan
+    # Lagged values: the same household's value at the previous wave,
+    # linked by hrpid as in Stage 5. Components are lagged too, because the
+    # primary driver specification enters them separately.
+    lag_cols = [c for c in STRAIN_ITEMS + ["financial_strain_score", "financial_strain_score_v1"]
+                if c in df.columns]
+    for c in lag_cols:
+        df[f"{c}_lag1"] = np.nan
     if "hrpid" in df.columns:
         next_wave = {w: WAVE_LETTERS[i + 1] for i, w in enumerate(WAVE_LETTERS[:-1])}
-        prev = (df[["wave", "hrpid", "financial_strain_score"]]
+        prev = (df[["wave", "hrpid"] + lag_cols]
                 .dropna(subset=["hrpid"]).drop_duplicates(subset=["wave", "hrpid"], keep=False))
         prev = prev.assign(wave=prev["wave"].map(next_wave)).dropna(subset=["wave"])
-        lag = df[["wave", "hrpid"]].merge(
-            prev.rename(columns={"financial_strain_score": "lag"}),
-            on=["wave", "hrpid"], how="left")["lag"]
-        df["financial_strain_score_lag1"] = lag.values
+        lagged = df[["wave", "hrpid"]].merge(
+            prev.rename(columns={c: f"{c}_lag1" for c in lag_cols}),
+            on=["wave", "hrpid"], how="left")
+        for c in lag_cols:
+            df[f"{c}_lag1"] = lagged[f"{c}_lag1"].values
     log.info("financial_strain_score: %d valid | _v1: %d | _lag1: %d",
              df["financial_strain_score"].notna().sum(),
              df["financial_strain_score_v1"].notna().sum(),
