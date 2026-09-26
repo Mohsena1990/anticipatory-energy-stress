@@ -184,7 +184,9 @@ JBSTAT_EMPLOYED_CODES: set[int] = {1, 2}
 # conditions. Kept as a separate list (not folded into IND_PERSONAL_VARS)
 # because it's excluded from the SEM's PERSONAL factor -- this is a new
 # descriptive breakdown dimension, not a COR-SEM indicator.
-IND_DISABILITY_VARS: list[str] = ["healthlink"]
+# disdif1-12: type of impairment/difficulty (1=mentioned). NOT healthlink,
+# which is the adult health-record-linkage consent (a v1 error).
+IND_DISABILITY_VARS: list[str] = [f"disdif{i}" for i in range(1, 13)] + ["disdif96"]
 
 # Energy resources (individual-level, additional to income already in
 # HH_INCOME_VARS and inoutflows already in HH_COPING_VARS_RECENT_ONLY).

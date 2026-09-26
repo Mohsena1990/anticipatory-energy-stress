@@ -255,18 +255,24 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
         df["sf1_good"] = (5.0 - df["sf1"]) / 4.0
     if "qfhigh_dv" in df.columns:
         df["qfhigh_band"] = df["qfhigh_dv"].map(QFHIGH_BAND_RECODE)
-    if "health" in df.columns and "healthlink" in df.columns:
-        # Equality-Act-2010-style disability flag: health==1 (has a
-        # long-standing illness/disability) AND healthlink in {1,2}
-        # (limits activities "a lot" or "a little"). healthlink is only
-        # asked of respondents with health==1, so it's legitimately NaN
-        # (not missing data) for health==2 respondents -- those are
-        # "not disabled" regardless. Reversed to disability_free so
-        # higher=better, matching health_good/sf1_good's convention.
-        limited = df["healthlink"].isin([1, 2])
-        disabled = np.where(df["health"] == 1, limited, False)
-        df["disability_free"] = np.where(df["health"].isna(), np.nan,
-                                          np.where(disabled, 0.0, 1.0))
+    disdif = [f"disdif{i}" for i in range(1, 13) if f"disdif{i}" in df.columns]
+    if "health" in df.columns and disdif:
+        # Equality-Act-style disability (JRF/FRS definition): a long-standing
+        # illness or disability (health==1) AND at least one substantial
+        # difficulty (any disdif1-12 mentioned). health==2 -> not disabled.
+        # health==1 with every difficulty item observed and none mentioned
+        # -> not disabled; otherwise unknown. Consistent across waves even
+        # though disdif is asked of everyone in later waves but only of
+        # health==1 respondents in wave a. Reversed to disability_free
+        # (higher=better) to match health_good/sf1_good.
+        any_difficulty = (df[disdif] == 1).any(axis=1)
+        all_observed = df[disdif].notna().all(axis=1)
+        disabled = np.select(
+            [df["health"] == 2,
+             (df["health"] == 1) & any_difficulty,
+             (df["health"] == 1) & all_observed],
+            [0.0, 1.0, 0.0], default=np.nan)
+        df["disability_free"] = 1.0 - disabled
 
     # Recoded categorical items (finfut, jbstat, health, sf1, qfhigh_dv,
     # healthlink) are replaced by their derived ordinal/reversed columns
@@ -278,7 +284,7 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     # separately MAX-aggregated into has_fulltime_worker/has_selfemployed_worker
     # below, so they don't need a mean-aggregated column at all. jbhrs
     # (hours worked) stays mean-aggregated -- it's a genuine continuous value.
-    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv", "healthlink"}
+    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv"} | set(IND_DISABILITY_VARS)
     NOT_MEANABLE_CATEGORICAL = {"jbft_dv", "jbsemp", "jbterm1"}
     DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good",
                "qfhigh_band", "disability_free"]
