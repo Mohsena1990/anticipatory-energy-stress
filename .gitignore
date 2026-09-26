@@ -25,3 +25,6 @@ data/social_science_data/
 outputs*/enable_cleaned/*_scored.csv
 outputs*/**/*_predictions.csv
 outputs*/**/*_scored.csv
+
+# Bytecode cache for analysis scripts (generated on import)
+scripts/__pycache__/
