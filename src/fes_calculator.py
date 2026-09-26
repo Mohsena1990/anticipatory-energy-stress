@@ -527,9 +527,9 @@ def _compare_fes_variants(monthly_df: pd.DataFrame) -> pd.DataFrame:
 def compute_fes(
     ranked_df: pd.DataFrame,
     core_csv: str = "data/processed/core_energy_carbon.csv",
-    forecast_dir: str = "outputs/forecasts",
-    out_dir: str = "outputs/fes",
-    figures_dir: str = "outputs/figures",
+    forecast_dir: str = "outputs_v2/forecasts",
+    out_dir: str = "outputs_v2/fes",
+    figures_dir: str = "outputs_v2/figures",
     train_start: str = TRAIN_START,
     train_end: str = TRAIN_END,
     forecast_dates: pd.DatetimeIndex = FORECAST_DATES,

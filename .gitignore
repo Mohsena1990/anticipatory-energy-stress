@@ -4,6 +4,7 @@
 data/social_science_data/*.zip
 data/raw/ukhls/
 outputs/ukhls_cleaned/ukhls_panel.csv
+outputs_v2/ukhls_cleaned/ukhls_panel.csv
 data/
 *.zip
 *.csv

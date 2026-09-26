@@ -41,16 +41,16 @@ import pandas as pd
 
 from src.logging_utils import setup_logger, get_logger
 from src.config import DEFAULT_TARGET_YEAR
-setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
 log = get_logger("forecast_pipeline")
 
 ALL_MODELS = ["SARIMA", "Prophet", "LSTM", "TFT"]
 ALL_SERIES = ["gas", "electricity", "carbon"]
 
-FORECAST_DIR = "outputs/forecasts"
-FES_DIR      = "outputs/fes"
-FIGURES_DIR  = "outputs/figures"
-TABLES_DIR   = "outputs/tables"
+FORECAST_DIR = "outputs_v2/forecasts"
+FES_DIR      = "outputs_v2/fes"
+FIGURES_DIR  = "outputs_v2/figures"
+TABLES_DIR   = "outputs_v2/tables"
 CORE_CSV     = "data/processed/core_energy_carbon.csv"
 
 
@@ -158,7 +158,7 @@ def _get_series(
     return train_s, test_s, full_s, actual_target, eval_actual
 
 
-MODELS_DIR = "outputs/models"
+MODELS_DIR = "outputs_v2/models"
 
 
 def stage2_train_evaluate(
@@ -702,7 +702,7 @@ def run_rolling(
                 tune_core_train, tune_core_test, core_full,
                 tune_macro_train, tune_macro_full,
                 fast=fast, selection_basis=selection_basis,
-                out_dir="outputs/tuning_rolling",
+                out_dir="outputs_v2/tuning_rolling",
                 full_train_end=tune_refit_end,
                 forecast_start=tune_forecast_dates.min().strftime("%Y-%m-%d"),
                 forecast_end=tune_forecast_dates.max().strftime("%Y-%m-%d"),
@@ -1000,7 +1000,7 @@ def run(
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
 
-    Path("outputs/logs").mkdir(parents=True, exist_ok=True)
+    Path("outputs_v2/logs").mkdir(parents=True, exist_ok=True)
     Path(FORECAST_DIR).mkdir(parents=True, exist_ok=True)
     Path(FES_DIR).mkdir(parents=True, exist_ok=True)
     Path(FIGURES_DIR).mkdir(parents=True, exist_ok=True)
@@ -1060,7 +1060,7 @@ def run(
             core_train, core_test, core_full,
             macro_train, macro_full,
             fast=fast, selection_basis=selection_basis,
-            out_dir="outputs/tuning",
+            out_dir="outputs_v2/tuning",
             full_train_end=refit_end,
             forecast_start=forecast_start, forecast_end=forecast_end,
         )

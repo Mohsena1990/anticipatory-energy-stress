@@ -83,7 +83,7 @@ import time
 import pandas as pd
 
 from src.logging_utils import setup_logger, get_logger
-setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
 log = get_logger("household_stream")
 
 

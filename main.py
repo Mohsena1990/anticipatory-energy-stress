@@ -61,7 +61,7 @@ import time
 
 from src.logging_utils import setup_logger, get_logger
 from src.config import DEFAULT_TARGET_YEAR
-setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
 log = get_logger("main")
 
 

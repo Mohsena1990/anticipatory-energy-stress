@@ -42,7 +42,11 @@ MACRO_PROC_CSV    = PROCESSED_DIR / "macro_processed.csv"
 # =============================================================================
 # Outputs — macro forecasting stream
 # =============================================================================
-OUTPUTS_DIR  = ROOT / "outputs"
+OUTPUTS_DIR  = ROOT / "outputs_v2"
+# Frozen v1 results (tag submitted-draft-v1). Read-only reference: never
+# write here. Used only when analysis_plan_rerun.md allows reusing a v1
+# artefact (e.g. the Stage 2 fes_core fallback).
+V1_OUTPUTS_DIR = ROOT / "outputs"
 FES_DIR      = OUTPUTS_DIR / "fes"
 
 FES_SUMMARY_FILE  = FES_DIR / "fes_annual_context.csv"

@@ -413,7 +413,7 @@ def run_tft(
     use_macro: bool = False,
     actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
-    forecast_dir: str = "outputs/forecasts",
+    forecast_dir: str = "outputs_v2/forecasts",
     epochs: int = 80,
     hidden: int = 64,
     n_heads: int = 4,

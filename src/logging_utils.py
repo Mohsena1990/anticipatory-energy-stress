@@ -35,7 +35,7 @@ class _ColouredFormatter(logging.Formatter):
 
 def setup_logger(
     name: str = "energy_stress",
-    log_file: str = "outputs/logs/step6_final_outputs.log",
+    log_file: str = "outputs_v2/logs/step6_final_outputs.log",
     level: int = logging.DEBUG,
 ) -> logging.Logger:
     """

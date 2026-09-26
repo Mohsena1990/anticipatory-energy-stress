@@ -118,7 +118,7 @@ def _smape(actual: np.ndarray, forecast: np.ndarray) -> float:
 
 def attach_forecast_actual_metrics(
     ranked_df: pd.DataFrame,
-    forecast_dir: str = "outputs/forecasts",
+    forecast_dir: str = "outputs_v2/forecasts",
 ) -> pd.DataFrame:
     """
     Add retrospective forecast-horizon metrics from the saved 2017 forecast CSVs.
@@ -222,7 +222,7 @@ def select_best_models(ranked_df: pd.DataFrame) -> dict:
 
 def save_metrics_table(
     metrics_df: pd.DataFrame,
-    out_dir: str = "outputs/tables",
+    out_dir: str = "outputs_v2/tables",
     filename: str = "model_metrics_comparison",
 ) -> None:
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -233,8 +233,8 @@ def save_metrics_table(
 
 def run_evaluation(
     results: list,
-    out_dir: str = "outputs/tables",
-    forecast_dir: str = "outputs/forecasts",
+    out_dir: str = "outputs_v2/tables",
+    forecast_dir: str = "outputs_v2/forecasts",
     selection_basis: str = "validation",
 ) -> tuple:
     """
@@ -280,8 +280,8 @@ def run_evaluation(
 def merge_forecast_files(
     series_names: list,
     models: list,
-    forecast_dir: str = "outputs/forecasts",
-    out_dir: str = "outputs/forecasts",
+    forecast_dir: str = "outputs_v2/forecasts",
+    out_dir: str = "outputs_v2/forecasts",
     modes: list = None,
 ) -> dict:
     """

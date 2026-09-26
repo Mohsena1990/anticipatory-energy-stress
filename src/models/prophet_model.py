@@ -63,7 +63,7 @@ def run_prophet(
     use_regressors: bool = False,
     actual_target: Optional[pd.Series] = None,
     eval_actual: Optional[pd.Series] = None,
-    forecast_dir: str = "outputs/forecasts",
+    forecast_dir: str = "outputs_v2/forecasts",
     changepoint_prior_scale: float = 0.05,
     seasonality_prior_scale: float = 10.0,
     regressor_prior_scale: float = 0.5,

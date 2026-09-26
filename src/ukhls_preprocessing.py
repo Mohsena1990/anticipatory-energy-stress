@@ -920,5 +920,5 @@ def run(waves: list[str] | None = None) -> pd.DataFrame:
 
 if __name__ == "__main__":
     from src.logging_utils import setup_logger
-    setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+    setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
     run()
