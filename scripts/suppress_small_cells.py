@@ -10,7 +10,9 @@ Rules
 
 Usage
   python scripts/suppress_small_cells.py          apply in place
-  python scripts/suppress_small_cells.py --check  exit 1 if anything is left
+  python scripts/suppress_small_cells.py --check  exit 1 if anything is left, or if
+                                                 any tracked/staged outputs_v2 CSV is
+                                                 not a known aggregate table
 
 Re-run after regenerating any table, before committing it.
 """
@@ -186,6 +188,17 @@ def main() -> None:
             problems += apply(rel, spec, check)
     if unconsidered:
         problems += [f"not in SPEC/EXEMPT: {u}" for u in unconsidered]
+    # Guard: every CSV tracked or staged under outputs_v2 must be a known
+    # aggregate table. Stops row-level files slipping in via `git add -f`.
+    import subprocess
+    listed = subprocess.run(["git", "ls-files", "--cached", "outputs_v2"], cwd=ROOT,
+                            capture_output=True, text=True).stdout.split()
+    known = set(SPEC) | EXEMPT | {"fes/fes_rolling_monthly.csv", "fes/fes_rolling_yearly.csv",
+                                  "fes/model_selection_by_year.csv", "fes/tuned_params_by_origin.csv",
+                                  "fes/forecast_performance_by_year.csv"}
+    for f in listed:
+        if f.endswith(".csv") and f[len("outputs_v2/"):] not in known:
+            problems.append(f"tracked/staged CSV not a known aggregate table: {f}")
     if check:
         print("\n".join(problems) if problems else "OK: no unsuppressed small cells")
         sys.exit(1 if problems else 0)
