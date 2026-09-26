@@ -16,6 +16,14 @@ Outputs (outputs_v2/jrf/):
   jrf_comparison.csv        category-level JRF vs UKHLS (weighted + unweighted)
   jrf_agreement.csv         Spearman/Pearson per dimension (weighted rates)
   ni_oil.csv                NI oil share and oil vs non-oil rates
+  region_window_ci.csv      weighted regional rates in the region window
+                            (Apr 2020-Mar 2023) with PSU-bootstrap 95% CIs
+                            and rank distributions (1 = highest)
+
+Bootstrap: 2,000 replicates resampling primary sampling units (psu) with
+replacement across the whole sample (PSUs are not nested in regions because
+households move), recomputing the window estimator for all 12 regions.
+Households interviewed more than once in the window stay within their PSU.
 """
 from __future__ import annotations
 
@@ -186,6 +194,57 @@ def compare(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
     return pd.DataFrame(meta), comp, pd.DataFrame(agree)
 
 
+def load_psu() -> pd.DataFrame:
+    frames = []
+    for w in "abcdefghijklmno":
+        d = pd.read_stata(UKHLS_RAW_DIR / f"{w}_hhresp.dta", columns=[f"{w}_hidp", f"{w}_psu"],
+                          convert_categoricals=False)
+        d.columns = ["hidp", "psu"]
+        frames.append(d.assign(wave=w))
+    return pd.concat(frames)
+
+
+def region_window_ci(df: pd.DataFrame, n_boot: int = 2000, seed: int = 20260926) -> pd.DataFrame:
+    lo, hi = FY_2020_23
+    regions = list(GOR.values())
+    out = []
+    for flag, label in [("high_fuel_vulnerable", "primary"), ("high_fuel_vulnerable_s1", "s1_lower_bound")]:
+        win = df[(df.ym >= lo) & (df.ym <= hi) & df.region.notna() & df[flag].notna() & (df.hh_xw > 0)]
+        win = win.merge(load_psu(), on=["hidp", "wave"], how="left", validate="1:1")
+        cell = win.assign(wy=win.hh_xw * win[flag], one=1).groupby(["psu", "region", "wave"])[
+            ["wy", "hh_xw", "one"]].sum()
+        psus = cell.index.get_level_values("psu").unique()
+        cols = pd.MultiIndex.from_product([regions, sorted(win.wave.unique())])
+        WY = cell.wy.unstack(["region", "wave"]).reindex(index=psus, columns=cols, fill_value=0).fillna(0).values
+        W = cell.hh_xw.unstack(["region", "wave"]).reindex(index=psus, columns=cols, fill_value=0).fillna(0).values
+        N = cell.one.unstack(["region", "wave"]).reindex(index=psus, columns=cols, fill_value=0).fillna(0).values
+        n_w = len(cols.levels[1])
+
+        def estimate(mult: np.ndarray) -> np.ndarray:
+            wy, w, n = mult @ WY, mult @ W, mult @ N
+            rate = np.divide(wy, w, out=np.full_like(wy, np.nan), where=w > 0).reshape(len(regions), n_w)
+            n = n.reshape(len(regions), n_w)
+            return 100 * np.nansum(rate * n, axis=1) / n.sum(axis=1)
+
+        point = estimate(np.ones(len(psus)))
+        rng = np.random.default_rng(seed)
+        boots = np.array([estimate(rng.multinomial(len(psus), np.full(len(psus), 1 / len(psus))))
+                          for _ in range(n_boot)])
+        ranks = (-boots).argsort(axis=1).argsort(axis=1) + 1
+        point_rank = (-point).argsort().argsort() + 1
+        for i, r in enumerate(regions):
+            out.append(dict(outcome=label, region=r, n=int(win[win.region == r].shape[0]),
+                            n_psu=int((N.reshape(len(psus), len(regions), n_w)[:, i, :].sum(axis=1) > 0).sum()),
+                            pct_weighted=point[i],
+                            ci95_low=np.percentile(boots[:, i], 2.5), ci95_high=np.percentile(boots[:, i], 97.5),
+                            rank=int(point_rank[i]),
+                            rank_ci95_low=int(np.percentile(ranks[:, i], 2.5)),
+                            rank_ci95_high=int(np.percentile(ranks[:, i], 97.5)),
+                            p_rank1=float((ranks[:, i] == 1).mean()),
+                            n_boot=n_boot, psu_resampled=len(psus)))
+    return pd.DataFrame(out)
+
+
 def ni_oil(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     ni = df[df.region == "Northern Ireland"]
@@ -219,6 +278,9 @@ def main() -> None:
     ni = ni_oil(df)
     ni.to_csv(OUT / "ni_oil.csv", index=False)
     ni.attrs["other_regions"].to_csv(OUT / "oil_share_by_region.csv", index=False)
+    ci = region_window_ci(df)
+    ci.to_csv(OUT / "region_window_ci.csv", index=False)
+    print(ci.sort_values(["outcome", "rank"]).round(2).to_string(index=False))
 
     pd.set_option("display.width", 220)
     print(meta[["dimension", "jrf_period", "ukhls_window", "ukhls_waves"]].to_string(index=False))
