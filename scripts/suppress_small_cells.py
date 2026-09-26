@@ -199,8 +199,9 @@ def apply(rel: str, spec: dict, check: bool) -> list[str]:
 
 def main() -> None:
     check = "--check" in sys.argv
+    # thesis_assets_v2/: local, git-ignored bundle build; checked by build_thesis_assets.bundle_check().
     tracked = {str(p.relative_to(OUT)) for p in OUT.rglob("*.csv")
-               if not re.search(r"(ukhls_cleaned|resource_scores|/fes/|forecasts|tuning|tables/rolling|/logs/)", str(p))}
+               if not re.search(r"(ukhls_cleaned|resource_scores|/fes/|forecasts|tuning|tables/rolling|/logs/|thesis_assets_v2)", str(p))}
     unconsidered = sorted(tracked - set(SPEC) - EXEMPT)
     problems = []
     for rel, spec in SPEC.items():

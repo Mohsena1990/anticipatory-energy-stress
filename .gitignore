@@ -28,3 +28,7 @@ outputs*/**/*_scored.csv
 
 # Bytecode cache for analysis scripts (generated on import)
 scripts/__pycache__/
+
+# Thesis asset bundle (local build product; see scripts/build_thesis_assets.py)
+outputs_v2/thesis_assets_v2/
+outputs_v2/thesis_assets_v2.zip
