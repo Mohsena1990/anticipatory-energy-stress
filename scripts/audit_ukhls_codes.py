@@ -477,11 +477,10 @@ def main() -> None:
     v1_spend_rows = int(kept.sum())
     gaps = pd.DataFrame([
         ("status_sum_off_by_one",
-         "Stage 1 status counts summed to 339,200 without the single A2 row "
-         "(v1 kept, A1 kept, spend differs). It is fuelduel=2 with gas not "
-         "reported: v1 adds xpgasy, A1 counts electricity only.",
-         len(a2), "; ".join(f"hidp={h} wave={w} v1={v:.0f} A1={a:.0f}"
-                            for h, w, v, a in a2[["hidp", "wave", "v1_spend", "a1_spend"]].values)),
+         "Stage 1 status counts omitted the A2 rows (v1 kept, A1 kept, spend "
+         "differs): fuelduel=2 with gas not reported, so v1 adds xpgasy while "
+         "A1 counts electricity only. No row-level detail is written out.",
+         len(a2), ""),
         ("v1_spend_rows_minus_v1_analytical_n",
          "Rows with a v1 spend (same + zero-filled + A2) minus v1 analytical n: "
          "removed by the income step inside compute_fuel_to_income.",
