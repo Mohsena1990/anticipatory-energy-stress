@@ -18,3 +18,10 @@ outputs*/**/cvae_counterfactual_fes_shift.csv
 outputs*/**/stage5_transition_pairs.csv
 outputs*/**/stage5_forward_predictions.csv
 outputs*/ukhls_cleaned/
+
+# ENABLE.EU survey microdata and respondent-level derived outputs (earlier
+# project phase). Removed from all history on 2026-09-26; never commit.
+data/social_science_data/
+outputs*/enable_cleaned/*_scored.csv
+outputs*/**/*_predictions.csv
+outputs*/**/*_scored.csv
