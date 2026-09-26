@@ -85,11 +85,17 @@ SPEC: dict[str, dict] = {
     "resources/cfa_sample_composition.csv": dict(
         proportions_of={"tenure_complete_case": ("resources/cfa_fit.csv", "n_complete_case")}),
     "descriptives/strain_structure.csv": dict(counts=["n"]),
+    "fes_eval/fes_coverage_by_interview_year.csv": dict(
+        counts=["n", "n_fes", "n_outcome", "n_outcome_and_fes"]),
+    "fes_eval/fes_attached_v1_vs_v2.csv": dict(counts=["n_both"]),
 }
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"descriptives/strain_item_correlations.csv", "jrf/jrf_agreement.csv",
+EXEMPT = {"fes_eval/forecast_accuracy_by_year.csv", "fes_eval/forecast_accuracy_pooled.csv",
+          "fes_eval/diebold_mariano.csv", "fes_eval/uncertainty_pi.csv", "fes_eval/model_wins.csv",
+          "fes_eval/fes_annual.csv",  # macro price series only, no UKHLS data
+          "descriptives/strain_item_correlations.csv", "jrf/jrf_agreement.csv",
           "jrf/jrf_metadata.csv", "jrf/oil_share_by_region.csv",
           "resources/cfa_factor_correlations.csv", "resources/cfa_loadings.csv",
           "resources/composite_item_correlations.csv", "resources/resource_decision.csv"}
@@ -156,7 +162,7 @@ def apply(rel: str, spec: dict, check: bool) -> list[str]:
 def main() -> None:
     check = "--check" in sys.argv
     tracked = {str(p.relative_to(OUT)) for p in OUT.rglob("*.csv")
-               if not re.search(r"(ukhls_cleaned|resource_scores|fes_eval|/fes/|forecasts|tuning|tables/rolling)", str(p))}
+               if not re.search(r"(ukhls_cleaned|resource_scores|/fes/|forecasts|tuning|tables/rolling|/logs/)", str(p))}
     unconsidered = sorted(tracked - set(SPEC) - EXEMPT)
     problems = []
     for rel, spec in SPEC.items():

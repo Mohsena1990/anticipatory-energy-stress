@@ -1,11 +1,11 @@
 dimension,window,subset,n_categories,spearman_rho,pearson_r,two_group_same_direction
-region,primary,all,12,-0.0952417984616157,-0.21562582590132867,
-region,primary,excl. Northern Ireland,11,0.17932219104996414,0.14718235206649716,
-region,sensitivity,all,12,-0.0952417984616157,-0.25791886444917944,
-region,sensitivity,excl. Northern Ireland,11,0.17932219104996414,0.1715875956507878,
-ethnicity,primary,all,6,0.14285714285714288,-0.012309347839369975,
-ethnicity,sensitivity,all,6,0.14285714285714288,-0.09281365711926026,
-tenure,primary,all,4,0.7999999999999999,0.6193376948268298,
+region,primary,all,12,-0.0952417984616157,-0.2631379834791389,
+region,primary,excl. Northern Ireland,11,0.17932219104996414,0.08207002454117432,
+region,sensitivity,all,12,-0.0952417984616157,-0.30606349258087473,
+region,sensitivity,excl. Northern Ireland,11,0.17932219104996414,0.10803600284727197,
+ethnicity,primary,all,6,0.2571428571428572,0.05244452499630704,
+ethnicity,sensitivity,all,6,0.14285714285714288,-0.055431561064622464,
+tenure,primary,all,4,0.7999999999999999,0.5837933854584975,
 disability,primary,all,2,,,True
 family_type,primary,all,2,,,True
 work_status,primary,all,2,,,True

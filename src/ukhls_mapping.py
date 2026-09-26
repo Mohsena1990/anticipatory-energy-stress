@@ -69,7 +69,10 @@ HH_IDENTIFIER = "hidp"
 # src.ukhls_forward_prediction to build wave-to-wave transition pairs.
 HH_LINK_VARS: list[str] = ["hrpid"]
 
-HH_TIMING_VARS: list[str] = ["month", "quarter"]
+# month/quarter = SAMPLE month/quarter (when the address was issued), NOT
+# the interview date. intdatey/intdatem = actual household interview date
+# (used for interview_year/interview_month from v2).
+HH_TIMING_VARS: list[str] = ["month", "quarter", "intdatey", "intdatem"]
 
 HH_GEOGRAPHY_VARS: list[str] = ["gor_dv"]
 

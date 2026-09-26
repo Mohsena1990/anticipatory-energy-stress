@@ -416,19 +416,26 @@ def build_wave_panel(wave: str) -> pd.DataFrame:
         panel = panel.merge(eth, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
         panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
 
+    # Sample year/month (address issue date), kept for comparison with v1.
     start_year = WAVE_FIELDWORK_START_YEAR[wave]
     if "month" in panel.columns:
         m = panel["month"].astype("float64")
-        panel["interview_year"] = np.where(
-            m.notna(), start_year + ((m - 1) // 12).fillna(0), start_year
-        ).astype(float)
-        panel["interview_month"] = np.where(
-            m.notna(), ((m - 1) % 12) + 1, np.nan
-        )
+        panel["sample_year"] = np.where(m.notna(), start_year + ((m - 1) // 12), np.nan)
+        panel["sample_month"] = np.where(m.notna(), ((m - 1) % 12) + 1, np.nan)
     else:
-        panel["interview_year"] = float(start_year)
-        panel["interview_month"] = np.nan
-
+        panel["sample_year"] = np.nan
+        panel["sample_month"] = np.nan
+    # Actual household interview date (v1 used the sample month here, which
+    # differs from the interview month for 25-76% of households per wave and
+    # from the interview year for 3.5-10%). Falls back to the sample date
+    # only where the interview date is missing.
+    iy = panel.get("intdatey", pd.Series(np.nan, index=panel.index)).astype("float64")
+    im = panel.get("intdatem", pd.Series(np.nan, index=panel.index)).astype("float64")
+    have = iy.notna() & im.notna()
+    panel["interview_year"] = np.where(have, iy, panel["sample_year"])
+    panel["interview_month"] = np.where(have, im, panel["sample_month"])
+    panel["interview_date_source"] = np.where(have, "intdate", np.where(panel["sample_year"].notna(), "sample_month", "missing"))
+    panel["interview_year"] = panel["interview_year"].fillna(float(start_year))
     return panel
 
 
