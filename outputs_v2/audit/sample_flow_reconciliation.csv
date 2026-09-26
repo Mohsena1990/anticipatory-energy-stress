@@ -1,0 +1,26 @@
+step,description,n_change_or_total,remaining
+0,All UKHLS household-wave rows (waves a-o),339201,
+1,Fuel-use module nonresponse (fuelhave* < 0),-1326,337875.0
+2,No fuel reported (fuelhave96 / none mentioned),-1182,336693.0
+3,Electricity not reported: gas only [S2 adds back],-4278,332415.0
+4,Electricity not reported: oil/other only [S2 adds back],-4003,328412.0
+5a,"Item nonresponse, first missing amount = xpduely [S1 adds back as 0]",-16684,311728.0
+5b,"Item nonresponse, first missing amount = xpgasy [S1 adds back as 0]",-15619,296109.0
+5c,"Item nonresponse, first missing amount = xpelecy [S1 adds back as 0]",-6284,289825.0
+5d,"Item nonresponse, first missing amount = xpoily [S1 adds back as 0]",-256,289569.0
+5e,"Item nonresponse, first missing amount = xpsfly [S1 adds back as 0]",-221,289348.0
+6,Household net income missing (sentinel code),-13,289335.0
+7,"Annual net income < £1,200 guard (never logged in v1)",-2433,286902.0
+=,Primary analytical n (fuel_to_income_ratio non-missing),286902,
+info,"  of which ratio capped at 1.0 (kept, not excluded)",2106,
+info,v1 analytical n for comparison,255324,
+info,S1 (lower-bound) analytical n,325190,
+info,S2 (+elec-not-reported) analytical n,294310,
+v1.0,All rows,339201,
+v1.1,fuelduel = -8 inapplicable (not dual-fuel) -> dropped,-61392,
+v1.2,fuelduel DK/refused/missing -> dropped,-3691,
+v1.3,fuelduel = 1 and xpduely nonresponse -> dropped,-16684,
+v1.4,= rows with v1 spend,257434,
+v1.5,  income missing,-10,
+v1.6,"  income < £1,200 guard (not logged in v1)",-2100,
+v1.7,= v1 analytical n,255324,
