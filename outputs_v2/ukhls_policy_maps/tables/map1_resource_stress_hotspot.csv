@@ -1,0 +1,13 @@
+region,baseline_resource_mean,vulnerable_pct,n,baseline_tertile,vulnerable_tertile,policy_tier
+East Midlands,0.00013063011563679627,9.005637405845848,24339,1,1,Mid resource / Mid vulnerability
+East of England,0.27260825164513935,7.077868852459017,28545,2,0,High resource / Low vulnerability
+London,-0.2928579797286772,7.159925921500687,41318,0,0,Low resource / Low vulnerability
+North East,-0.3838679376065038,8.77683564856576,12643,0,1,Low resource / Mid vulnerability
+North West,-0.11601441018030374,9.343828458980797,34392,1,1,Mid resource / Mid vulnerability
+Northern Ireland,0.004839764541398586,18.184548840562297,21486,2,2,High resource / High vulnerability
+Scotland,-0.127639809047219,9.695194790181496,30538,0,2,Low resource / High vulnerability
+South East,0.484875037645452,6.349253029055406,40315,2,0,High resource / Low vulnerability
+South West,0.24860733310734923,7.09123948780797,27323,2,0,High resource / Low vulnerability
+Wales,-0.042091233208148206,10.135906214337586,22768,1,2,Mid resource / High vulnerability
+West Midlands,-0.017645812397988143,10.333809804086437,27592,1,2,Mid resource / High vulnerability
+Yorkshire and the Humber,-0.14036923991770733,8.876061404609528,27761,0,1,Low resource / Mid vulnerability
