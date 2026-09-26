@@ -1,0 +1,2 @@
+table,dimension,window,category,rule,action
+T5.2/T5.4,all,all,all,primary n<100; complement; window differencing,no cell triggered suppression

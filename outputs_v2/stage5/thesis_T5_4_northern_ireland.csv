@@ -1,0 +1,19 @@
+item,value,ci_low,ci_high,detail
+"NI rate, primary window (2021-04 to 2023-03), outcome primary",14.421603503329075,12.092965314155148,16.96190973158732,"rank 1 of 12 (95% CI 1–2); P(rank 1) = 0.95; n = 1,562"
+"NI rate, primary window (2021-04 to 2023-03), outcome s1_lower_bound",13.204592402063293,11.112768199642955,15.544333866452988,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 0.99; n = 1,745"
+"NI rate, sensitivity window (2020-04 to 2023-03), outcome primary",14.173289808186732,12.08877557020296,16.399484843359122,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 1.00; n = 2,305"
+"NI rate, sensitivity window (2020-04 to 2023-03), outcome s1_lower_bound",13.018063372648154,10.988738419657688,15.053513134187028,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 1.00; n = 2,555"
+"NI oil share, primary window (weighted)",72.52322329530229,,,unweighted 66.1%
+"NI Oil heating, primary window",18.223749084899868,14.810395700428767,21.71876739010738,"n = 1,017"
+"NI No oil, primary window",8.610207041120809,5.654510038508141,11.915389090434786,n = 545
+"NI Oil heating, sensitivity window",16.56237832150516,13.796305759074443,19.37205707255342,"n = 1,535"
+"NI No oil, sensitivity window",10.299134476832144,7.193498840414557,13.579543035670964,n = 770
+"AME NI vs South East (pp), model ni_a_regionFE_filled",6.819653719152285,5.760097991264532,7.879209447040038,"n = 221,778"
+"AME NI vs South East (pp), model ni_b_oil_filled",2.388773294498436,1.403680494305833,3.3738660946910386,"n = 221,778"
+"AME oil vs no oil (pp), model ni_b_oil_filled",5.837507957398336,4.881298534759439,6.793717380037234,"n = 221,778"
+"AME NI vs South East (pp), model ni_b_oil_rural_filled",2.5138714163462925,1.5221200822848266,3.5056227504077584,"n = 221,778"
+"AME oil vs no oil (pp), model ni_b_oil_rural_filled",4.925871501047013,3.962843488641627,5.888899513452398,"n = 221,778"
+"AME NI vs South East (pp), model ni_c_ni_x_oil_filled",2.625676145175395,1.2173347192584272,4.034017571092363,"n = 221,778"
+"AME oil vs no oil (pp), model ni_c_ni_x_oil_filled",5.904440662919953,4.885188387006758,6.923692938833148,"n = 221,778"
+"AME NI vs South East (pp), model ni_c_ni_x_oil_rural_filled",2.5901845986400387,1.185544931837433,3.994824265442644,"n = 221,778"
+"AME oil vs no oil (pp), model ni_c_ni_x_oil_rural_filled",4.947421468137072,3.922365781034536,5.972477155239607,"n = 221,778"
