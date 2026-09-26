@@ -102,6 +102,7 @@ SPEC: dict[str, dict] = {
     "stage4/h1_decision.csv": dict(counts=["n"]),
     "stage5/thesis_T5_2_comparison.csv": dict(counts=["n"]),
     "stage6/sample_flow.csv": dict(counts=["n", "wave_t_households"]),
+    "stage6/posthoc_p3_metrics.csv": dict(counts=["n_train", "n_validation"]),
     "stage6/metrics.csv": dict(counts=["n_validation"]),
     "stage6/per_transition_auc.csv": dict(counts=["n"]),
     "stage6/coefficients.csv": dict(counts=["n_train"]),
@@ -115,7 +116,7 @@ SPEC: dict[str, dict] = {
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"stage6/calibration.csv", "stage6/delta_auc.csv", "stage6/standardisation_train_stats.csv",
+EXEMPT = {"stage6/posthoc_p3_delta_auc.csv", "stage6/calibration.csv", "stage6/delta_auc.csv", "stage6/standardisation_train_stats.csv",
           "stage5/thesis_T5_1_jrf_metadata.csv", "stage5/thesis_T5_3_agreement.csv",
           "stage5/thesis_T5_4_northern_ireland.csv",  # every n in its text column is >= 545
           "stage5/thesis_secondary_suppression_log.csv",
