@@ -74,7 +74,9 @@ HH_LINK_VARS: list[str] = ["hrpid"]
 # (used for interview_year/interview_month from v2).
 HH_TIMING_VARS: list[str] = ["month", "quarter", "intdatey", "intdatem"]
 
-HH_GEOGRAPHY_VARS: list[str] = ["gor_dv"]
+# urban_dv: 1 urban / 2 rural. origadd: interview at original issued
+# address (1 yes / 2 no; waves b-o). psu/strata: sample design.
+HH_GEOGRAPHY_VARS: list[str] = ["gor_dv", "urban_dv", "origadd", "psu", "strata"]
 
 # Fuel expenditure — combined bill (fuelduel==1) OR separate gas+electricity
 # (fuelduel==2), plus oil/other fuel for off-grid heating households.

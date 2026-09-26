@@ -402,6 +402,90 @@ def load_wave_hrp_ethnicity(wave: str) -> pd.DataFrame:
     return df[[IND_IDENTIFIER, "ethnicity_group"]]
 
 
+def load_wave_hrp_move(wave: str) -> pd.DataFrame:
+    """Reference person's reported move-in date to the current address
+    (mvyr/mvmnth; asked mainly of movers and new entrants). Used only as
+    evidence of a move in `fill_urban_from_adjacent_waves`."""
+    path = _wave_path(wave, "indresp")
+    available = _available_columns(path)
+    cols = [c for c in (f"{wave}_mvyr", f"{wave}_mvmnth") if c in available]
+    if not cols:
+        return pd.DataFrame(columns=[IND_IDENTIFIER, "hrp_mvyr", "hrp_mvmnth"])
+    df = pd.read_stata(path, columns=[IND_IDENTIFIER] + cols, convert_categoricals=False)
+    df = df.rename(columns={f"{wave}_mvyr": "hrp_mvyr", f"{wave}_mvmnth": "hrp_mvmnth"})
+    df = _recode_missing(df, ["hrp_mvyr", "hrp_mvmnth"])
+    for c in ["hrp_mvyr", "hrp_mvmnth"]:
+        if c not in df:
+            df[c] = np.nan
+    return df[[IND_IDENTIFIER, "hrp_mvyr", "hrp_mvmnth"]]
+
+
+def fill_urban_from_adjacent_waves(panel: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fill missing urban_dv from the same household (linked by hrpid, as in
+    Stage 5) at the previous wave, else the next wave, only where there is no
+    evidence of a move between the two interviews (analysis_plan_rerun.md,
+    Stage 3 note). Evidence of a move: gor_dv differs; origadd switches
+    between 1 and 2; or the reference person's move-in date in the later
+    wave is on/after the earlier interview (year only if the month is
+    unknown). Absence of a move-in date is not proof of no move.
+
+    Adds urban_dv_filled, urban_fill_source (observed/previous/next/missing)
+    and rural (1 = rural, from urban_dv_filled).
+    """
+    p = panel
+    order = {w: i for i, w in enumerate(WAVE_LETTERS)}
+    p["_wi"] = p["wave"].map(order)
+    cols = ["hrpid", "_wi", "urban_dv", "gor_dv", "origadd", "interview_year",
+            "interview_month", "hrp_mvyr", "hrp_mvmnth"]
+    donors = (p[[c for c in cols if c in p.columns]].dropna(subset=["hrpid"])
+              .drop_duplicates(subset=["hrpid", "_wi"], keep=False))
+    for c in cols:
+        if c not in donors:
+            donors[c] = np.nan
+
+    def moved(early: pd.DataFrame, late: pd.DataFrame) -> pd.Series:
+        m = early["gor_dv"].notna() & late["gor_dv"].notna() & (early["gor_dv"] != late["gor_dv"])
+        m |= (early["origadd"].isin([1, 2]) & late["origadd"].isin([1, 2])
+              & (early["origadd"] != late["origadd"]))
+        e_ym = early["interview_year"] * 12 + early["interview_month"].fillna(12)
+        mv_ym = late["hrp_mvyr"] * 12 + late["hrp_mvmnth"]
+        by_month = late["hrp_mvmnth"].notna() & (mv_ym >= e_ym)
+        by_year = late["hrp_mvmnth"].isna() & (late["hrp_mvyr"] >= early["interview_year"])
+        m |= late["hrp_mvyr"].notna() & (by_month | by_year)
+        return m.fillna(False)
+
+    need = p["urban_dv"].isna() & p["hrpid"].notna()
+    rec = p.loc[need, [c for c in cols if c in p.columns]].copy()
+    for c in cols:
+        if c not in rec:
+            rec[c] = np.nan
+    filled = pd.Series(np.nan, index=p.index)
+    source = pd.Series(np.where(p["urban_dv"].notna(), "observed", "missing"), index=p.index)
+
+    prev = rec[["hrpid", "_wi"]].assign(_wi=rec["_wi"] - 1).merge(
+        donors, on=["hrpid", "_wi"], how="left").set_index(rec.index)
+    ok_prev = prev["urban_dv"].notna() & ~moved(prev, rec)
+    filled[ok_prev[ok_prev].index] = prev.loc[ok_prev, "urban_dv"]
+    source[ok_prev[ok_prev].index] = "previous"
+
+    rest = rec.loc[~ok_prev]
+    nxt = rest[["hrpid", "_wi"]].assign(_wi=rest["_wi"] + 1).merge(
+        donors, on=["hrpid", "_wi"], how="left").set_index(rest.index)
+    ok_next = nxt["urban_dv"].notna() & ~moved(rest, nxt)
+    filled[ok_next[ok_next].index] = nxt.loc[ok_next, "urban_dv"]
+    source[ok_next[ok_next].index] = "next"
+
+    p["urban_dv_filled"] = p["urban_dv"].combine_first(filled)
+    p["urban_fill_source"] = source
+    p["rural"] = (p["urban_dv_filled"] == 2).astype(float).where(p["urban_dv_filled"].notna())
+    p.drop(columns="_wi", inplace=True)
+    counts = source.value_counts().to_dict()
+    ni_k = p[(p["gor_dv"] == 12) & (p["wave"] == "k")]["urban_fill_source"].value_counts().to_dict()
+    log.info("urban_dv fill: %s | NI wave k: %s", counts, ni_k)
+    return p
+
+
 # =============================================================================
 # STEP 4 — Build one wave's household panel rows
 # =============================================================================
@@ -414,6 +498,9 @@ def build_wave_panel(wave: str) -> pd.DataFrame:
     if "hrpid" in panel.columns:
         eth = load_wave_hrp_ethnicity(wave)
         panel = panel.merge(eth, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
+        panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
+        move = load_wave_hrp_move(wave)
+        panel = panel.merge(move, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
         panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
 
     # Sample year/month (address issue date), kept for comparison with v1.
@@ -450,6 +537,8 @@ def build_full_panel(waves: list[str] | None = None) -> pd.DataFrame:
     panel = pd.concat(frames, ignore_index=True, sort=False)
     log.info("Full panel: %d household-wave rows across %d waves",
               len(panel), len(frames))
+    if "urban_dv" in panel.columns and "hrpid" in panel.columns:
+        panel = fill_urban_from_adjacent_waves(panel)
     return panel
 
 
