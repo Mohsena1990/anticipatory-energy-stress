@@ -55,7 +55,7 @@ WAVES = "abcdefghijklmno"
 FUEL = ["fuelduel", "xpduely", "xpgasy", "xpelecy", "xpoily", "xpsfly"]
 HAVE = ["fuelhave1", "fuelhave2", "fuelhave3", "fuelhave4", "fuelhave96"]
 PAY = ["elecpay", "gaspay", "duelpay"]
-EXTRA = ["tenure_dv", "hsownd"]
+EXTRA = ["tenure_dv", "hsownd", "hholdmodedv"]
 NONRESP = (-1, -2, -9)
 INCOME_FLOOR = 1200.0
 GOR = {1: "North East", 2: "North West", 3: "Yorkshire and the Humber",
@@ -92,7 +92,7 @@ def load_raw() -> tuple[pd.DataFrame, dict]:
                 for k, v in vl[lbl].items():
                     labels.setdefault((bare, int(k)), set()).add(v.strip())
     df = pd.concat(frames, ignore_index=True)
-    for c in PAY:
+    for c in PAY + ["hholdmodedv"]:
         if c not in df:
             df[c] = np.nan
     return df, labels
@@ -338,6 +338,24 @@ def missing_vs_observed(df: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
+MODE = {1: "CAPI (face-to-face)", 2: "CATI (telephone)", 3: "CAWI (web)"}
+
+
+def missing_by_mode_wave(df: pd.DataFrame) -> pd.DataFrame:
+    """Spend missingness by household-interview mode x wave, among households
+    with electricity reported (hholdmodedv; absent in waves where the
+    variable does not exist -> 'mode not recorded')."""
+    pop = df[df.a1_reason.isin(["in_scope", "item_nonresponse"])]
+    mode = pop.hholdmodedv.map(MODE)
+    mode = mode.where(pop.hholdmodedv.notna(), "mode not recorded").fillna("mode missing/other")
+    t = pd.crosstab([pop.wave, mode], pop.a1_reason == "item_nonresponse")
+    t.columns = ["observed", "missing"]
+    t["n"] = t.observed + t.missing
+    t["pct_missing"] = 100 * t.missing / t.n
+    t["pct_of_wave"] = 100 * t.n / t.groupby(level=0).n.transform("sum")
+    return t.reset_index().rename(columns={"hholdmodedv": "mode", "level_1": "mode"})
+
+
 def rent_check(df: pd.DataFrame) -> pd.DataFrame:
     groups = {"gas_only": df.a1_reason == "elec_not_reported_gas_only",
               "oil_or_other_only": df.a1_reason == "elec_not_reported_oil_or_other_only",
@@ -480,6 +498,7 @@ def main() -> None:
 
     missing_vs_observed(df).to_csv(AUD / "missing_vs_observed_spend.csv", index=False)
     rent_check(df).to_csv(AUD / "elec_not_reported_rent_check.csv", index=False)
+    missing_by_mode_wave(df).to_csv(AUD / "missing_by_mode_wave.csv", index=False)
 
     pd.set_option("display.width", 220)
     print(df.status.value_counts().to_string())
