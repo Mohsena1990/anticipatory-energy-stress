@@ -139,6 +139,14 @@ def main() -> None:
     scores.insert(0, "hidp", df.hidp)
     scores.to_csv(OUT / "resource_scores.csv", index=False)
     scores[list(FACTORS) + ["R_primary", "R_with_energy"]].corr().to_csv(OUT / "composite_item_correlations.csv")
+    # Cronbach's alpha per domain (descriptive only: formative indices).
+    arows = []
+    for f, items in FACTORS.items():
+        zz = ((x[items] - x[items].mean()) / x[items].std()).dropna()
+        k = len(items)
+        arows.append(dict(domain=f, n_items=k, n_complete=len(zz),
+                          cronbach_alpha=k / (k - 1) * (1 - zz.var().sum() / zz.sum(axis=1).var())))
+    pd.DataFrame(arows).to_csv(OUT / "composite_alpha.csv", index=False)
 
     reg = scores.assign(region=df.gor_dv.map(GOR), w=df.hh_xw).dropna(subset=["region", "R_primary"])
     reg = reg[reg.w > 0]

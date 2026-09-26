@@ -1,0 +1,2 @@
+prophet_fits,of_which_tuning_candidates,cmdstan_optimise_calls,newton_fallbacks,pct_fallback,failed_fits,source
+560,512,1325,205,15.5,0,outputs_v2/logs/fes_v2_run.log (not tracked)

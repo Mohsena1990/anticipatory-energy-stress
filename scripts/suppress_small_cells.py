@@ -104,6 +104,7 @@ SPEC: dict[str, dict] = {
     "stage6/sample_flow.csv": dict(counts=["n", "wave_t_households"]),
     "stage6/posthoc_p3_metrics.csv": dict(counts=["n_train", "n_validation"]),
     "stage7/sensitivity_equivalised_income_only.csv": dict(counts=["n"]),
+    "resources/composite_alpha.csv": dict(counts=["n_complete"]),
     "stage7/prepayment_by_vulnerability.csv": dict(counts=["n"]),
     "stage7/regional_change_early_late.csv": dict(counts=["n_early", "n_late"]),
     "stage7/prevalence_by_fes_tercile.csv": dict(counts=["n"]),
@@ -120,7 +121,7 @@ SPEC: dict[str, dict] = {
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"stage6/posthoc_p3_delta_auc.csv", "stage6/calibration.csv", "stage6/delta_auc.csv", "stage6/standardisation_train_stats.csv",
+EXEMPT = {"fes_eval/prophet_fallbacks.csv", "stage6/posthoc_p3_delta_auc.csv", "stage6/calibration.csv", "stage6/delta_auc.csv", "stage6/standardisation_train_stats.csv",
           "stage5/thesis_T5_1_jrf_metadata.csv", "stage5/thesis_T5_3_agreement.csv",
           "stage5/thesis_T5_4_northern_ireland.csv",  # every n in its text column is >= 545
           "stage5/thesis_secondary_suppression_log.csv",
