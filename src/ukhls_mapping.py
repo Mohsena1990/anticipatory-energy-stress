@@ -49,7 +49,9 @@ WAVE_FIELDWORK_START_YEAR: dict[str, int] = {
 # Missing-value convention
 # =============================================================================
 
-MISSING_CODES: list[int] = [-9, -8, -7, -2, -1]
+# -10/-11: not available for / only available for IEMB; -20/-21: same for
+# BHPS (added in v2: wave f ncars/carval carried -10 as a value in v1).
+MISSING_CODES: list[int] = [-21, -20, -11, -10, -9, -8, -7, -2, -1]
 
 # =============================================================================
 # Household-level (hhresp) variables — present in every wave a–o unless noted
@@ -152,7 +154,7 @@ HH_OBJECT_VARS: list[str] = ["hsrooms", "ncars", "carval", "hsval"]
 IND_CONDITION_VARS: list[str] = ["jbstat"]
 
 # Personal resources (individual-level): human capital / health.
-IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "qfhigh_dv"]
+IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "scsf1", "qfhigh_dv"]
 
 # Employment status/hours (individual-level, aggregated to household via
 # "does ANY adult have property X" -- see

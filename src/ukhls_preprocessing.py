@@ -250,9 +250,14 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
         # health: 1=has long-standing illness/disability, 2=no -> reverse
         # so higher=better personal resource (no illness=1, illness=0).
         df["health_good"] = df["health"].map({1: 0.0, 2: 1.0})
-    if "sf1" in df.columns:
-        # sf1: 1=excellent...5=poor -> reverse to higher=better, [0,1] scale.
-        df["sf1_good"] = (5.0 - df["sf1"]) / 4.0
+    if "sf1" in df.columns or "scsf1" in df.columns:
+        # Self-rated general health, 1=excellent...5=poor -> reversed to
+        # higher=better on [0,1]. Self-completion scsf1 (waves b-o) where
+        # valid, else interviewer sf1 (wave a; v1 used sf1 only, which is
+        # <11% observed after wave e).
+        sf1 = df.get("scsf1", pd.Series(np.nan, index=df.index)).combine_first(
+            df.get("sf1", pd.Series(np.nan, index=df.index)))
+        df["sf1_good"] = (5.0 - sf1) / 4.0
     if "qfhigh_dv" in df.columns:
         df["qfhigh_band"] = df["qfhigh_dv"].map(QFHIGH_BAND_RECODE)
     disdif = [f"disdif{i}" for i in range(1, 13) if f"disdif{i}" in df.columns]
@@ -284,7 +289,7 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     # separately MAX-aggregated into has_fulltime_worker/has_selfemployed_worker
     # below, so they don't need a mean-aggregated column at all. jbhrs
     # (hours worked) stays mean-aggregated -- it's a genuine continuous value.
-    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv"} | set(IND_DISABILITY_VARS)
+    RECODED = {"finfut", "jbstat", "health", "sf1", "scsf1", "qfhigh_dv"} | set(IND_DISABILITY_VARS)
     NOT_MEANABLE_CATEGORICAL = {"jbft_dv", "jbsemp", "jbterm1"}
     DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good",
                "qfhigh_band", "disability_free"]
