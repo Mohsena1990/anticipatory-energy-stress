@@ -1,0 +1,623 @@
+id,section,label,value,ci_low,ci_high,n,unit,source_file,commit,note
+R0001,1 Sample,0: All UKHLS household-wave rows (waves a-o),339201.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0002,1 Sample,1: Fuel-use module nonresponse (fuelhave* < 0),-1326.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0003,1 Sample,2: No fuel reported (fuelhave96 / none mentioned),-1182.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0004,1 Sample,3: Electricity not reported: gas only [S2 adds back],-4278.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0005,1 Sample,4: Electricity not reported: oil/other only [S2 adds back],-4003.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0006,1 Sample,"5a: Item nonresponse, first missing amount = xpduely [S1 adds back as 0]",-16684.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0007,1 Sample,"5b: Item nonresponse, first missing amount = xpgasy [S1 adds back as 0]",-15619.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0008,1 Sample,"5c: Item nonresponse, first missing amount = xpelecy [S1 adds back as 0]",-6284.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0009,1 Sample,"5d: Item nonresponse, first missing amount = xpoily [S1 adds back as 0]",-256.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0010,1 Sample,"5e: Item nonresponse, first missing amount = xpsfly [S1 adds back as 0]",-221.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0011,1 Sample,6: Household net income missing (sentinel code),-13.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0012,1 Sample,"7: Annual net income < £1,200 guard (never logged in v1)",-2433.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0013,1 Sample,=: Primary analytical n (fuel_to_income_ratio non-missing),286902.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0014,1 Sample,"info:   of which ratio capped at 1.0 (kept, not excluded)",2106.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0015,1 Sample,info: v1 analytical n for comparison,255324.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0016,1 Sample,info: S1 (lower-bound) analytical n,325190.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0017,1 Sample,info: S2 (+elec-not-reported) analytical n,294310.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0018,1 Sample,v1.0: All rows,339201.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0019,1 Sample,v1.1: fuelduel = -8 inapplicable (not dual-fuel) -> dropped,-61392.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0020,1 Sample,v1.2: fuelduel DK/refused/missing -> dropped,-3691.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0021,1 Sample,v1.3: fuelduel = 1 and xpduely nonresponse -> dropped,-16684.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0022,1 Sample,v1.4: = rows with v1 spend,257434.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0023,1 Sample,v1.5:   income missing,-10.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0024,1 Sample,"v1.6:   income < £1,200 guard (not logged in v1)",-2100.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0025,1 Sample,v1.7: = v1 analytical n,255324.0,,,,household-waves,outputs_v2/audit/sample_flow_reconciliation.csv,962f3f0,
+R0026,1 Sample,NI oil households (all waves),15968.0,,,,household-waves,outputs_v2/audit/ni_oil_lost_by_wave.csv,962f3f0,
+R0027,1 Sample,NI oil households dropped by the v1 fuelduel rule,13463.0,,,,household-waves,outputs_v2/audit/ni_oil_lost_by_wave.csv,962f3f0,
+R0028,"2 Trend (by wave, main)","wave a (2009-2011): primary, weighted",11.98158935924703,,,25649.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0029,"2 Trend (by wave, main)","wave a (2009-2011): S1 lower bound, weighted",10.814663851677404,,,28881.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0030,"2 Trend (by wave, main)","wave b (2010-2012): primary, weighted",9.368783399421163,,,26936.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0031,"2 Trend (by wave, main)","wave b (2010-2012): S1 lower bound, weighted",8.604833127809874,,,29307.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0032,"2 Trend (by wave, main)","wave c (2011-2013): primary, weighted",9.215333154771008,,,24765.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0033,"2 Trend (by wave, main)","wave c (2011-2013): S1 lower bound, weighted",8.493099812211128,,,26945.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0034,"2 Trend (by wave, main)","wave d (2012-2014): primary, weighted",9.463262397101971,,,23260.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0035,"2 Trend (by wave, main)","wave d (2012-2014): S1 lower bound, weighted",8.804570536392937,,,25180.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0036,"2 Trend (by wave, main)","wave e (2013-2015): primary, weighted",9.95723799302606,,,21970.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0037,"2 Trend (by wave, main)","wave e (2013-2015): S1 lower bound, weighted",9.277719308154374,,,23653.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0038,"2 Trend (by wave, main)","wave f (2014-2016): primary, weighted",8.354361670512555,,,20625.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0039,"2 Trend (by wave, main)","wave f (2014-2016): S1 lower bound, weighted",7.504351368116137,,,23458.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0040,"2 Trend (by wave, main)","wave g (2015-2017): primary, weighted",6.842765796728549,,,19814.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0041,"2 Trend (by wave, main)","wave g (2015-2017): S1 lower bound, weighted",6.171318360884393,,,22205.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0042,"2 Trend (by wave, main)","wave h (2016-2018): primary, weighted",6.485228979802249,,,18818.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0043,"2 Trend (by wave, main)","wave h (2016-2018): S1 lower bound, weighted",5.848797530677528,,,20938.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0044,"2 Trend (by wave, main)","wave i (2017-2019): primary, weighted",6.273429334065073,,,17004.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0045,"2 Trend (by wave, main)","wave i (2017-2019): S1 lower bound, weighted",5.573131490556885,,,19298.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0046,"2 Trend (by wave, main)","wave j (2018-2020): primary, weighted",6.705007771061106,,,16171.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0047,"2 Trend (by wave, main)","wave j (2018-2020): S1 lower bound, weighted",5.887596863423495,,,18473.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0048,"2 Trend (by wave, main)","wave k (2019-2021): primary, weighted",6.460125329128945,,,14884.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0049,"2 Trend (by wave, main)","wave k (2019-2021): S1 lower bound, weighted",5.622200810420329,,,17268.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0050,"2 Trend (by wave, main)","wave l (2020-2022): primary, weighted",6.519057396742686,,,13431.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0051,"2 Trend (by wave, main)","wave l (2020-2022): S1 lower bound, weighted",5.560722728754408,,,15912.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0052,"2 Trend (by wave, main)","wave m (2021-2023): primary, weighted",7.613478573325487,,,12478.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0053,"2 Trend (by wave, main)","wave m (2021-2023): S1 lower bound, weighted",6.324617521677556,,,15152.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0054,"2 Trend (by wave, main)","wave n (2022-2024): primary, weighted",12.468168640589274,,,16411.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0055,"2 Trend (by wave, main)","wave n (2022-2024): S1 lower bound, weighted",10.217368102193662,,,20072.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0056,"2 Trend (by wave, main)","wave o (2023-2025): primary, weighted",12.416733022117604,,,14686.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0057,"2 Trend (by wave, main)","wave o (2023-2025): S1 lower bound, weighted",9.941197159295626,,,18448.0,%,outputs_v2/descriptives/prevalence_by_wave.csv,aa64bb6,
+R0058,"2 Trend (by interview year, supplementary)","2009: primary, weighted",12.429178292764565,,,12774.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0059,"2 Trend (by interview year, supplementary)","2009: S1 lower bound, weighted",11.21770488711636,,,14393.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0060,"2 Trend (by interview year, supplementary)","2010: primary, weighted",10.269889735243334,,,27594.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0061,"2 Trend (by interview year, supplementary)","2010: S1 lower bound, weighted",9.395066200207763,,,30403.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0062,"2 Trend (by interview year, supplementary)","2011: primary, weighted",9.45815706663531,,,26339.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0063,"2 Trend (by interview year, supplementary)","2011: S1 lower bound, weighted",8.68762028386526,,,28698.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0064,"2 Trend (by interview year, supplementary)","2012: primary, weighted",9.109486388273451,,,23704.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0065,"2 Trend (by interview year, supplementary)","2012: S1 lower bound, weighted",8.439619646461974,,,25691.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0066,"2 Trend (by interview year, supplementary)","2013: primary, weighted",10.16590524315551,,,22178.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0067,"2 Trend (by interview year, supplementary)","2013: S1 lower bound, weighted",9.487520638923275,,,23921.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0068,"2 Trend (by interview year, supplementary)","2014: primary, weighted",9.309683238725489,,,20267.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0069,"2 Trend (by interview year, supplementary)","2014: S1 lower bound, weighted",8.540315128477314,,,22243.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0070,"2 Trend (by interview year, supplementary)","2015: primary, weighted",7.778164367464909,,,19855.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0071,"2 Trend (by interview year, supplementary)","2015: S1 lower bound, weighted",6.989492467788333,,,22478.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0072,"2 Trend (by interview year, supplementary)","2016: primary, weighted",6.08798674948808,,,19704.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0073,"2 Trend (by interview year, supplementary)","2016: S1 lower bound, weighted",5.46832255886094,,,22161.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0074,"2 Trend (by interview year, supplementary)","2017: primary, weighted",6.297351525034658,,,17849.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0075,"2 Trend (by interview year, supplementary)","2017: S1 lower bound, weighted",5.634780495538474,,,20063.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0076,"2 Trend (by interview year, supplementary)","2018: primary, weighted",6.412657337345124,,,16830.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0077,"2 Trend (by interview year, supplementary)","2018: S1 lower bound, weighted",5.674315787146171,,,19130.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0078,"2 Trend (by interview year, supplementary)","2019: primary, weighted",6.474513099253207,,,15829.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0079,"2 Trend (by interview year, supplementary)","2019: S1 lower bound, weighted",5.645606406821802,,,18240.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0080,"2 Trend (by interview year, supplementary)","2020: primary, weighted",6.57941525367294,,,14693.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0081,"2 Trend (by interview year, supplementary)","2020: S1 lower bound, weighted",5.66360857628393,,,17164.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0082,"2 Trend (by interview year, supplementary)","2021: primary, weighted",6.163336817376393,,,12933.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0083,"2 Trend (by interview year, supplementary)","2021: S1 lower bound, weighted",5.218355767404729,,,15540.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0084,"2 Trend (by interview year, supplementary)","2022: primary, weighted",9.278316600156623,,,13533.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0085,"2 Trend (by interview year, supplementary)","2022: S1 lower bound, weighted",7.652441290167941,,,16561.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0086,"2 Trend (by interview year, supplementary)","2023: primary, weighted",14.656736836057116,,,15705.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0087,"2 Trend (by interview year, supplementary)","2023: S1 lower bound, weighted",11.819828123664267,,,19534.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0088,"2 Trend (by interview year, supplementary)","2024: primary, weighted",11.513829005237456,,,6892.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0089,"2 Trend (by interview year, supplementary)","2024: S1 lower bound, weighted",9.156053830250976,,,8684.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0090,"2 Trend (by interview year, supplementary)","2025: primary, weighted",15.747288912218574,,,223.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,partial year
+R0091,"2 Trend (by interview year, supplementary)","2025: S1 lower bound, weighted",12.79763205321999,,,286.0,%,outputs_v2/descriptives/prevalence_by_interview_year.csv,aa64bb6,
+R0092,"3 Group prevalence (pooled, wave-mean weighted)",region: East Midlands,9.358946631697526,,,21109.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0093,"3 Group prevalence (pooled, wave-mean weighted)",region: East of England,7.291833389487179,,,24400.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0094,"3 Group prevalence (pooled, wave-mean weighted)",region: London,6.694759516765519,,,33478.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0095,"3 Group prevalence (pooled, wave-mean weighted)",region: North East,8.995575786816557,,,11086.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0096,"3 Group prevalence (pooled, wave-mean weighted)",region: North West,9.078889382979922,,,29474.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0097,"3 Group prevalence (pooled, wave-mean weighted)",region: Northern Ireland,18.04370733762612,,,16646.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0098,"3 Group prevalence (pooled, wave-mean weighted)",region: Scotland,10.289380726260594,,,25951.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0099,"3 Group prevalence (pooled, wave-mean weighted)",region: South East,6.572319481036645,,,34004.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0100,"3 Group prevalence (pooled, wave-mean weighted)",region: South West,7.443014387402962,,,23663.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0101,"3 Group prevalence (pooled, wave-mean weighted)",region: Wales,10.422683507141556,,,19278.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0102,"3 Group prevalence (pooled, wave-mean weighted)",region: West Midlands,9.893118362056532,,,23786.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0103,"3 Group prevalence (pooled, wave-mean weighted)",region: Yorkshire and the Humber,9.111665661969305,,,23907.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0104,"3 Group prevalence (pooled, wave-mean weighted)",tenure: Buying with mortgage,4.226006455217609,,,98180.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0105,"3 Group prevalence (pooled, wave-mean weighted)",tenure: Other,14.052123627947736,,,714.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0106,"3 Group prevalence (pooled, wave-mean weighted)",tenure: Owned outright,11.148409938974408,,,101181.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0107,"3 Group prevalence (pooled, wave-mean weighted)",tenure: Private renting,8.895857640656702,,,35222.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0108,"3 Group prevalence (pooled, wave-mean weighted)",tenure: Social renting,11.084102209102385,,,50642.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0109,"3 Group prevalence (pooled, wave-mean weighted)","family_composition_group: Couple, 1-2 children",3.7533463093197454,,,47749.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0110,"3 Group prevalence (pooled, wave-mean weighted)","family_composition_group: Couple, 3+ children",5.235399194441826,,,9749.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0111,"3 Group prevalence (pooled, wave-mean weighted)","family_composition_group: Lone parent, 1-2 children",15.05136922590669,,,14600.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0112,"3 Group prevalence (pooled, wave-mean weighted)","family_composition_group: Lone parent, 3+ children",13.628738089229351,,,1931.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0113,"3 Group prevalence (pooled, wave-mean weighted)",family_composition_group: No children,9.7288810406335,,,192425.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0114,"3 Group prevalence (pooled, wave-mean weighted)","family_composition_group: Other multi-adult, with children",3.8062173915167534,,,20375.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0115,"3 Group prevalence (pooled, wave-mean weighted)",employment_group: Full-time or self-employed,3.476360983173495,,,151676.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0116,"3 Group prevalence (pooled, wave-mean weighted)",employment_group: Part-time only,10.042335551456231,,,29613.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0117,"3 Group prevalence (pooled, wave-mean weighted)",employment_group: Workless household,15.049279026329293,,,104135.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0118,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Any other Asian background,6.232407930538178,,,2144.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0119,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Any other Black background,14.583152493641805,,,349.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0120,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Bangladeshi,9.345278519454103,,,3246.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0121,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Black African,11.23497122688274,,,5508.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0122,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Black Caribbean,14.706879793511968,,,5615.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0123,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Chinese,7.532898932626343,,,1099.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0124,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Indian,8.028201093442702,,,7646.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0125,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Mixed/multiple ethnic groups,9.862417662067582,,,3989.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0126,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Other ethnic group,10.702200182098707,,,1872.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0127,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: Pakistani,13.79390497936851,,,5584.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0128,"3 Group prevalence (pooled, wave-mean weighted)",ethnicity_group: White,8.79400118053355,,,229191.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0129,"3 Group prevalence (pooled, wave-mean weighted)",disability: Contains disabled adult,10.493076910241736,,,98046.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0130,"3 Group prevalence (pooled, wave-mean weighted)",disability: No disabled adult,7.621046977508826,,,187061.0,%,outputs_v2/descriptives/prevalence_by_group.csv,a21c572,
+R0131,4 Forecast accuracy,carbon v1_core: relative RMSE vs naive,1.0275461491153326,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.845
+R0132,4 Forecast accuracy,carbon v1_core: relative RMSE vs seasonal naive,0.7880744869909762,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.054
+R0133,4 Forecast accuracy,carbon v1_macro: relative RMSE vs naive,1.1804233489338332,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.403
+R0134,4 Forecast accuracy,carbon v1_macro: relative RMSE vs seasonal naive,0.9053233530621576,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.551
+R0135,4 Forecast accuracy,carbon v2_core: relative RMSE vs naive,0.9888298856763782,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.905
+R0136,4 Forecast accuracy,carbon v2_core: relative RMSE vs seasonal naive,0.7583811253116683,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.002
+R0137,4 Forecast accuracy,electricity v1_core: relative RMSE vs naive,0.973258208718774,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.899
+R0138,4 Forecast accuracy,electricity v1_core: relative RMSE vs seasonal naive,0.7399558651793001,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.200
+R0139,4 Forecast accuracy,electricity v1_macro: relative RMSE vs naive,0.8003832594058363,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.458
+R0140,4 Forecast accuracy,electricity v1_macro: relative RMSE vs seasonal naive,0.6085212350464806,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.140
+R0141,4 Forecast accuracy,electricity v2_core: relative RMSE vs naive,0.8251544279251768,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.526
+R0142,4 Forecast accuracy,electricity v2_core: relative RMSE vs seasonal naive,0.627354440118915,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.143
+R0143,4 Forecast accuracy,gas v1_core: relative RMSE vs naive,1.2280170150252263,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.173
+R0144,4 Forecast accuracy,gas v1_core: relative RMSE vs seasonal naive,0.9559108574111966,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.710
+R0145,4 Forecast accuracy,gas v1_macro: relative RMSE vs naive,1.5817173375236904,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.202
+R0146,4 Forecast accuracy,gas v1_macro: relative RMSE vs seasonal naive,1.231237643937178,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.425
+R0147,4 Forecast accuracy,gas v2_core: relative RMSE vs naive,0.7119298314751904,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.373
+R0148,4 Forecast accuracy,gas v2_core: relative RMSE vs seasonal naive,0.5541791744702153,,,,,outputs_v2/fes_eval/thesis_table_forecast_accuracy.csv,5d8a7d6,DM p = 0.130
+R0149,4 Forecast accuracy (appendix),carbon naive: MASE,1.0197089381485371,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0150,4 Forecast accuracy (appendix),carbon snaive: MASE,1.3895952031482444,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0151,4 Forecast accuracy (appendix),carbon v1_core: MASE,0.9137838820445076,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0152,4 Forecast accuracy (appendix),carbon v1_macro: MASE,0.9395316137592422,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0153,4 Forecast accuracy (appendix),carbon v2_core: MASE,0.9602164549367972,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0154,4 Forecast accuracy (appendix),electricity naive: MASE,5.692583018375276,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0155,4 Forecast accuracy (appendix),electricity snaive: MASE,8.683884125416597,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0156,4 Forecast accuracy (appendix),electricity v1_core: MASE,6.7489510125031416,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0157,4 Forecast accuracy (appendix),electricity v1_macro: MASE,5.29128033456277,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0158,4 Forecast accuracy (appendix),electricity v2_core: MASE,5.556246338477589,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0159,4 Forecast accuracy (appendix),gas naive: MASE,6.32621974643689,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0160,4 Forecast accuracy (appendix),gas snaive: MASE,9.81668495400178,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0161,4 Forecast accuracy (appendix),gas v1_core: MASE,7.970378889448891,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0162,4 Forecast accuracy (appendix),gas v1_macro: MASE,9.555317850918634,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0163,4 Forecast accuracy (appendix),gas v2_core: MASE,5.418677462588604,,,,,outputs_v2/fes_eval/appendix_table_mase.csv,5d8a7d6,
+R0164,4 Forecast accuracy by year,carbon 2010: v2 relative RMSE vs naive,1.1594408685669302,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0165,4 Forecast accuracy by year,carbon 2011: v2 relative RMSE vs naive,0.905337132419364,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0166,4 Forecast accuracy by year,carbon 2012: v2 relative RMSE vs naive,1.4236770487058543,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0167,4 Forecast accuracy by year,carbon 2013: v2 relative RMSE vs naive,1.09124690197004,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0168,4 Forecast accuracy by year,carbon 2014: v2 relative RMSE vs naive,0.9012286418755072,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0169,4 Forecast accuracy by year,carbon 2015: v2 relative RMSE vs naive,0.5674547480669582,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0170,4 Forecast accuracy by year,carbon 2016: v2 relative RMSE vs naive,0.982012449770318,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0171,4 Forecast accuracy by year,carbon 2017: v2 relative RMSE vs naive,1.47481307273905,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0172,4 Forecast accuracy by year,carbon 2018: v2 relative RMSE vs naive,1.2893087410527142,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0173,4 Forecast accuracy by year,carbon 2019: v2 relative RMSE vs naive,0.5425119977007284,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0174,4 Forecast accuracy by year,carbon 2020: v2 relative RMSE vs naive,1.1175359161934255,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0175,4 Forecast accuracy by year,carbon 2021: v2 relative RMSE vs naive,0.7101239087173209,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0176,4 Forecast accuracy by year,carbon 2022: v2 relative RMSE vs naive,0.5757693734133422,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0177,4 Forecast accuracy by year,carbon 2023: v2 relative RMSE vs naive,1.1255896511475034,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0178,4 Forecast accuracy by year,carbon 2024: v2 relative RMSE vs naive,1.2474102943273782,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0179,4 Forecast accuracy by year,carbon 2025: v2 relative RMSE vs naive,0.5713148943604938,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0180,4 Forecast accuracy by year,electricity 2010: v2 relative RMSE vs naive,1.0861909846261208,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0181,4 Forecast accuracy by year,electricity 2011: v2 relative RMSE vs naive,1.0456667062391751,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0182,4 Forecast accuracy by year,electricity 2012: v2 relative RMSE vs naive,0.7008356464074137,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0183,4 Forecast accuracy by year,electricity 2013: v2 relative RMSE vs naive,1.9516698566284991,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0184,4 Forecast accuracy by year,electricity 2014: v2 relative RMSE vs naive,0.6232629153483447,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0185,4 Forecast accuracy by year,electricity 2015: v2 relative RMSE vs naive,9.803937451708352,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0186,4 Forecast accuracy by year,electricity 2016: v2 relative RMSE vs naive,16.868614306685394,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0187,4 Forecast accuracy by year,electricity 2017: v2 relative RMSE vs naive,1.1697324351368728,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0188,4 Forecast accuracy by year,electricity 2018: v2 relative RMSE vs naive,0.8704244448624588,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0189,4 Forecast accuracy by year,electricity 2019: v2 relative RMSE vs naive,0.9210624794574922,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0190,4 Forecast accuracy by year,electricity 2020: v2 relative RMSE vs naive,1.629265152624824,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0191,4 Forecast accuracy by year,electricity 2021: v2 relative RMSE vs naive,0.8917839263727654,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0192,4 Forecast accuracy by year,electricity 2022: v2 relative RMSE vs naive,1.220764648730686,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0193,4 Forecast accuracy by year,electricity 2023: v2 relative RMSE vs naive,0.33294674442751,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0194,4 Forecast accuracy by year,electricity 2024: v2 relative RMSE vs naive,4.284529815945831,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0195,4 Forecast accuracy by year,electricity 2025: v2 relative RMSE vs naive,0.677981121192005,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0196,4 Forecast accuracy by year,gas 2010: v2 relative RMSE vs naive,1.4376052091735487,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0197,4 Forecast accuracy by year,gas 2011: v2 relative RMSE vs naive,1.2316694837263915,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0198,4 Forecast accuracy by year,gas 2012: v2 relative RMSE vs naive,0.4976590437083277,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0199,4 Forecast accuracy by year,gas 2013: v2 relative RMSE vs naive,4.145992592637411,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0200,4 Forecast accuracy by year,gas 2014: v2 relative RMSE vs naive,0.9133853710543598,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0201,4 Forecast accuracy by year,gas 2015: v2 relative RMSE vs naive,3.189961067511445,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0202,4 Forecast accuracy by year,gas 2016: v2 relative RMSE vs naive,3.376573388214137,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0203,4 Forecast accuracy by year,gas 2017: v2 relative RMSE vs naive,1.052105060623585,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0204,4 Forecast accuracy by year,gas 2018: v2 relative RMSE vs naive,0.5361450244822387,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0205,4 Forecast accuracy by year,gas 2019: v2 relative RMSE vs naive,0.5691490996290217,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0206,4 Forecast accuracy by year,gas 2020: v2 relative RMSE vs naive,1.4627858732431371,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0207,4 Forecast accuracy by year,gas 2021: v2 relative RMSE vs naive,1.0293939191181605,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0208,4 Forecast accuracy by year,gas 2022: v2 relative RMSE vs naive,1.177973334851156,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0209,4 Forecast accuracy by year,gas 2023: v2 relative RMSE vs naive,0.2976754175910504,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0210,4 Forecast accuracy by year,gas 2024: v2 relative RMSE vs naive,1.5067862001228165,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0211,4 Forecast accuracy by year,gas 2025: v2 relative RMSE vs naive,0.4902198478933665,,,,,outputs_v2/fes_eval/thesis_table_relrmse_by_year.csv,5d8a7d6,
+R0212,4 Forecast uncertainty,carbon v1_core: 95% PI coverage,28.64583333333333,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0213,4 Forecast uncertainty,electricity v1_core: 95% PI coverage,60.41666666666666,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0214,4 Forecast uncertainty,gas v1_core: 95% PI coverage,56.25,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0215,4 Forecast uncertainty,carbon v1_macro: 95% PI coverage,37.5,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0216,4 Forecast uncertainty,electricity v1_macro: 95% PI coverage,49.47916666666667,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0217,4 Forecast uncertainty,gas v1_macro: 95% PI coverage,68.75,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0218,4 Forecast uncertainty,carbon v2_core: 95% PI coverage,27.604166666666668,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0219,4 Forecast uncertainty,electricity v2_core: 95% PI coverage,48.4375,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0220,4 Forecast uncertainty,gas v2_core: 95% PI coverage,32.29166666666667,,,192.0,% of months,outputs_v2/fes_eval/uncertainty_pi.csv,6c7bb23,
+R0221,4 Model selection,v1_core carbon: origins won by LSTM,13.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0222,4 Model selection,v1_core carbon: origins won by Prophet,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0223,4 Model selection,v1_core carbon: origins won by TFT,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0224,4 Model selection,v1_core electricity: origins won by LSTM,7.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0225,4 Model selection,v1_core electricity: origins won by Prophet,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0226,4 Model selection,v1_core electricity: origins won by SARIMA,3.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0227,4 Model selection,v1_core electricity: origins won by TFT,5.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0228,4 Model selection,v1_core gas: origins won by LSTM,10.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0229,4 Model selection,v1_core gas: origins won by Prophet,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0230,4 Model selection,v1_core gas: origins won by SARIMA,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0231,4 Model selection,v1_core gas: origins won by TFT,3.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0232,4 Model selection,v1_macro carbon: origins won by LSTM,12.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0233,4 Model selection,v1_macro carbon: origins won by Prophet,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0234,4 Model selection,v1_macro carbon: origins won by SARIMA,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0235,4 Model selection,v1_macro carbon: origins won by TFT,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0236,4 Model selection,v1_macro electricity: origins won by LSTM,6.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0237,4 Model selection,v1_macro electricity: origins won by Prophet,4.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0238,4 Model selection,v1_macro electricity: origins won by SARIMA,5.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0239,4 Model selection,v1_macro electricity: origins won by TFT,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0240,4 Model selection,v1_macro gas: origins won by LSTM,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0241,4 Model selection,v1_macro gas: origins won by Prophet,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0242,4 Model selection,v1_macro gas: origins won by SARIMA,7.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0243,4 Model selection,v1_macro gas: origins won by TFT,5.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0244,4 Model selection,v2_core carbon: origins won by LSTM,14.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0245,4 Model selection,v2_core carbon: origins won by Prophet,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0246,4 Model selection,v2_core carbon: origins won by TFT,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0247,4 Model selection,v2_core electricity: origins won by LSTM,9.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0248,4 Model selection,v2_core electricity: origins won by Prophet,4.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0249,4 Model selection,v2_core electricity: origins won by SARIMA,2.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0250,4 Model selection,v2_core electricity: origins won by TFT,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0251,4 Model selection,v2_core gas: origins won by LSTM,13.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0252,4 Model selection,v2_core gas: origins won by Prophet,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0253,4 Model selection,v2_core gas: origins won by SARIMA,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0254,4 Model selection,v2_core gas: origins won by TFT,1.0,,,,origins,outputs_v2/fes_eval/model_wins.csv,6c7bb23,
+R0255,4 Model selection,Prophet L-BFGS -> Newton fallbacks,205.0,,,1325.0,,outputs_v2/fes_eval/prophet_fallbacks.csv,3468989,15.5% of optimiser calls; 0 failed fits
+R0256,4 FES coverage,2009: households with outcome and FES,0.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0257,4 FES coverage,2010: households with outcome and FES,27594.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0258,4 FES coverage,2011: households with outcome and FES,26339.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0259,4 FES coverage,2012: households with outcome and FES,23704.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0260,4 FES coverage,2013: households with outcome and FES,22178.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0261,4 FES coverage,2014: households with outcome and FES,20267.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0262,4 FES coverage,2015: households with outcome and FES,19855.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0263,4 FES coverage,2016: households with outcome and FES,19704.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0264,4 FES coverage,2017: households with outcome and FES,17849.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0265,4 FES coverage,2018: households with outcome and FES,16830.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0266,4 FES coverage,2019: households with outcome and FES,15829.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0267,4 FES coverage,2020: households with outcome and FES,14693.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0268,4 FES coverage,2021: households with outcome and FES,12933.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0269,4 FES coverage,2022: households with outcome and FES,13533.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0270,4 FES coverage,2023: households with outcome and FES,15705.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0271,4 FES coverage,2024: households with outcome and FES,6892.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0272,4 FES coverage,2025: households with outcome and FES,223.0,,,,household-waves,outputs_v2/fes_eval/fes_coverage_by_interview_year.csv,6c7bb23,
+R0273,4 FES v1 vs v2,fes_magnitude: row-level correlation v1 vs v2,0.5536217155198871,,,324055.0,,outputs_v2/fes_eval/fes_attached_v1_vs_v2.csv,6c7bb23,
+R0274,4 FES v1 vs v2,fes_current: row-level correlation v1 vs v2,0.9140513554510028,,,324055.0,,outputs_v2/fes_eval/fes_attached_v1_vs_v2.csv,6c7bb23,
+R0275,4 FES v1 vs v2,fes_delta: row-level correlation v1 vs v2,0.1633200685709471,,,324055.0,,outputs_v2/fes_eval/fes_attached_v1_vs_v2.csv,6c7bb23,
+R0276,5 Driver model sample,all: all household-wave rows,339201.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0277,5 Driver model sample,all: primary outcome observed,286902.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0278,5 Driver model sample,all: outcome and FES (2010+),274128.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0279,5 Driver model sample,primary: complete case on model variables (FES => 2010+),221877.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0280,5 Driver model sample,primary: NI-oil sample (rural filled),221778.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0281,5 Driver model sample,primary: NI-oil sample (rural observed_only),221611.0,,,,household-waves,outputs_v2/stage3/sample_flow.csv,aa64bb6,
+R0282,5 Driver model fit,primary (main): McFadden pseudo-R2,0.1531089465570959,,,221877.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0283,5 Driver model fit,primary (main_twoway_cluster): McFadden pseudo-R2,0.1531089465570959,,,221877.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0284,5 Driver model fit,sens_composite (main): McFadden pseudo-R2,0.1407705542812779,,,233980.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0285,5 Driver model fit,sens_composite_v1 (main): McFadden pseudo-R2,0.1403386065056879,,,234102.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0286,5 Driver model fit,sens_lagged_components (main): McFadden pseudo-R2,0.1455605213105893,,,183078.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0287,5 Driver model fit,sens_lagged_composite (main): McFadden pseudo-R2,0.1380369092242989,,,194151.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0288,5 Driver model fit,sens_lagged_composite_v1 (main): McFadden pseudo-R2,0.1379262993468472,,,194692.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0289,5 Driver model fit,sens_month_fe (main): McFadden pseudo-R2,0.1537975132576772,,,221877.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0290,5 Driver model fit,sens_fes_4term (main): McFadden pseudo-R2,0.1531489495416169,,,221877.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0291,5 Driver model fit,sens_outcome_s1 (main): McFadden pseudo-R2,0.1479926714498727,,,249200.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0292,5 Driver model fit,sens_outcome_s2 (main): McFadden pseudo-R2,0.1520751410945812,,,227007.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0293,5 Driver model fit,sens_no_qualification (main): McFadden pseudo-R2,0.1483976170417492,,,248802.0,,outputs_v2/stage3/model_summary.csv,aa64bb6,
+R0294,5 Driver model (primary),Current financial difficulty (1-5): OR,1.648632514248326,1.6072557930931046,1.6910744255623966,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 0
+R0295,5 Driver model (primary),Bedrooms: OR,1.3348047848135456,1.285155794333411,1.3863718480025025,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 2.03e-50
+R0296,5 Driver model (primary),Tenure security: OR,2.0335263641622485,1.7670183632479428,2.3402300506611606,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 4.05e-23
+R0297,5 Driver model (primary),Rooms: OR,1.1493890515114689,1.1058761621773532,1.1946140417145237,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 1.54e-12
+R0298,5 Driver model (primary),No long-standing illness/disability: OR,1.2530065695872852,1.1845162194786432,1.3254571255427237,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 3.71e-15
+R0299,5 Driver model (primary),Age (mean of adults): OR,1.0029251758553093,1.000621531688547,1.0052341235022375,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 0.0128
+R0300,5 Driver model (primary),Self-rated general health: OR,1.0262411006759258,0.9179976637453308,1.1472477962740264,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 0.649
+R0301,5 Driver model (primary),"Psychological distress, GHQ-12 (0-36): OR",0.9909964230695886,0.9868074604086008,0.9952031677284628,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 2.85e-05
+R0302,5 Driver model (primary),Financial expectations: worse off (0-1): OR,0.81814859722778,0.7618373414375242,0.878622103089281,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 3.46e-08
+R0303,5 Driver model (primary),FES Delta (growth-only): OR,0.971642727085017,0.9623423381071148,0.9810329980432866,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 4.57e-09
+R0304,5 Driver model (primary),Bill-payment security: OR,0.586750164213776,0.5182387105647753,0.6643188711813947,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 3.89e-17
+R0305,5 Driver model (primary),Cars: OR,0.8558778290069446,0.8236475178216838,0.8893693507666586,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 1.92e-15
+R0306,5 Driver model (primary),Highest qualification band: OR,0.5482342739784235,0.5090965255666758,0.5903808100636606,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 5.8e-57
+R0307,5 Driver model (primary),Employment-status security: OR,0.1741531190426231,0.1535701331470085,0.1974948399845473,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 2.44e-163
+R0308,5 Driver model (primary),OECD equivalence scale: OR,0.2752074397165724,0.2550596346936116,0.2969467707672832,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 1.39e-242
+R0309,5 Driver model (primary),Has central heating: OR,1.0872868461523242,1.013345282442142,1.166623762205521,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 0.0199
+R0310,5 Driver model (primary),Lone-parent household: OR,1.4986091675934086,1.3789959450805451,1.6285975641964874,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 1.54e-21
+R0311,5 Driver model (primary),Large family (3+ children): OR,1.9632804801532957,1.737806658123,2.2180086753230395,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 2.26e-27
+R0312,5 Driver model (primary),Workless household: OR,1.0463417278483935,0.9572511367235784,1.143723908423952,221877.0,,outputs_v2/stage3/thesis_table_primary.csv,8750734,p = 0.318
+R0313,5 Driver model (per SD),OECD equivalence scale: OR per SD,0.4678759095117984,0.4473968193269076,0.4892924071986732,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,"partly mechanical: outcome uses unequivalised income, so larger households have more income per fuel need"
+R0314,5 Driver model (per SD),Current financial difficulty (1-5): OR per SD,1.5948140689335168,1.5574137829247348,1.6331124986526435,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0315,5 Driver model (per SD),Employment-status security: OR per SD,0.6300728144530312,0.6094728932165924,0.65136900415304,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0316,5 Driver model (per SD),Bedrooms: OR per SD,1.340689453595848,1.290076482334739,1.3932881000436264,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0317,5 Driver model (per SD),Highest qualification band: OR per SD,0.8016848503176286,0.7801434593722705,0.8238210440755798,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0318,5 Driver model (per SD),Tenure security: OR per SD,1.18595261530871,1.1465894556672245,1.2266671377499343,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0319,5 Driver model (per SD),Cars: OR per SD,0.8483299009874229,0.8146021346719825,0.8834541308919097,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0320,5 Driver model (per SD),Rooms: OR per SD,1.1580582090302067,1.111898855457946,1.2061338213626511,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0321,5 Driver model (per SD),No long-standing illness/disability: OR per SD,1.0974908972434765,1.0723388531878553,1.1232328903793678,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0322,5 Driver model (per SD),Bill-payment security: OR per SD,0.9311086586547468,0.9157587335788714,0.9467158787922968,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0323,5 Driver model (per SD),FES Delta (growth-only): OR per SD,0.9316971011882352,0.9099177511678546,0.9539977511686414,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0324,5 Driver model (per SD),Financial expectations: worse off (0-1): OR per SD,0.945659667881472,0.9270724699784796,0.9646195269701572,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0325,5 Driver model (per SD),Age (mean of adults): OR per SD,1.049997472171989,1.0104322306821871,1.0911119599017791,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0326,5 Driver model (per SD),"Psychological distress, GHQ-12 (0-36): OR per SD",0.9559950036587828,0.9360561273529248,0.9763585967916804,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0327,5 Driver model (per SD),Self-rated general health: OR per SD,1.006102184861971,0.980105404441637,1.0327885162113783,221877.0,,outputs_v2/stage3/thesis_table_per_sd.csv,aa64bb6,
+R0328,5 Driver model (sensitivities),sens_composite: Employment-status security: OR,0.153188102462352,0.135782218069958,0.1728252422855955,233980.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 3.98e-204
+R0329,5 Driver model (sensitivities),sens_composite: Workless household: OR,0.9483419398761868,0.8705240837785123,1.0331160868341371,233980.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.225
+R0330,5 Driver model (sensitivities),sens_composite: Strain composite (no bill arrears): OR,4.756405406525646,4.151623883890101,5.449287561672883,233980.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 7.15e-112
+R0331,5 Driver model (sensitivities),sens_composite: FES Delta (growth-only): OR,0.9728406013679088,0.9636916057574538,0.9820764547658344,233980.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.12e-08
+R0332,5 Driver model (sensitivities),sens_composite_v1: Employment-status security: OR,0.1523325312588362,0.1350312637573957,0.1718505732229241,234102.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.61e-205
+R0333,5 Driver model (sensitivities),sens_composite_v1: Workless household: OR,0.9466299748366048,0.8690462371654982,1.031139968089522,234102.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.209
+R0334,5 Driver model (sensitivities),"sens_composite_v1: Strain composite, v1 (incl. bill arrears): OR",7.51500233530948,6.240389104337375,9.049958128484947,234102.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 2.19e-100
+R0335,5 Driver model (sensitivities),sens_composite_v1: FES Delta (growth-only): OR,0.9729004957153152,0.963754166850881,0.9821336261050488,234102.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.19e-08
+R0336,5 Driver model (sensitivities),sens_lagged_components: Employment-status security: OR,0.1452135998050602,0.126024173418241,0.1673249583503478,183078.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 7.4e-157
+R0337,5 Driver model (sensitivities),sens_lagged_components: Workless household: OR,0.9371564412118424,0.8472004516855269,1.0366639837803675,183078.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.207
+R0338,5 Driver model (sensitivities),"sens_lagged_components: Current financial difficulty, previous wave: OR",1.5017129578166806,1.4606073006547355,1.5439754454627388,183078.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 2.55e-181
+R0339,5 Driver model (sensitivities),sens_lagged_components: FES Delta (growth-only): OR,0.9719866989456027,0.9615298533096474,0.9825572650451276,183078.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 2.63e-07
+R0340,5 Driver model (sensitivities),sens_lagged_composite: Employment-status security: OR,0.1459923290601928,0.1273453600569466,0.1673697426815431,194151.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.16e-167
+R0341,5 Driver model (sensitivities),sens_lagged_composite: Workless household: OR,0.8987758190812705,0.8157282568627676,0.9902782773174263,194151.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.031
+R0342,5 Driver model (sensitivities),"sens_lagged_composite: Strain composite, previous wave: OR",4.051603034127315,3.487607990219729,4.7068039734349405,194151.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 9.23e-75
+R0343,5 Driver model (sensitivities),sens_lagged_composite: FES Delta (growth-only): OR,0.9726773945470384,0.9624111899159314,0.9830531105373562,194151.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 3.1e-07
+R0344,5 Driver model (sensitivities),sens_lagged_composite_v1: Employment-status security: OR,0.1466024714742835,0.1279254892223428,0.168006272815679,194692.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 7.48e-168
+R0345,5 Driver model (sensitivities),sens_lagged_composite_v1: Workless household: OR,0.8975277772859146,0.8149190624337217,0.9885105750183764,194692.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.0282
+R0346,5 Driver model (sensitivities),sens_lagged_composite_v1: FES Delta (growth-only): OR,0.9727261323905636,0.9625025703195432,0.98305828764839,194692.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 2.9e-07
+R0347,5 Driver model (sensitivities),sens_month_fe: Employment-status security: OR,0.174133929453412,0.1528236329540843,0.1984158130568476,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 8.39e-152
+R0348,5 Driver model (sensitivities),sens_month_fe: Workless household: OR,1.046745184339135,0.9576243303994588,1.1441600282650768,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.314
+R0349,5 Driver model (sensitivities),sens_month_fe: Current financial difficulty (1-5): OR,1.6480111097430636,1.6066087886339382,1.6904803689925445,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0
+R0350,5 Driver model (sensitivities),sens_month_fe: FES Delta (growth-only): OR,0.9684731361777952,0.9592900632540712,0.9777441166401802,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 4.39e-11
+R0351,5 Driver model (sensitivities),sens_fes_4term: Employment-status security: OR,0.1741212473213958,0.1535415179404724,0.1974593528540793,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 2.3e-163
+R0352,5 Driver model (sensitivities),sens_fes_4term: Workless household: OR,1.046367258623791,0.9572730934196227,1.143753488368363,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.318
+R0353,5 Driver model (sensitivities),sens_fes_4term: Current financial difficulty (1-5): OR,1.6485072671083754,1.607134639034104,1.6909449548933877,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0
+R0354,5 Driver model (sensitivities),sens_fes_4term: FES Delta (4-term): OR,0.9702323793308688,0.960996267283626,0.9795572594291994,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 5.93e-10
+R0355,5 Driver model (sensitivities),sens_outcome_s1: Employment-status security: OR,0.1779220185764409,0.1574132954509709,0.2011027378826159,249200.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 5.03e-168
+R0356,5 Driver model (sensitivities),sens_outcome_s1: Workless household: OR,1.0205698754990542,0.9352781735419704,1.113639663835708,249200.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.647
+R0357,5 Driver model (sensitivities),sens_outcome_s1: Current financial difficulty (1-5): OR,1.6386237081598518,1.5986386305623157,1.6796088907216469,249200.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0
+R0358,5 Driver model (sensitivities),sens_outcome_s1: FES Delta (growth-only): OR,0.9741051665830712,0.9649493615170284,0.9833478453958104,249200.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 5.18e-08
+R0359,5 Driver model (sensitivities),sens_outcome_s2: Employment-status security: OR,0.1777078214915184,0.1568612180420707,0.201324904992077,227007.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 3.66e-162
+R0360,5 Driver model (sensitivities),sens_outcome_s2: Workless household: OR,1.054978952942406,0.9656867670332278,1.1525275370301926,227007.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.236
+R0361,5 Driver model (sensitivities),sens_outcome_s2: Current financial difficulty (1-5): OR,1.646255241247892,1.6053349133287595,1.688218637017295,227007.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0
+R0362,5 Driver model (sensitivities),sens_outcome_s2: FES Delta (growth-only): OR,0.9718241082215364,0.9626811062170088,0.9810539453006436,227007.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 3.1e-09
+R0363,5 Driver model (sensitivities),sens_no_qualification: Employment-status security: OR,0.1632992528178138,0.1451881796001837,0.1836695386930971,248802.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.54e-200
+R0364,5 Driver model (sensitivities),sens_no_qualification: Workless household: OR,1.038133471306742,0.9551584162593628,1.12831660790679,248802.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0.379
+R0365,5 Driver model (sensitivities),sens_no_qualification: Current financial difficulty (1-5): OR,1.6737220396543189,1.634494453324986,1.7138910813223929,248802.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 0
+R0366,5 Driver model (sensitivities),sens_no_qualification: FES Delta (growth-only): OR,0.9726810271652312,0.9640554869447646,0.9813837413088824,248802.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,p = 1.1e-09
+R0367,5 Driver model (sensitivities),"primary, two-way clustered: FES Delta (growth-only): OR",0.971642727085017,0.9580519671383472,0.9854262832079524,221877.0,,outputs_v2/stage3/coefficients.csv,aa64bb6,
+R0368,5 NI-oil sequence (AME),ni_a_regionFE_filled: NI vs South East,6.819653719152285,5.760097991264532,7.879209447040038,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0369,5 NI-oil sequence (AME),ni_b_oil_filled: NI vs South East,2.388773294498436,1.403680494305833,3.3738660946910386,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0370,5 NI-oil sequence (AME),ni_b_oil_filled: oil vs no oil,5.837507957398336,4.881298534759439,6.793717380037234,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0371,5 NI-oil sequence (AME),ni_b_oil_rural_filled: NI vs South East,2.5138714163462925,1.5221200822848266,3.5056227504077584,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0372,5 NI-oil sequence (AME),ni_b_oil_rural_filled: oil vs no oil,4.925871501047013,3.962843488641627,5.888899513452398,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0373,5 NI-oil sequence (AME),ni_c_ni_x_oil_filled: NI vs South East,2.625676145175395,1.2173347192584272,4.034017571092363,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0374,5 NI-oil sequence (AME),ni_c_ni_x_oil_filled: oil vs no oil,5.904440662919953,4.885188387006758,6.923692938833148,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0375,5 NI-oil sequence (AME),ni_c_ni_x_oil_rural_filled: NI vs South East,2.5901845986400387,1.185544931837433,3.994824265442644,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0376,5 NI-oil sequence (AME),ni_c_ni_x_oil_rural_filled: oil vs no oil,4.947421468137072,3.922365781034536,5.972477155239607,221778.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0377,5 NI-oil sequence (AME),ni_b_oil_observed_only: NI vs South East,2.392175008964972,1.4036621158372409,3.3806879020927028,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0378,5 NI-oil sequence (AME),ni_b_oil_observed_only: oil vs no oil,5.829554575232783,4.8723674262335415,6.786741724232025,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0379,5 NI-oil sequence (AME),ni_b_oil_rural_observed_only: NI vs South East,2.522573545646168,1.5268545199493129,3.5182925713430238,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0380,5 NI-oil sequence (AME),ni_b_oil_rural_observed_only: oil vs no oil,4.917701889539649,3.953791762318804,5.881612016760495,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0381,5 NI-oil sequence (AME),ni_c_ni_x_oil_observed_only: NI vs South East,2.648372599557713,1.2335094965169766,4.063235702598449,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0382,5 NI-oil sequence (AME),ni_c_ni_x_oil_observed_only: oil vs no oil,5.901846472479506,4.881884237820829,6.921808707138183,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0383,5 NI-oil sequence (AME),ni_c_ni_x_oil_rural_observed_only: NI vs South East,2.615640850993395,1.2040821949695422,4.027199507017247,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0384,5 NI-oil sequence (AME),ni_c_ni_x_oil_rural_observed_only: oil vs no oil,4.943973472382226,3.9182286897610497,5.969718255003404,221611.0,pp,outputs_v2/stage3/ni_oil_ame.csv,aa64bb6,
+R0385,"6 Resources (CFA, failed criteria)",CFA CFI,0.7833087323645743,,,143770.0,,outputs_v2/resources/cfa_fit.csv,0383b95,
+R0386,"6 Resources (CFA, failed criteria)",CFA TLI,0.7135267987192677,,,143770.0,,outputs_v2/resources/cfa_fit.csv,0383b95,
+R0387,"6 Resources (CFA, failed criteria)",CFA RMSEA,0.0777699559632128,,,143770.0,,outputs_v2/resources/cfa_fit.csv,0383b95,
+R0388,"6 Resources (CFA, failed criteria)",CFA SRMR,0.0660539197733195,,,143770.0,,outputs_v2/resources/cfa_fit.csv,0383b95,
+R0389,6 Resources (formative indices),OBJECT: Cronbach alpha (descriptive),0.6039658329255622,,,163645.0,,outputs_v2/resources/composite_alpha.csv,3468989,
+R0390,6 Resources (formative indices),CONDITION: Cronbach alpha (descriptive),0.3383715412817141,,,333100.0,,outputs_v2/resources/composite_alpha.csv,3468989,
+R0391,6 Resources (formative indices),PERSONAL: Cronbach alpha (descriptive),0.5829511613828011,,,297044.0,,outputs_v2/resources/composite_alpha.csv,3468989,
+R0392,6 Resources (formative indices),ENERGY: Cronbach alpha (descriptive),0.3195563076062171,,,336881.0,,outputs_v2/resources/composite_alpha.csv,3468989,
+R0393,6 Strain items,cronbach_alpha_primary_items,0.2712803186846703,,,312395.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0394,6 Strain items,"r(finnow,finfut_risk)",0.0209424450913459,,,312395.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0395,6 Strain items,"r(finnow,scghq1_dv)",0.3478343232400355,,,312395.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0396,6 Strain items,"r(finfut_risk,scghq1_dv)",0.1024632875447719,,,312395.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0397,6 Strain items,coverage_financial_strain_score,0.9913944829172084,,,336282.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0398,6 Strain items,coverage_financial_strain_score_v1,0.9992600257664336,,,338950.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0399,6 Strain items,coverage_financial_strain_score_lag1,0.7688125919440096,,,260782.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0400,6 Strain items,"r(primary, v1)",0.9546197674501612,,,336282.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0401,6 Strain items,"r(primary, lag1)",0.5660552820587001,,,259408.0,,outputs_v2/descriptives/strain_structure.csv,a21c572,
+R0402,7 H1,primary: R_primary,-0.0046783745998886,-0.0048511404704004,-0.0045056087293768,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0
+R0403,7 H1,primary: fes_delta_growth3,-0.0005453932978487,-0.0006927223066711,-0.0003980642890262,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 4e-13
+R0404,7 H1,primary: R_primary x fes_delta_growth3,-3.375886740674436e-05,-8.115018824845366e-05,1.3632453434964935e-05,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0.163
+R0405,7 H1,sens_R_with_energy: R_with_energy,-0.0053660355852477,-0.0055054611160104,-0.005226610054485,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0
+R0406,7 H1,sens_R_with_energy: fes_delta_growth3,-0.000546638146354,-0.0006964639802895,-0.0003968123124185,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 8.62e-13
+R0407,7 H1,sens_R_with_energy: R_with_energy x fes_delta_growth3,1.803627092488418e-05,-2.398128142420024e-05,6.00538232739686e-05,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0.4
+R0408,7 H1,sens_logit_binary: R_primary,-0.240101793525034,-0.2491741366151972,-0.2310294504348707,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0
+R0409,7 H1,sens_logit_binary: fes_delta_growth3,-0.0311399220855884,-0.0394549461351334,-0.0228248980360434,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 2.13e-13
+R0410,7 H1,sens_logit_binary: R_primary x fes_delta_growth3,-0.0035191776614165,-0.0056079570951157,-0.0014303982277172,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0.000959
+R0411,7 H1,sens_fes_4term: R_primary,-0.004666385512062,-0.0048402725891972,-0.0044924984349267,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0
+R0412,7 H1,sens_fes_4term: fes_delta,-0.000563777689944,-0.0007066506876838,-0.0004209046922042,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 1.04e-14
+R0413,7 H1,sens_fes_4term: R_primary x fes_delta,-6.9911402047625e-06,-5.095766584442493e-05,3.697538543489993e-05,269372.0,,outputs_v2/stage4/h1_coefficients.csv,d93a131,p = 0.755
+R0414,7 H1,primary: verdict,not supported,,,269372.0,,outputs_v2/stage4/h1_decision.csv,d93a131,governs H1
+R0415,7 H1,sens_R_with_energy: verdict,not supported,,,269372.0,,outputs_v2/stage4/h1_decision.csv,d93a131,sensitivity
+R0416,7 H1,sens_logit_binary: verdict,contrary to COR,,,269372.0,,outputs_v2/stage4/h1_decision.csv,d93a131,sensitivity
+R0417,7 H1,sens_fes_4term: verdict,not supported,,,269372.0,,outputs_v2/stage4/h1_decision.csv,d93a131,sensitivity
+R0418,7 H1 slopes,primary: Delta slope at R p10,-0.0004455126412461,-0.0006720651336385,-0.0002189601488537,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0419,7 H1 slopes,primary: Delta slope at R p50,-0.0005565134753911,-0.0007008796698117,-0.0004121472809704,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0420,7 H1 slopes,primary: Delta slope at R p90,-0.0006300072301803,-0.0007954762863468,-0.0004645381740137,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0421,7 H1 slopes,sens_R_with_energy: Delta slope at R p10,-0.0006118156218621,-0.0008762256289759,-0.0003474056147482,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0422,7 H1 slopes,sens_R_with_energy: Delta slope at R p50,-0.0005404418041297,-0.0006830479650069,-0.0003978356432525,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0423,7 H1 slopes,sens_R_with_energy: Delta slope at R p90,-0.0004859226303123,-0.000626344563019,-0.0003455006976057,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0424,7 H1 slopes,sens_logit_binary: Delta slope at R p10,-0.0207279088125005,-0.0303725369141484,-0.0110832807108525,,log-odds per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0425,7 H1 slopes,sens_logit_binary: Delta slope at R p50,-0.0322991398972141,-0.0407377140198094,-0.0238605657746189,,log-odds per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0426,7 H1 slopes,sens_logit_binary: Delta slope at R p90,-0.0399604626836537,-0.050385460110923,-0.0295354652563843,,log-odds per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0427,7 H1 slopes,sens_fes_4term: Delta slope at R p10,-0.0005430933563839,-0.0007578942761016,-0.0003282924366662,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0428,7 H1 slopes,sens_fes_4term: Delta slope at R p50,-0.0005660805728981,-0.0007062340182687,-0.0004259271275275,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0429,7 H1 slopes,sens_fes_4term: Delta slope at R p90,-0.0005813004301793,-0.0007397276268475,-0.0004228732335111,,fuel-to-income ratio per unit Delta,outputs_v2/stage4/h1_slopes.csv,d93a131,
+R0430,7 H1 buffering bound,point estimate: slope difference p90-p10 per SD Delta,-0.0438247044214926,,,,pp of income,outputs_v2/stage4/h1_buffering_bound.csv,d60a269,
+R0431,7 H1 buffering bound,CI lower: slope difference p90-p10 per SD Delta,-0.1053466329568411,,,,pp of income,outputs_v2/stage4/h1_buffering_bound.csv,d60a269,
+R0432,7 H1 buffering bound,CI upper (max buffering): slope difference p90-p10 per SD Delta,0.0176972241138559,,,,pp of income,outputs_v2/stage4/h1_buffering_bound.csv,d60a269,
+R0433,7 H1 buffering bound,Delta slope at R p10 per SD Delta,-0.1058267341684353,,,,pp of income,outputs_v2/stage4/h1_buffering_bound.csv,d60a269,
+R0434,7 H1 (footnote),logit: Delta effect at R p10,-0.6092915060836526,-0.8932324092581386,-0.3253506029091664,,pp per SD of Delta,outputs_v2/stage4/h1_logit_prob_slopes.csv,d60a269,
+R0435,7 H1 (footnote),logit: Delta effect at R p50,-0.5173940278382746,-0.6528668537445109,-0.381921201932038,,pp per SD of Delta,outputs_v2/stage4/h1_logit_prob_slopes.csv,d60a269,
+R0436,7 H1 (footnote),logit: Delta effect at R p90,-0.4068888801396825,-0.5133176507173494,-0.3004601095620156,,pp per SD of Delta,outputs_v2/stage4/h1_logit_prob_slopes.csv,d60a269,
+R0437,8 JRF comparison,"region (primary, 2021-04 to 2023-03): North East",8.771414800905774,6.507962501337137,11.316179498205164,1047.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 7 [3-12]
+R0438,8 JRF comparison,"region (primary, 2021-04 to 2023-03): North West",7.936576957652907,6.579982804106217,9.37601298414001,2757.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 25% (rank 2); UKHLS rank 9 [6-12]
+R0439,8 JRF comparison,"region (primary, 2021-04 to 2023-03): Yorkshire and the Humber",9.473005198649911,7.749288123230751,11.32325131714117,2367.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 23% (rank 4); UKHLS rank 6 [3-10]
+R0440,8 JRF comparison,"region (primary, 2021-04 to 2023-03): East Midlands",10.510026075721717,8.571526082957128,12.457588336933863,1996.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 20% (rank 8); UKHLS rank 5 [2-8]
+R0441,8 JRF comparison,"region (primary, 2021-04 to 2023-03): West Midlands",10.595171443188258,8.550900264846321,12.591213837413964,2203.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 27% (rank 1); UKHLS rank 4 [2-8]
+R0442,8 JRF comparison,"region (primary, 2021-04 to 2023-03): East of England",8.614119316286024,7.151637031526888,10.082025579829052,2377.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 18% (rank 11); UKHLS rank 8 [5-11]
+R0443,8 JRF comparison,"region (primary, 2021-04 to 2023-03): London",6.691766798213614,5.042707739343007,8.663714134504977,2676.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 24% (rank 3); UKHLS rank 12 [8-12]
+R0444,8 JRF comparison,"region (primary, 2021-04 to 2023-03): South East",7.406544917397766,6.159331094710204,8.737391130766401,3433.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 9); UKHLS rank 11 [7-12]
+R0445,8 JRF comparison,"region (primary, 2021-04 to 2023-03): South West",7.784934034927347,6.421758251142561,9.311462845770844,2343.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 9); UKHLS rank 10 [6-12]
+R0446,8 JRF comparison,"region (primary, 2021-04 to 2023-03): Wales",11.387188602343304,9.360825986017616,13.606225482740468,1691.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 2 [1-6]
+R0447,8 JRF comparison,"region (primary, 2021-04 to 2023-03): Scotland",11.217987029850448,9.393311992499209,13.186340769916931,2677.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 3 [2-6]
+R0448,8 JRF comparison,"region (primary, 2021-04 to 2023-03): Northern Ireland",14.421603503329075,12.092965314155148,16.96190973158732,1562.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 17% (rank 12); UKHLS rank 1 [1-2]
+R0449,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): North East",8.058585641408351,6.333830454684577,10.052040415178022,1607.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 7 [3-11]
+R0450,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): North West",7.093538505323274,6.0796181968693705,8.181270584075202,4189.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 25% (rank 2); UKHLS rank 9 [6-12]
+R0451,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): Yorkshire and the Humber",8.379358280382453,7.036274300054312,9.825234079306531,3614.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 23% (rank 4); UKHLS rank 6 [3-9]
+R0452,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): East Midlands",9.226207512544269,7.5830532702545295,10.97977331012991,3094.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 20% (rank 8); UKHLS rank 5 [2-8]
+R0453,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): West Midlands",9.352335546427677,7.910583563301563,10.82304408732073,3438.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 27% (rank 1); UKHLS rank 4 [2-7]
+R0454,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): East of England",7.717847255248011,6.434214139410847,9.1376136335773,3635.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 18% (rank 11); UKHLS rank 8 [4-11]
+R0455,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): London",6.28780885596724,4.767604160097903,8.046267233667333,4311.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 24% (rank 3); UKHLS rank 12 [7-12]
+R0456,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): South East",6.463744262373987,5.554505187110092,7.469775521419152,5235.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 9); UKHLS rank 11 [8-12]
+R0457,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): South West",6.992799543289113,5.859337349058274,8.164557867315503,3596.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 9); UKHLS rank 10 [6-12]
+R0458,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): Wales",9.424420911351774,7.855497329282515,11.124889746334263,2643.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 3 [2-7]
+R0459,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): Scotland",10.253226644434784,8.874388433160604,11.763162155734491,4017.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 21% (rank 5); UKHLS rank 2 [2-5]
+R0460,8 JRF comparison,"region (sensitivity, 2020-04 to 2023-03): Northern Ireland",14.173289808186732,12.08877557020296,16.399484843359122,2305.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 17% (rank 12); UKHLS rank 1 [1-1]
+R0461,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): White",9.264158713969694,8.704095229264997,9.835646320784392,21646.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 6); UKHLS rank 5 [3-6]
+R0462,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): Pakistani",12.483947728770854,8.248796517197126,17.40229197899158,459.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 49% (rank 2); UKHLS rank 2 [1-5]
+R0463,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): Bangladeshi",11.261191694251725,4.600062097660529,18.605806372433168,223.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 56% (rank 1); UKHLS rank 3 [1-6]
+R0464,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): Black African",11.061932684138016,7.207114548183788,15.657293583238165,380.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 40% (rank 3); UKHLS rank 4 [1-6]
+R0465,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): Black Caribbean",17.849422617916318,10.199004644268978,26.5804420322979,445.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 30% (rank 5); UKHLS rank 1 [1-4]
+R0466,8 JRF comparison,"ethnicity (primary, 2021-04 to 2023-03): Any other Asian background",7.80087808307471,3.0329997856763438,14.00072632637408,158.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 34% (rank 4); UKHLS rank 6 [2-6]
+R0467,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): White",8.245552483704715,7.780169795596632,8.709284408246353,33189.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 6); UKHLS rank 5 [3-6]
+R0468,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): Pakistani",11.053491701720477,7.491761714829489,15.029177255737064,733.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 49% (rank 2); UKHLS rank 2 [1-5]
+R0469,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): Bangladeshi",8.994633379142085,4.452514419163978,14.129253022298258,362.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 56% (rank 1); UKHLS rank 4 [1-6]
+R0470,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): Black African",10.203043060443177,7.093174054911624,13.826612557587229,627.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 40% (rank 3); UKHLS rank 3 [1-5]
+R0471,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): Black Caribbean",16.976545292085078,10.207192055821674,25.23665030879212,743.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 30% (rank 5); UKHLS rank 1 [1-3]
+R0472,8 JRF comparison,"ethnicity (sensitivity, 2020-04 to 2023-03): Any other Asian background",6.250994843527454,2.7375352694374504,10.603420669130696,261.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 34% (rank 4); UKHLS rank 6 [3-6]
+R0473,8 JRF comparison,"tenure (primary, 2022-04 to 2023-03): Owned outright",13.84626993263064,12.701210650502654,14.969499816136224,5753.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 14% (rank 3); UKHLS rank 2 [1-2]
+R0474,8 JRF comparison,"tenure (primary, 2022-04 to 2023-03): Buying with mortgage",5.929897684004479,5.091414296726208,6.7915129565450405,4602.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 10% (rank 4); UKHLS rank 4 [4-4]
+R0475,8 JRF comparison,"tenure (primary, 2022-04 to 2023-03): Social renting",14.27968876544327,12.154683547210029,16.46411272025617,2035.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 44% (rank 1); UKHLS rank 1 [1-2]
+R0476,8 JRF comparison,"tenure (primary, 2022-04 to 2023-03): Private renting",11.41429686794789,9.417378468641068,13.450828426757589,1667.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 35% (rank 2); UKHLS rank 3 [2-3]
+R0477,8 JRF comparison,"disability (primary, 2022-04 to 2023-03): No disabled adult",9.525291789200333,8.791141103132126,10.360019014623475,9071.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 19% (rank 2); UKHLS rank 2 [2-2]
+R0478,8 JRF comparison,"disability (primary, 2022-04 to 2023-03): Contains disabled adult",14.313011657667392,13.038455084375702,15.6405993510964,4797.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 29% (rank 1); UKHLS rank 1 [1-1]
+R0479,8 JRF comparison,"family_type (primary, 2022-04 to 2023-03): Lone parent",20.846852747448832,16.7557379447293,25.12219341718972,584.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 44% (rank 1); UKHLS rank 1 [1-1]
+R0480,8 JRF comparison,"family_type (primary, 2022-04 to 2023-03): Couple with children",7.796137787044741,6.361190032797761,9.396389335885242,2317.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 25% (rank 2); UKHLS rank 2 [2-2]
+R0481,8 JRF comparison,"work_status (primary, 2022-04 to 2023-03): Not in work",22.46053857524328,19.61813568973681,25.31748003867712,1656.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 54% (rank 1); UKHLS rank 1 [1-1]
+R0482,8 JRF comparison,"work_status (primary, 2022-04 to 2023-03): In work",7.014295804299496,6.316158061220052,7.729158738213679,8178.0,%,outputs_v2/stage5/thesis_T5_2_comparison.csv,c57efcd,JRF 15% (rank 2); UKHLS rank 2 [2-2]
+R0483,8 JRF agreement,"region (primary, all): Spearman rho",-0.0952417984616157,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,12 categories
+R0484,8 JRF agreement,"region (primary, excl. Northern Ireland): Spearman rho",0.1793221910499641,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,11 categories
+R0485,8 JRF agreement,"region (sensitivity, all): Spearman rho",-0.0952417984616157,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,12 categories
+R0486,8 JRF agreement,"region (sensitivity, excl. Northern Ireland): Spearman rho",0.1793221910499641,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,11 categories
+R0487,8 JRF agreement,"ethnicity (primary, all): Spearman rho",0.2571428571428572,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,6 categories
+R0488,8 JRF agreement,"ethnicity (sensitivity, all): Spearman rho",0.1428571428571428,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,6 categories
+R0489,8 JRF agreement,"tenure (primary, all): Spearman rho",0.7999999999999999,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,4 categories
+R0490,8 JRF agreement,"disability (primary, all): Spearman rho",same direction,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,2 categories
+R0491,8 JRF agreement,"family_type (primary, all): Spearman rho",same direction,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,2 categories
+R0492,8 JRF agreement,"work_status (primary, all): Spearman rho",same direction,,,,,outputs_v2/stage5/thesis_T5_3_agreement.csv,c57efcd,2 categories
+R0493,8 Northern Ireland,"NI rate, primary window (2021-04 to 2023-03), outcome primary",14.421603503329075,12.092965314155148,16.96190973158732,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"rank 1 of 12 (95% CI 1–2); P(rank 1) = 0.95; n = 1,562"
+R0494,8 Northern Ireland,"NI rate, primary window (2021-04 to 2023-03), outcome s1_lower_bound",13.204592402063293,11.112768199642955,15.544333866452988,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 0.99; n = 1,745"
+R0495,8 Northern Ireland,"NI rate, sensitivity window (2020-04 to 2023-03), outcome primary",14.173289808186732,12.08877557020296,16.399484843359122,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 1.00; n = 2,305"
+R0496,8 Northern Ireland,"NI rate, sensitivity window (2020-04 to 2023-03), outcome s1_lower_bound",13.018063372648154,10.988738419657688,15.053513134187028,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"rank 1 of 12 (95% CI 1–1); P(rank 1) = 1.00; n = 2,555"
+R0497,8 Northern Ireland,"NI oil share, primary window (weighted)",72.52322329530229,,,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,unweighted 66.1%
+R0498,8 Northern Ireland,"NI Oil heating, primary window",18.223749084899868,14.810395700428767,21.71876739010738,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 1,017"
+R0499,8 Northern Ireland,"NI No oil, primary window",8.610207041120809,5.654510038508141,11.915389090434786,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,n = 545
+R0500,8 Northern Ireland,"NI Oil heating, sensitivity window",16.56237832150516,13.796305759074444,19.37205707255342,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 1,535"
+R0501,8 Northern Ireland,"NI No oil, sensitivity window",10.299134476832144,7.193498840414557,13.579543035670964,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,n = 770
+R0502,8 Northern Ireland,"AME NI vs South East (pp), model ni_a_regionFE_filled",6.819653719152285,5.760097991264532,7.879209447040038,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0503,8 Northern Ireland,"AME NI vs South East (pp), model ni_b_oil_filled",2.388773294498436,1.403680494305833,3.3738660946910386,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0504,8 Northern Ireland,"AME oil vs no oil (pp), model ni_b_oil_filled",5.837507957398336,4.881298534759439,6.793717380037234,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0505,8 Northern Ireland,"AME NI vs South East (pp), model ni_b_oil_rural_filled",2.5138714163462925,1.5221200822848266,3.5056227504077584,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0506,8 Northern Ireland,"AME oil vs no oil (pp), model ni_b_oil_rural_filled",4.925871501047013,3.962843488641627,5.888899513452398,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0507,8 Northern Ireland,"AME NI vs South East (pp), model ni_c_ni_x_oil_filled",2.625676145175395,1.2173347192584272,4.034017571092363,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0508,8 Northern Ireland,"AME oil vs no oil (pp), model ni_c_ni_x_oil_filled",5.904440662919953,4.885188387006758,6.923692938833148,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0509,8 Northern Ireland,"AME NI vs South East (pp), model ni_c_ni_x_oil_rural_filled",2.5901845986400387,1.185544931837433,3.994824265442644,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0510,8 Northern Ireland,"AME oil vs no oil (pp), model ni_c_ni_x_oil_rural_filled",4.947421468137072,3.922365781034536,5.972477155239607,,,outputs_v2/stage5/thesis_T5_4_northern_ireland.csv,c57efcd,"n = 221,778"
+R0511,"8 Oil share by region (pooled, unweighted)",East Midlands,4.294832200947087,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0512,"8 Oil share by region (pooled, unweighted)",East of England,8.383401848143073,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0513,"8 Oil share by region (pooled, unweighted)",London,0.2973941447480682,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0514,"8 Oil share by region (pooled, unweighted)",North East,2.0540883495915616,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0515,"8 Oil share by region (pooled, unweighted)",North West,1.6902641950080282,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0516,"8 Oil share by region (pooled, unweighted)",Northern Ireland,74.50193626650491,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0517,"8 Oil share by region (pooled, unweighted)",Scotland,7.400953476902844,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0518,"8 Oil share by region (pooled, unweighted)",South East,4.2958833192294295,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0519,"8 Oil share by region (pooled, unweighted)",South West,9.87011080942247,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0520,"8 Oil share by region (pooled, unweighted)",Wales,10.629747394453275,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0521,"8 Oil share by region (pooled, unweighted)",West Midlands,3.9729070317905393,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0522,"8 Oil share by region (pooled, unweighted)",Yorkshire and the Humber,2.6515425186041472,,,,%,outputs_v2/jrf/oil_share_by_region.csv,74d19f7,
+R0523,9 Prediction sample,linked transitions a->b,21886.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0524,9 Prediction sample,linked transitions b->c,24404.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0525,9 Prediction sample,linked transitions c->d,22961.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0526,9 Prediction sample,linked transitions d->e,22034.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0527,9 Prediction sample,linked transitions e->f,19771.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0528,9 Prediction sample,linked transitions f->g,20001.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0529,9 Prediction sample,linked transitions g->h,19288.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0530,9 Prediction sample,linked transitions h->i,17954.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0531,9 Prediction sample,linked transitions i->j,17083.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0532,9 Prediction sample,linked transitions j->k,16234.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0533,9 Prediction sample,linked transitions k->l,15021.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0534,9 Prediction sample,linked transitions l->m,14253.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0535,9 Prediction sample,linked transitions m->n,13725.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0536,9 Prediction sample,linked transitions n->o,17144.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0537,9 Prediction sample,all linked transitions,261759.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0538,9 Prediction sample,of which outcome at t+1 missing,36602.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0539,9 Prediction sample,"missing y (only this missing: 19,945)",36602.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0540,9 Prediction sample,missing fuel_to_income_ratio (only this missing: 0),35291.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0541,9 Prediction sample,missing high_fuel_vulnerable (only this missing: 0),35291.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0542,9 Prediction sample,missing finnow (only this missing: 20),1115.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0543,9 Prediction sample,"missing scghq1_dv (only this missing: 9,282)",14901.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0544,9 Prediction sample,"missing finfut_risk (only this missing: 1,694)",3997.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0545,9 Prediction sample,missing dvage (only this missing: <10),730.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0546,9 Prediction sample,missing heatch (only this missing: 28),773.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0547,9 Prediction sample,missing workless_household (only this missing: 0),724.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0548,9 Prediction sample,"missing OBJECT (only this missing: 1,525)",3237.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0549,9 Prediction sample,missing CONDITION (only this missing: 0),306.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0550,9 Prediction sample,missing PERSONAL (only this missing: 12),1402.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0551,9 Prediction sample,missing ENERGY (only this missing: 0),<10,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0552,9 Prediction sample,common sample (P0/P1/P2),190855.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0553,9 Prediction sample,training transitions (a->b ... l->m),170895.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0554,9 Prediction sample,"validation transitions (m->n, n->o)",19960.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0555,9 Prediction sample,validation prevalence (%),10.54,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0556,9 Prediction sample,P2b common sample (adds FES Delta at t; loses 2009 wave-t interviews),183179.0,,,,,outputs_v2/stage6/sample_flow.csv,44fd61d,
+R0557,9 Prediction,P0: auc,0.7799366398735279,0.7683064967571006,0.7918117164708873,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0558,9 Prediction,P0: prauc,0.3341065300286663,0.3137112029902151,0.3586827169672187,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0559,9 Prediction,P0: sens5,0.2201616737993343,0.2061890161725067,0.2362775034366859,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0560,9 Prediction,P0: ppv5,0.4639278557114228,0.4330312185297079,0.5014782745359979,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0561,9 Prediction,P0: sens10,0.3856395625297194,0.3660622528190305,0.4043668459877876,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0562,9 Prediction,P0: ppv10,0.406312625250501,0.3835766908567399,0.4319536427682997,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0563,9 Prediction,P1: auc,0.7390795331783482,0.7270429558585635,0.7507383696200163,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0564,9 Prediction,P1: prauc,0.2799574007881114,0.2607181846003368,0.3016026569673879,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0565,9 Prediction,P1: sens5,0.1878269139324774,0.1727571562482065,0.2028772102024149,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0566,9 Prediction,P1: ppv5,0.3957915831663326,0.3607083819380054,0.4314561389071757,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0567,9 Prediction,P1: sens10,0.308606752258678,0.2899432623567115,0.3256782479395325,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0568,9 Prediction,P1: ppv10,0.3251503006012024,0.3006470079787069,0.3467760648943379,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0569,9 Prediction,P2: auc,0.7385224844994195,0.7264986097191194,0.7502844426259219,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0570,9 Prediction,P2: prauc,0.2784927008741492,0.2592961983463334,0.2998877325427256,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0571,9 Prediction,P2: sens5,0.1868758915834522,0.1721071924579521,0.2016811684522652,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0572,9 Prediction,P2: ppv5,0.3937875751503006,0.3602030037367059,0.4271289553996894,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0573,9 Prediction,P2: sens10,0.3067047075606277,0.2879653003263837,0.3239056252282253,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0574,9 Prediction,P2: ppv10,0.3231462925851703,0.2983508245877061,0.3457917927215663,19960.0,,outputs_v2/stage6/metrics.csv,44fd61d,
+R0575,9 Prediction,delta AUC P1 - P0,-0.0408571066951797,-0.0530785533802145,-0.0285018042550373,,,outputs_v2/stage6/delta_auc.csv,44fd61d,
+R0576,9 Prediction,delta AUC P2 - P1,-0.0005570486789286,-0.000929570725026,-0.0002095390253023,,,outputs_v2/stage6/delta_auc.csv,44fd61d,report as 'no improvement' without significance language
+R0577,9 Prediction,delta AUC P2 - P0,-0.0414141553741084,-0.0538316205854576,-0.0291571158399726,,,outputs_v2/stage6/delta_auc.csv,44fd61d,
+R0578,9 Prediction,P0 m->n: AUC,0.7813995818815331,0.7630167284413337,0.799670993276756,9075.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0579,9 Prediction,P0 n->o: AUC,0.7770345320047667,0.7616564156050929,0.7919473640011951,10885.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0580,9 Prediction,P1 m->n: AUC,0.7380606271777004,0.7200126835053531,0.7557080866032506,9075.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0581,9 Prediction,P1 n->o: AUC,0.7396492021618384,0.7251379145628892,0.7536256080436956,10885.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0582,9 Prediction,P2 m->n: AUC,0.7370114285714285,0.7189521791499196,0.754591697391832,9075.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0583,9 Prediction,P2 n->o: AUC,0.7397657401307857,0.7249953307035062,0.7537829552482788,10885.0,,outputs_v2/stage6/per_transition_auc.csv,44fd61d,
+R0584,9 Prediction calibration,P0: calibration slope,0.7832835890199794,0.7426422614476015,0.8239249165923573,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0585,9 Prediction calibration,P0: calibration-in-the-large,0.3855863828084715,0.3354240003143133,0.4357487653026297,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0586,9 Prediction calibration,P1: calibration slope,0.929837515501064,0.8784119678756594,0.9812630631264684,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0587,9 Prediction calibration,P1: calibration-in-the-large,0.4460756611782848,0.3985432866766185,0.493608035679951,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0588,9 Prediction calibration,P2: calibration slope,0.9262149163863626,0.8748292792950391,0.977600553477686,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0589,9 Prediction calibration,P2: calibration-in-the-large,0.4202173583063453,0.372686218199881,0.4677484984128096,,,outputs_v2/stage6/calibration.csv,44fd61d,
+R0590,9 Prediction,P1 (P2b sample): AUC (P2b sample),0.73919076183803,,,19960.0,,outputs_v2/stage6/p2b_sensitivity.csv,44fd61d,
+R0591,9 Prediction,P2b: AUC (P2b sample),0.7395125447261304,,,19960.0,,outputs_v2/stage6/p2b_sensitivity.csv,44fd61d,
+R0592,9 Prediction (POST-HOC),P3 (post-hoc) = P0 + P1: auc,0.7807462098308293,0.7695661220969054,0.7917827828475433,19960.0,,outputs_v2/stage6/posthoc_p3_metrics.csv,be67307,POST-HOC / EXPLORATORY
+R0593,9 Prediction (POST-HOC),P3 (post-hoc) = P0 + P1: prauc,0.3412443037253453,0.3199726431224174,0.3653134287505797,19960.0,,outputs_v2/stage6/posthoc_p3_metrics.csv,be67307,POST-HOC / EXPLORATORY
+R0594,9 Prediction (POST-HOC),P3 (post-hoc) = P0 + P1: sens10,0.3899191631003328,0.3708424880187444,0.4064282034602741,19960.0,,outputs_v2/stage6/posthoc_p3_metrics.csv,be67307,POST-HOC / EXPLORATORY
+R0595,9 Prediction (POST-HOC),P3 (post-hoc) = P0 + P1: ppv10,0.4108216432865731,0.3861456923355524,0.4356322305012142,19960.0,,outputs_v2/stage6/posthoc_p3_metrics.csv,be67307,POST-HOC / EXPLORATORY
+R0596,9 Prediction (POST-HOC),delta AUC P3 - P0,0.0008095699573014,-0.0081366004634952,0.0098576300573949,,,outputs_v2/stage6/posthoc_p3_delta_auc.csv,be67307,POST-HOC / EXPLORATORY
+R0597,9 Prediction (POST-HOC),delta AUC P3 - P1,0.0416666766524811,0.035313413037254,0.0481707516653619,,,outputs_v2/stage6/posthoc_p3_delta_auc.csv,be67307,POST-HOC / EXPLORATORY
+R0598,10 Sensitivity to equivalising income only,household size 1: % flag changes,0.0,,,73682.0,%,outputs_v2/stage7/sensitivity_equivalised_income_only.csv,132ee69,
+R0599,10 Sensitivity to equivalising income only,household size 2: % flag changes,11.471716251264231,,,99863.0,%,outputs_v2/stage7/sensitivity_equivalised_income_only.csv,132ee69,
+R0600,10 Sensitivity to equivalising income only,household size 3: % flag changes,18.248803194423,,,45329.0,%,outputs_v2/stage7/sensitivity_equivalised_income_only.csv,132ee69,
+R0601,10 Sensitivity to equivalising income only,household size 4: % flag changes,25.27563777275453,,,43354.0,%,outputs_v2/stage7/sensitivity_equivalised_income_only.csv,132ee69,
+R0602,10 Sensitivity to equivalising income only,household size 5+: % flag changes,45.78805457962252,,,24478.0,%,outputs_v2/stage7/sensitivity_equivalised_income_only.csv,132ee69,
+R0603,10 Descriptive,"prepayment meter, not vulnerable (<10%)",13.604327961160182,,,214249.0,%,outputs_v2/stage7/prepayment_by_vulnerability.csv,132ee69,
+R0604,10 Descriptive,"prepayment meter, vulnerable (>=10%)",24.378847109653183,,,19686.0,%,outputs_v2/stage7/prepayment_by_vulnerability.csv,132ee69,
+R0605,10 Descriptive,Northern Ireland: change waves a-e to k-o,-8.856226336413256,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,23.89% -> 15.04%
+R0606,10 Descriptive,Wales: change waves a-e to k-o,-2.8002803509534644,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,12.90% -> 10.10%
+R0607,10 Descriptive,North West: change waves a-e to k-o,-2.219742835484997,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,11.22% -> 9.00%
+R0608,10 Descriptive,North East: change waves a-e to k-o,-2.066134060722053,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,11.16% -> 9.09%
+R0609,10 Descriptive,West Midlands: change waves a-e to k-o,-1.324788709128347,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,11.33% -> 10.01%
+R0610,10 Descriptive,Scotland: change waves a-e to k-o,-0.9099246019538612,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,11.73% -> 10.82%
+R0611,10 Descriptive,Yorkshire and the Humber: change waves a-e to k-o,-0.6256287203752358,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,10.26% -> 9.63%
+R0612,10 Descriptive,South West: change waves a-e to k-o,-0.2146883439950082,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,8.08% -> 7.86%
+R0613,10 Descriptive,East Midlands: change waves a-e to k-o,-0.1279454492782967,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,10.52% -> 10.39%
+R0614,10 Descriptive,East of England: change waves a-e to k-o,0.2040966787270051,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,8.05% -> 8.25%
+R0615,10 Descriptive,South East: change waves a-e to k-o,0.2734905438497499,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,6.96% -> 7.23%
+R0616,10 Descriptive,London: change waves a-e to k-o,0.2905466512973786,,,,pp,outputs_v2/stage7/regional_change_early_late.csv,132ee69,7.43% -> 7.72%
+R0617,10 Descriptive,fes_magnitude_growth3 tercile low,8.113962331109228,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES -2.34 to -1.59
+R0618,10 Descriptive,fes_magnitude_growth3 tercile middle,9.137515324294048,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES -1.59 to -0.49
+R0619,10 Descriptive,fes_magnitude_growth3 tercile high,8.763952052905804,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES -0.49 to 6.47
+R0620,10 Descriptive,fes_delta_growth3 tercile low,8.654319170568794,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES -15.59 to -0.63
+R0621,10 Descriptive,fes_delta_growth3 tercile middle,8.8319597615173,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES -0.63 to 0.24
+R0622,10 Descriptive,fes_delta_growth3 tercile high,8.33797952512787,,,91376.0,%,outputs_v2/stage7/prevalence_by_fes_tercile.csv,132ee69,FES 0.24 to 3.50

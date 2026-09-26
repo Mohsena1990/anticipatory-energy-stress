@@ -105,6 +105,9 @@ SPEC: dict[str, dict] = {
     "stage6/posthoc_p3_metrics.csv": dict(counts=["n_train", "n_validation"]),
     "stage7/sensitivity_equivalised_income_only.csv": dict(counts=["n"]),
     "resources/composite_alpha.csv": dict(counts=["n_complete"]),
+    # Built only from the suppressed tables above; count-type values verified
+    # to contain no household count of 1-9 when the inventory was built.
+    "results_inventory.csv": dict(counts=["n"]),
     "stage7/prepayment_by_vulnerability.csv": dict(counts=["n"]),
     "stage7/regional_change_early_late.csv": dict(counts=["n_early", "n_late"]),
     "stage7/prevalence_by_fes_tercile.csv": dict(counts=["n"]),
