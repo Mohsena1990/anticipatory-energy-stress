@@ -725,243 +725,90 @@ def attach_price_context(df: pd.DataFrame) -> pd.DataFrame:
 # STEP 8 — FES Magnitude / Delta (forward-looking shock vs. realised baseline)
 # =============================================================================
 
+FES_SERIES = ("gas", "electricity", "carbon")
+FES_MIN_ZSCORE_MONTHS = 36   # analysis_plan_rerun.md Stage 2: expanding window, min 36 months
+
+
+def _past_only_moments(core: pd.DataFrame, origin_end: pd.Timestamp) -> dict | None:
+    """Mean/SD of each growth series over data up to origin_end only
+    (expanding window from the start of the series)."""
+    hist = core.loc[:origin_end]
+    moments = {}
+    for s in FES_SERIES:
+        vals = hist[f"{s}_growth"].dropna()
+        if len(vals) < FES_MIN_ZSCORE_MONTHS:
+            return None
+        moments[s] = (float(vals.mean()), float(vals.std()) or 1.0)
+    return moments
+
+
 def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Attach FES Magnitude (the forward-looking national energy-price shock)
-    and FES Delta (Magnitude minus each household-wave's own realised
-    exposure) -- operationalising Hobfoll's COR theory's requirement that
-    FES act as an explicit exogenous shock (direct effect + interaction
-    with Baseline Resource Stock in the SEM; a genuine conditioning signal
-    in the CVAE) rather than the flat per-row constant `attach_price_context`
-    alone would give every household in a single-year cross-section.
-    Requires `attach_price_context()` to have already merged
-    gas_growth/electricity_growth/carbon_growth.
+    FES Magnitude, FES Current and FES Delta per household-wave
+    (analysis_plan_rerun.md Stage 2).
 
-    FES Magnitude (varies per household-wave, by interview_year AND
-    interview_month where available)
-    -----------------------------------------------------------------
-    Three-level fallback, each stage logged so the active resolution is
-    always visible, not just assumed:
-
-      1. `outputs/fes/fes_rolling_monthly.csv` (from
-         `forecast_pipeline.run_rolling`, which already computes FES at
-         12-month resolution per as_of_year internally -- this just stops
-         discarding that detail at an annual-mean step). Each household-wave
-         row is joined on its own (interview_year, interview_month) against
-         (as_of_year, target_month) -- UKHLS's `month` fieldwork-timing
-         variable gives ~100% interview_month coverage, and energy prices
-         have real within-year seasonality, so this is a materially
-         different signal from a flat annual value for waves fielded in
-         different months of the same year.
-      2. `outputs/fes/fes_rolling_yearly.csv` (annual mean of the same
-         walk-forward run) for any row that didn't match at month
-         resolution (e.g. missing interview_month).
-      3. A single constant (mean `fes_selected` -- the per-series
-         best-of-core/macro composite, see
-         `src.fes_calculator._select_best_mode_per_series` -- over the
-         latest `outputs/fes/fes_monthly_{target_year}.csv`'s 12
-         forecast-target months) if `run_rolling` hasn't been executed at
-         all yet. Falls back further to `fes_core` for an older cached
-         monthly CSV saved before FES_selected existed. Kept so the
-         pipeline still runs (with a logged warning) without the rolling
-         walk-forward.
-
-    FES Actual, prior year (a single constant across every row, same
-    single-year caveat as tier 3 above)
-    -----------------------------------------------------------------
-    `fes_actual_prior_year`: the realised FES_actual baseline for the year
-    immediately before the forecast target window (year x, where
-    fes_magnitude's single-year fallback forecasts year x+1) -- computed
-    directly from realised data by
-    `src.fes_calculator.compute_fes`'s "FES_actual for the training-cutoff
-    year" step and read from `outputs/fes/fes_prior_actual_{x}.csv`. Not
-    used inside `fes_delta` (which already compares fes_magnitude against
-    each household's own realised exposure via fes_current); provided as an
-    additional reference point -- "what the index actually was last year"
-    alongside "what we forecast for next year" -- for analyses that want it.
-
-    In every case, "what was forecast for [this row's target period], using
-    only data available as of [this row's as_of_year]" -- a properly
-    ex-ante, per-household anticipatory shock, not one fixed constant
-    applied to every wave regardless of when it was fielded.
-
-    FES Current (varies per household-wave, by interview_year AND
-    interview_month where available)
-    -------------------------------------------------------------
-    Sum of z-scores of this household's own realised gas_growth/
-    electricity_growth/carbon_growth -- month-resolution values from
-    `attach_price_context` (which itself prefers the exact (interview_year,
-    interview_month) match against the core series, annual-mean fallback) --
-    standardized against those three series' own FULL-HISTORY MONTHLY
-    mean/std (every month present in `data/processed/core_energy_carbon.csv`,
-    not just the panel's own 2009-2024 window, and not annual-mean-of-means,
-    which would understate month-to-month variance).
-
-    FES Delta = FES Magnitude - FES Current
-    -----------------------------------------
-    Varies per household-wave through BOTH terms now (when the rolling
-    table is available) -- FES Magnitude no longer needs the
-    zero-variance/StandardScaler caveats that applied when it was a
-    single constant, though callers should still not assume every row has
-    a value: rows whose interview_year falls outside the rolling table's
-    covered years get NaN (documented, same pattern as
-    `attach_price_context`'s out-of-range handling).
-
-    Two approximations, documented rather than hidden (matching this
-    project's existing practice, e.g. the FIML CFI/TLI limitation flagged
-    in `src.ukhls_cor_sem`):
-      (a) FES Current's z-scoring window (full history) differs from the
-          forecast pipeline's own train-window baseline for a given
-          rolling year -- not reused directly here.
-      (b) FES Magnitude sums 4 z-terms (gas/elec/carbon/uncertainty); FES
-          Current sums 3 (no realised analogue of forecast-uncertainty
-          exists). Delta is therefore a reasonable, honestly-approximate
-          proxy for shock size, not an exact matched-scale subtraction.
+    Magnitude: core-mode rolling forecast from the December (Y-1) origin
+      (`as_of_year` = Y-1, trained on data through Dec Y-1), for the
+      household's own interview month in year Y. Nothing after the origin
+      is used, and the origin precedes every interview it is attached to.
+      `fes_magnitude` is the 4-term index (3 growth z-terms + forecast
+      uncertainty); `fes_magnitude_growth3` drops the uncertainty term.
+    Current: realised growth in the last complete month before the
+      interview (month m-1), z-scored with the same past-only moments as the
+      forecast (expanding window through Dec Y-1). Three terms: no realised
+      analogue of forecast uncertainty exists.
+    Delta: Magnitude - Current (and the growth-only analogue).
+    Households interviewed in years with no feasible origin (too little
+    history) get NaN and are logged.
     """
-    price_cols = ["gas_growth", "electricity_growth", "carbon_growth"]
+    for col in ["fes_magnitude", "fes_magnitude_growth3", "fes_current",
+                "fes_delta", "fes_delta_growth3"]:
+        df[col] = np.nan
+    df["fes_vintage_as_of_year"] = df["interview_year"] - 1
 
-    # Which of fes_core/fes_macro forecast_pipeline.run_rolling selected as
-    # the single best-performing variant (lowest mean RMSE vs realised FES
-    # across every rolling year) -- shared by both the monthly and annual
-    # branches below. Falls back to fes_core if the selection file doesn't
-    # exist yet.
-    fes_col = "fes_core"
-    if paths.FES_VARIANT_SELECTION_FILE.exists():
-        selection = pd.read_csv(paths.FES_VARIANT_SELECTION_FILE)
-        chosen_row = selection[selection["chosen"]]
-        if not chosen_row.empty:
-            variant_to_col = {
-                "Equal_Core": "fes_core", "Equal_Macro": "fes_macro",
-                "Equal_Selected": "fes_selected", "Equal_Weighted": "fes_weighted",
-            }
-            fes_col = variant_to_col.get(chosen_row.iloc[0]["FES_variant"], "fes_core")
-
-    if paths.FES_ROLLING_MONTHLY_FILE.exists():
-        # Best resolution: each household-wave row gets the forecast for
-        # ITS OWN interview month one year ahead (as_of_year=interview_year,
-        # target_month=interview_month) instead of a single value shared by
-        # every wave interviewed anywhere in that year. Energy prices have
-        # real within-year seasonality, so this is a materially different
-        # (and more honestly ex-ante) signal than the annual mean, using
-        # rolling-forecast output that was already being computed and
-        # previously discarded at the annual-average step.
-        monthly_rolling = pd.read_csv(paths.FES_ROLLING_MONTHLY_FILE)
-        mag_by_year_month = monthly_rolling.set_index(["as_of_year", "target_month"])[fes_col]
-        df["fes_magnitude"] = df.set_index(["interview_year", "interview_month"]).index.map(mag_by_year_month)
-
-        # Fall back to that interview year's annual mean (from the same
-        # monthly table, or the separate annual table) for any row whose
-        # exact month didn't match -- e.g. interview_month is NaN.
-        if paths.FES_ROLLING_FILE.exists():
-            annual_rolling = pd.read_csv(paths.FES_ROLLING_FILE)
-            mag_by_year = annual_rolling.set_index("as_of_year")[fes_col]
-        else:
-            mag_by_year = monthly_rolling.groupby("as_of_year")[fes_col].mean()
-        n_month_matched = df["fes_magnitude"].notna().sum()
-        df["fes_magnitude"] = df["fes_magnitude"].combine_first(df["interview_year"].map(mag_by_year))
-
-        log.info(
-            "FES magnitude: rolling walk-forward MONTHLY table (%s, column=%s, "
-            "%d/%d rows matched at (year, month) resolution, %d additional rows "
-            "fell back to their interview year's annual mean, %d/%d total matched)",
-            paths.FES_ROLLING_MONTHLY_FILE.name, fes_col, n_month_matched, len(df),
-            int(df["fes_magnitude"].notna().sum() - n_month_matched),
-            df["fes_magnitude"].notna().sum(), len(df),
-        )
-    elif paths.FES_ROLLING_FILE.exists():
-        rolling = pd.read_csv(paths.FES_ROLLING_FILE)
-        mag_by_year = rolling.set_index("as_of_year")[fes_col]
-        df["fes_magnitude"] = df["interview_year"].map(mag_by_year)
-        log.info(
-            "FES magnitude: rolling walk-forward table (%s, column=%s, %d years covered, "
-            "%d/%d household-wave rows matched)",
-            paths.FES_ROLLING_FILE.name, fes_col, mag_by_year.notna().sum(),
-            df["fes_magnitude"].notna().sum(), len(df),
-        )
-    elif paths.latest_fes_monthly_file() is not None:
-        monthly_file = paths.latest_fes_monthly_file()
-        monthly = pd.read_csv(monthly_file)
-        # fes_selected: per-series best-of-core/macro composite (see
-        # src.fes_calculator._select_best_mode_per_series) -- falls back to
-        # fes_core for an older cached monthly CSV saved before FES_selected
-        # existed.
-        single_run_col = "fes_selected" if "fes_selected" in monthly.columns else "fes_core"
-        df["fes_magnitude"] = float(monthly[single_run_col].mean())
-        log.warning(
-            "Rolling FES table not found (%s) -- falling back to a single "
-            "constant FES Magnitude from %s (column=%s). Run "
-            "forecast_pipeline.run_rolling() for a genuinely year-varying signal.",
-            paths.FES_ROLLING_FILE, monthly_file.name, single_run_col,
-        )
-    else:
-        log.warning("No FES file found (rolling or single-year) -- fes_magnitude/"
-                    "fes_current/fes_delta will be NaN. Run forecast_pipeline.py first.")
-        df["fes_magnitude"]         = np.nan
-        df["fes_current"]           = np.nan
-        df["fes_delta"]             = np.nan
-        df["fes_actual_prior_year"] = np.nan
+    if not paths.FES_ROLLING_MONTHLY_FILE.exists():
+        log.warning("No rolling monthly FES (%s) -- FES columns left NaN. Run "
+                    "forecast_pipeline.py --rolling --core-only --tune-per-origin.",
+                    paths.FES_ROLLING_MONTHLY_FILE)
         return df
 
-    # FES_actual for the training-cutoff year (year x) -- src.fes_calculator.
-    # compute_fes's realised baseline for the year immediately before its
-    # forecast target window, saved alongside fes_magnitude's year x+1
-    # forecast. A single constant across every row (same caveat as
-    # fes_magnitude's own single-year fallback above: genuinely per-row
-    # variation needs forecast_pipeline.run_rolling, not yet computed here).
-    prior_actual_file = paths.latest_fes_prior_actual_file()
-    if prior_actual_file is not None:
-        prior_actual = pd.read_csv(prior_actual_file)
-        df["fes_actual_prior_year"] = float(prior_actual["fes_actual"].mean())
-        log.info(
-            "FES actual, prior year baseline attached from %s: mean=%.4f",
-            prior_actual_file.name, df["fes_actual_prior_year"].iloc[0],
-        )
-    else:
-        log.warning(
-            "No fes_prior_actual_*.csv found -- fes_actual_prior_year will be NaN. "
-            "Run forecast_pipeline.py (src.fes_calculator.compute_fes) first."
-        )
-        df["fes_actual_prior_year"] = np.nan
+    monthly = pd.read_csv(paths.FES_ROLLING_MONTHLY_FILE)
+    assert (monthly["target_year"] == monthly["as_of_year"] + 1).all(), \
+        "rolling FES rows must forecast the year after their origin"
+    monthly["fes_core_growth3"] = monthly[[f"z_{s}_core" for s in FES_SERIES]].sum(
+        axis=1, min_count=len(FES_SERIES))
+    by_month = monthly.set_index(["as_of_year", "target_month"])
+    key = pd.MultiIndex.from_arrays([df["fes_vintage_as_of_year"], df["interview_month"]])
+    df["fes_magnitude"] = key.map(by_month["fes_core"])
+    df["fes_magnitude_growth3"] = key.map(by_month["fes_core_growth3"])
+    # Interview month unknown: annual mean of the SAME vintage.
+    by_year = monthly.groupby("as_of_year")[["fes_core", "fes_core_growth3"]].mean()
+    no_month = df["interview_month"].isna()
+    df.loc[no_month, "fes_magnitude"] = df.loc[no_month, "fes_vintage_as_of_year"].map(by_year["fes_core"])
+    df.loc[no_month, "fes_magnitude_growth3"] = df.loc[no_month, "fes_vintage_as_of_year"].map(
+        by_year["fes_core_growth3"])
 
-    if not paths.CORE_CSV.exists():
-        log.warning("Core price series not found: %s -- fes_current/fes_delta "
-                    "will be NaN.", paths.CORE_CSV)
-        df["fes_current"] = np.nan
-        df["fes_delta"]   = np.nan
-        return df
-
-    core = pd.read_csv(paths.CORE_CSV, index_col=0, parse_dates=True)
-
-    # z-scored against the core series' own full-history MONTHLY mean/std
-    # (not an annual-mean-of-means) -- df[col] itself is now month-resolution
-    # (attach_price_context joins by (interview_year, interview_month)), so
-    # the z-scoring reference has to be at the same resolution or the scale
-    # won't match (monthly values are noisier than annual averages).
-    z_parts = []
-    for col in price_cols:
-        if col not in df.columns or col not in core.columns:
+    core = pd.read_csv(paths.CORE_CSV, index_col=0, parse_dates=True).sort_index()
+    obs_date = pd.to_datetime(dict(year=df["interview_year"], month=df["interview_month"], day=1),
+                              errors="coerce") - pd.DateOffset(months=1)
+    current = pd.Series(np.nan, index=df.index)
+    for vintage in df["fes_vintage_as_of_year"].dropna().unique():
+        moments = _past_only_moments(core, pd.Timestamp(f"{int(vintage)}-12-01"))
+        if moments is None:
             continue
-        mu    = float(core[col].mean())
-        sigma = float(core[col].std()) or 1.0
-        z_parts.append((df[col] - mu) / sigma)
-
-    df["fes_current"] = (
-        pd.concat(z_parts, axis=1).sum(axis=1, skipna=True, min_count=1)
-        if z_parts else np.nan
-    )
+        rows = df.index[df["fes_vintage_as_of_year"] == vintage]
+        z = [(obs_date[rows].map(core[f"{s}_growth"]) - m) / sd for s, (m, sd) in moments.items()]
+        current[rows] = pd.concat(z, axis=1).sum(axis=1, min_count=len(FES_SERIES))
+    df["fes_current"] = current
     df["fes_delta"] = df["fes_magnitude"] - df["fes_current"]
+    df["fes_delta_growth3"] = df["fes_magnitude_growth3"] - df["fes_current"]
 
-    log.info(
-        "FES magnitude range [%.4f, %.4f] (unique values=%d) | "
-        "fes_current range [%.4f, %.4f] | fes_delta range [%.4f, %.4f] "
-        "(%d/%d rows valid) | fes_actual_prior_year=%.4f",
-        df["fes_magnitude"].min(skipna=True), df["fes_magnitude"].max(skipna=True),
-        df["fes_magnitude"].nunique(),
-        df["fes_current"].min(skipna=True), df["fes_current"].max(skipna=True),
-        df["fes_delta"].min(skipna=True), df["fes_delta"].max(skipna=True),
-        df["fes_delta"].notna().sum(), len(df),
-        df["fes_actual_prior_year"].iloc[0] if df["fes_actual_prior_year"].notna().any() else float("nan"),
-    )
+    covered = sorted(monthly["target_year"].unique())
+    n_ok = int(df["fes_delta"].notna().sum())
+    log.info("FES (core, Dec Y-1 vintage): target years %s-%s; %d/%d rows with fes_delta",
+             covered[0], covered[-1], n_ok, len(df))
+    for y, n in df.loc[df["fes_delta"].isna(), "interview_year"].value_counts().sort_index().items():
+        log.info("FES missing: interview_year=%s  rows=%d", y, n)
     return df
 
 
