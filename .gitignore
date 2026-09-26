@@ -8,3 +8,13 @@ outputs_v2/ukhls_cleaned/ukhls_panel.csv
 data/
 *.zip
 *.csv
+
+# Row-level UKHLS-derived outputs (one row per household/person). UK Data
+# Service End User Licence: never commit, even with `git add -f`. Removed
+# from all history on 2026-09-26.
+outputs*/**/*_scores.csv
+outputs*/**/cvae_latent_scores.csv
+outputs*/**/cvae_counterfactual_fes_shift.csv
+outputs*/**/stage5_transition_pairs.csv
+outputs*/**/stage5_forward_predictions.csv
+outputs*/ukhls_cleaned/
