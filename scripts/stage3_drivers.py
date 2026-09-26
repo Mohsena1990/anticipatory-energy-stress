@@ -184,7 +184,6 @@ def forest(coef: pd.DataFrame) -> None:
     d = coef[(coef.spec == "primary") & (coef.model == "main")].copy()
     d = d[~d.term.str.startswith("interview_year_")].sort_values("OR_per_sd", na_position="first")
     d["x"] = d.OR_per_sd.fillna(d.OR)
-    d["lo"] = np.where(d.OR_per_sd.notna(), np.exp(np.log(d.OR_ci_low) * d.sd_in_sample / 1), d.OR_ci_low)
     d["lo"] = np.where(d.OR_per_sd.notna(), np.exp(np.log(d.OR_ci_low) * d.sd_in_sample), d.OR_ci_low)
     d["hi"] = np.where(d.OR_per_sd.notna(), np.exp(np.log(d.OR_ci_high) * d.sd_in_sample), d.OR_ci_high)
     d = d.sort_values("x")
@@ -195,6 +194,10 @@ def forest(coef: pd.DataFrame) -> None:
     ax.set_yticks(yy)
     ax.set_yticklabels([f"{l}{' (per SD)' if pd.notna(s) else ''}" for l, s in zip(d.label, d.OR_per_sd)], fontsize=8)
     ax.set_xscale("log")
+    ticks = [0.4, 0.5, 0.7, 1, 1.5, 2, 3]
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([f"{t:g}" for t in ticks])
+    ax.minorticks_off()
     ax.set_xlabel("Odds ratio, 95% CI (PSU-clustered); continuous terms per SD")
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
