@@ -88,11 +88,19 @@ SPEC: dict[str, dict] = {
     "fes_eval/fes_coverage_by_interview_year.csv": dict(
         counts=["n", "n_fes", "n_outcome", "n_outcome_and_fes"]),
     "fes_eval/fes_attached_v1_vs_v2.csv": dict(counts=["n_both"]),
+    "stage3/coefficients.csv": dict(counts=["n"]),
+    "stage3/region_fe.csv": dict(counts=["n"]),
+    "stage3/model_summary.csv": dict(counts=["n", "n_events", "n_psu"]),
+    "stage3/sample_flow.csv": dict(counts=["n"]),
+    "stage3/ni_oil_sequence.csv": dict(counts=["n"]),
+    "stage3/thesis_table_primary.csv": dict(counts=["n"]),
 }
 # Tables with no UKHLS counts or rates at risk (correlations, loadings,
 # metadata, national aggregates over >=100 households) -- listed so --check
 # can confirm every tracked table was considered.
-EXEMPT = {"fes_eval/forecast_accuracy_by_year.csv", "fes_eval/forecast_accuracy_pooled.csv",
+EXEMPT = {"stage3/year_fe.csv", "fes_eval/thesis_table_forecast_accuracy.csv",
+          "fes_eval/appendix_table_mase.csv", "fes_eval/thesis_table_relrmse_by_year.csv",
+          "fes_eval/forecast_accuracy_by_year.csv", "fes_eval/forecast_accuracy_pooled.csv",
           "fes_eval/diebold_mariano.csv", "fes_eval/uncertainty_pi.csv", "fes_eval/model_wins.csv",
           "fes_eval/fes_annual.csv",  # macro price series only, no UKHLS data
           "descriptives/strain_item_correlations.csv", "jrf/jrf_agreement.csv",

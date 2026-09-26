@@ -1,0 +1,25 @@
+spec,step,n
+all,all household-wave rows,339201
+all,primary outcome observed,286902
+all,outcome and FES (2010+),274128
+primary,complete case on model variables (FES => 2010+),221877
+primary,NI-oil sample (rural filled),221778
+primary,NI-oil sample (rural observed_only),221611
+sens_composite,complete case on model variables (FES => 2010+),233980
+sens_composite,NI-oil sample (rural filled),233873
+sens_composite_v1,complete case on model variables (FES => 2010+),234102
+sens_composite_v1,NI-oil sample (rural filled),233995
+sens_lagged_components,complete case on model variables (FES => 2010+),183078
+sens_lagged_components,NI-oil sample (rural filled),183013
+sens_lagged_composite,complete case on model variables (FES => 2010+),194151
+sens_lagged_composite,NI-oil sample (rural filled),194079
+sens_lagged_composite_v1,complete case on model variables (FES => 2010+),194692
+sens_lagged_composite_v1,NI-oil sample (rural filled),194620
+sens_month_fe,complete case on model variables (FES => 2010+),221877
+sens_month_fe,NI-oil sample (rural filled),221778
+sens_fes_4term,complete case on model variables (FES => 2010+),221877
+sens_fes_4term,NI-oil sample (rural filled),221778
+sens_outcome_s1,complete case on model variables (FES => 2010+),249200
+sens_outcome_s1,NI-oil sample (rural filled),249076
+sens_outcome_s2,complete case on model variables (FES => 2010+),227007
+sens_outcome_s2,NI-oil sample (rural filled),226907
