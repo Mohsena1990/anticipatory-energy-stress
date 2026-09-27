@@ -1,0 +1,35 @@
+step,n,wave_t_households
+linked transitions a->b,21886.0,30169.0
+linked transitions b->c,24404.0,30484.0
+linked transitions c->d,22961.0,27751.0
+linked transitions d->e,22034.0,25817.0
+linked transitions e->f,19771.0,24325.0
+linked transitions f->g,20001.0,24454.0
+linked transitions g->h,19288.0,23033.0
+linked transitions h->i,17954.0,21746.0
+linked transitions i->j,17083.0,20048.0
+linked transitions j->k,16234.0,19252.0
+linked transitions k->l,15021.0,18139.0
+linked transitions l->m,14253.0,16856.0
+linked transitions m->n,13725.0,16156.0
+linked transitions n->o,17144.0,21385.0
+all linked transitions,261759.0,
+  of which outcome at t+1 missing,36602.0,
+"  missing y (only this missing: 19,945)",36602.0,
+  missing fuel_to_income_ratio (only this missing: 0),35291.0,
+  missing high_fuel_vulnerable (only this missing: 0),35291.0,
+  missing finnow (only this missing: 20),1115.0,
+"  missing scghq1_dv (only this missing: 9,282)",14901.0,
+"  missing finfut_risk (only this missing: 1,694)",3997.0,
+  missing dvage (only this missing: <10),730.0,
+  missing heatch (only this missing: 28),773.0,
+  missing workless_household (only this missing: 0),724.0,
+"  missing OBJECT (only this missing: 1,525)",3237.0,
+  missing CONDITION (only this missing: 0),306.0,
+  missing PERSONAL (only this missing: 12),1402.0,
+  missing ENERGY (only this missing: 0),<10,
+common sample (P0/P1/P2),190855.0,
+  training transitions (a->b ... l->m),170895.0,
+"  validation transitions (m->n, n->o)",19960.0,
+  validation prevalence (%),10.54,
+P2b common sample (adds FES Delta at t; loses 2009 wave-t interviews),183179.0,

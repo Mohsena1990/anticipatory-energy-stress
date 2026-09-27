@@ -41,16 +41,16 @@ import pandas as pd
 
 from src.logging_utils import setup_logger, get_logger
 from src.config import DEFAULT_TARGET_YEAR
-setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
 log = get_logger("forecast_pipeline")
 
 ALL_MODELS = ["SARIMA", "Prophet", "LSTM", "TFT"]
 ALL_SERIES = ["gas", "electricity", "carbon"]
 
-FORECAST_DIR = "outputs/forecasts"
-FES_DIR      = "outputs/fes"
-FIGURES_DIR  = "outputs/figures"
-TABLES_DIR   = "outputs/tables"
+FORECAST_DIR = "outputs_v2/forecasts"
+FES_DIR      = "outputs_v2/fes"
+FIGURES_DIR  = "outputs_v2/figures"
+TABLES_DIR   = "outputs_v2/tables"
 CORE_CSV     = "data/processed/core_energy_carbon.csv"
 
 
@@ -158,7 +158,7 @@ def _get_series(
     return train_s, test_s, full_s, actual_target, eval_actual
 
 
-MODELS_DIR = "outputs/models"
+MODELS_DIR = "outputs_v2/models"
 
 
 def stage2_train_evaluate(
@@ -175,9 +175,10 @@ def stage2_train_evaluate(
     forecast_start: str = "2017-01-01",
     forecast_end: str = "2017-12-01",
     forecast_dir: str = FORECAST_DIR,
+    modes: tuple = ("core", "macro"),
 ) -> list:
     """
-    Train all models in both core and macro modes for every series.
+    Train all models in every requested mode (core and/or macro) for every series.
 
     train_end/forecast_start/forecast_end default to the original
     single-year window; a rolling walk-forward caller passes a different
@@ -205,8 +206,8 @@ def stage2_train_evaluate(
 
         # ── SARIMA ───────────────────────────────────────────────────────────
         if "SARIMA" in models_to_run:
-            for use_macro in [False, True]:
-                mode = "macro" if use_macro else "core"
+            for mode in modes:
+                use_macro = mode == "macro"
                 try:
                     from src.models.sarima_model import run_sarima
                     results.append(run_sarima(
@@ -222,8 +223,8 @@ def stage2_train_evaluate(
 
         # ── Prophet ──────────────────────────────────────────────────────────
         if "Prophet" in models_to_run:
-            for use_regressors in [False, True]:
-                mode = "macro" if use_regressors else "core"
+            for mode in modes:
+                use_regressors = mode == "macro"
                 try:
                     from src.models.prophet_model import run_prophet
                     results.append(run_prophet(
@@ -239,8 +240,8 @@ def stage2_train_evaluate(
 
         # ── LSTM ─────────────────────────────────────────────────────────────
         if "LSTM" in models_to_run:
-            for use_macro in [False, True]:
-                mode = "macro" if use_macro else "core"
+            for mode in modes:
+                use_macro = mode == "macro"
                 try:
                     from src.models.lstm_model import run_lstm
                     _lstm_kw = {"macro_feature_set": "lstm"}
@@ -258,8 +259,8 @@ def stage2_train_evaluate(
 
         # ── TFT ──────────────────────────────────────────────────────────────
         if "TFT" in models_to_run:
-            for use_macro in [False, True]:
-                mode = "macro" if use_macro else "core"
+            for mode in modes:
+                use_macro = mode == "macro"
                 try:
                     from src.models.tft_model import run_tft
                     results.append(run_tft(
@@ -616,6 +617,8 @@ def run_rolling(
     min_train_months: int = MIN_TRAIN_MONTHS,
     max_target_year: int | None = DEFAULT_TARGET_YEAR,
     tune: bool = True,
+    core_only: bool = False,
+    tune_per_origin: bool = False,
 ) -> pd.DataFrame:
     """
     Walk-forward rolling FES: for each feasible year Y, train through Y's
@@ -655,9 +658,20 @@ def run_rolling(
         limitations) may not share the same optimal hyperparameters as the
         latest, data-richest window, but re-tuning every year is not
         proportionate. ON by default; pass tune=False (--no-tune) to skip.
+
+    core_only : train/tune core mode only (target series, no exogenous
+        regressors). analysis_plan_rerun.md Stage 2.
+    tune_per_origin : instead of the one-time tuning above, re-tune at every
+        forecast origin on that origin's own split (train < as_of_year,
+        validate on as_of_year), i.e. using only data up to the origin
+        (December of as_of_year). Removes the look-ahead of reusing
+        hyperparameters tuned on the latest window. Much slower.
     """
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
+    modes = ("core",) if core_only else ("core", "macro")
+    log.info("Rolling modes: %s | tuning: %s", modes,
+             "per origin" if (tune and tune_per_origin) else ("one-time" if tune else "off"))
 
     Path(FORECAST_DIR).mkdir(parents=True, exist_ok=True)
     Path(FES_DIR).mkdir(parents=True, exist_ok=True)
@@ -679,7 +693,8 @@ def run_rolling(
     from src.fes_calculator import compute_fes
 
     tuned_params: dict = {}
-    if tune and years:
+    per_origin_tuning_rows: list = []
+    if tune and years and not tune_per_origin:
         tune_as_of_year = years[-1]
         _stage(2, f"One-time hyperparameter tuning (on the latest rolling year, "
                   f"as_of={tune_as_of_year}) -- reused for every rolling year below")
@@ -702,7 +717,8 @@ def run_rolling(
                 tune_core_train, tune_core_test, core_full,
                 tune_macro_train, tune_macro_full,
                 fast=fast, selection_basis=selection_basis,
-                out_dir="outputs/tuning_rolling",
+                out_dir="outputs_v2/tuning_rolling",
+                modes=modes,
                 full_train_end=tune_refit_end,
                 forecast_start=tune_forecast_dates.min().strftime("%Y-%m-%d"),
                 forecast_end=tune_forecast_dates.max().strftime("%Y-%m-%d"),
@@ -737,6 +753,39 @@ def run_rolling(
         year_tables_dir    = f"{TABLES_DIR}/rolling/{as_of_year}"
         year_fes_dir        = f"{FES_DIR}/rolling/{as_of_year}"
 
+        if tune and tune_per_origin:
+            # Tune on this origin's own split only: train < as_of_year,
+            # validate on as_of_year; nothing after December of as_of_year.
+            from src.tuning import tune_models
+            _stage(2, f"Per-origin tuning, as_of={as_of_year}")
+            try:
+                tuned_params, _ = tune_models(
+                    series, models_to_run,
+                    core_train, core_test, core_full,
+                    macro_train, macro_full,
+                    fast=fast, selection_basis=selection_basis,
+                    out_dir=f"outputs_v2/tuning_rolling/{as_of_year}",
+                    full_train_end=refit_end,
+                    forecast_start=forecast_dates.min().strftime("%Y-%m-%d"),
+                    forecast_end=forecast_dates.max().strftime("%Y-%m-%d"),
+                    modes=modes,
+                )
+                for (s_name, s_mode, s_model), params in tuned_params.items():
+                    per_origin_tuning_rows.append({
+                        "as_of_year": as_of_year, "series": s_name, "mode": s_mode,
+                        "model": s_model, "params": repr(params),
+                    })
+            except Exception as e:
+                log.error("Per-origin tuning failed for as_of=%d -- untuned defaults "
+                          "used for this origin: %s", as_of_year, e, exc_info=True)
+                tuned_params = {}
+                per_origin_tuning_rows.append({
+                    "as_of_year": as_of_year, "series": "ALL", "mode": "ALL",
+                    "model": "ALL", "params": f"TUNING FAILED: {e}",
+                })
+            pd.DataFrame(per_origin_tuning_rows).to_csv(
+                f"{FES_DIR}/tuned_params_by_origin.csv", index=False)
+
         try:
             results = stage2_train_evaluate(
                 series, models_to_run, core_train, core_test, core_full,
@@ -746,6 +795,7 @@ def run_rolling(
                 forecast_start=forecast_dates.min().strftime("%Y-%m-%d"),
                 forecast_end=forecast_dates.max().strftime("%Y-%m-%d"),
                 forecast_dir=year_forecast_dir,
+                modes=modes,
             )
             _, ranked_df, best = stage3_evaluation(
                 results, selection_basis, out_dir=year_tables_dir, forecast_dir=year_forecast_dir,
@@ -805,7 +855,10 @@ def run_rolling(
         # exactly the resolution src.ukhls_preprocessing.attach_fes_delta
         # needs to give each household-wave row a FES Magnitude specific to
         # its own interview month, not just its interview year.
-        month_detail = monthly_df[["date"] + [c for c in ["fes_core", "fes_macro", "fes_selected", "fes_weighted", "fes_actual"] if c in monthly_df.columns]].copy()
+        # All columns kept (per-series forecast_*, z_*, z_unc_*, actuals):
+        # Stage 2 evaluates forecast vs realised on the growth terms only,
+        # and builds a growth-only (3-term) magnitude as a sensitivity.
+        month_detail = monthly_df.copy()
         month_detail["as_of_year"] = as_of_year
         monthly_frames.append(month_detail)
 
@@ -843,7 +896,7 @@ def run_rolling(
         performance_df = pd.DataFrame(performance_rows)
         performance_df.to_csv(f"{FES_DIR}/forecast_performance_by_year.csv", index=False)
         _plot_forecast_performance_by_year(performance_df, FIGURES_DIR)
-        for mode in ["core", "macro"]:
+        for mode in modes:
             _plot_rolling_performance_polar(performance_df, mode, FIGURES_DIR)
 
     return rolling_df
@@ -1000,7 +1053,7 @@ def run(
     series        = series        or ALL_SERIES
     models_to_run = models_to_run or ALL_MODELS
 
-    Path("outputs/logs").mkdir(parents=True, exist_ok=True)
+    Path("outputs_v2/logs").mkdir(parents=True, exist_ok=True)
     Path(FORECAST_DIR).mkdir(parents=True, exist_ok=True)
     Path(FES_DIR).mkdir(parents=True, exist_ok=True)
     Path(FIGURES_DIR).mkdir(parents=True, exist_ok=True)
@@ -1060,7 +1113,7 @@ def run(
             core_train, core_test, core_full,
             macro_train, macro_full,
             fast=fast, selection_basis=selection_basis,
-            out_dir="outputs/tuning",
+            out_dir="outputs_v2/tuning",
             full_train_end=refit_end,
             forecast_start=forecast_start, forecast_end=forecast_end,
         )
@@ -1161,6 +1214,13 @@ def main() -> None:
                              "see src.config.DEFAULT_TARGET_YEAR) instead of "
                              "extending into a still-partial or panel-uncovered "
                              "year. Pass 0 to remove the cap entirely.")
+    parser.add_argument("--core-only", action="store_true",
+                        help="--rolling only: core mode only (no exogenous macro "
+                             "regressors). analysis_plan_rerun.md Stage 2.")
+    parser.add_argument("--tune-per-origin", action="store_true",
+                        help="--rolling only: re-tune hyperparameters at every "
+                             "forecast origin using only data up to that origin, "
+                             "instead of one tuning pass on the latest window.")
     args = parser.parse_args()
     if args.max_target_year == 0:
         args.max_target_year = None   # explicit opt-out of the default cap
@@ -1177,7 +1237,8 @@ def main() -> None:
     print(f"  Rolling     : {args.rolling}")
     if args.rolling:
         print(f"  Max target year : {args.max_target_year or '(uncapped)'}")
-        print(f"  Tuning      : {tune} (one-time pass, reused across all rolling years)")
+        print(f"  Core only   : {args.core_only}")
+        print(f"  Tuning      : {tune} ({'per origin' if args.tune_per_origin else 'one-time pass, reused across all rolling years'})")
     else:
         print(f"  FES only    : {args.fes_only}")
         print(f"  Tuning      : {tune}")
@@ -1193,6 +1254,8 @@ def main() -> None:
             selection_basis=args.selection_basis,
             max_target_year=args.max_target_year,
             tune=tune,
+            core_only=args.core_only,
+            tune_per_origin=args.tune_per_origin,
         )
     else:
         run(

@@ -4,6 +4,7 @@
 data/social_science_data/*.zip
 data/raw/ukhls/
 outputs/ukhls_cleaned/ukhls_panel.csv
+outputs_v2/ukhls_cleaned/ukhls_panel.csv
 data/
 *.zip
 *.csv
@@ -24,3 +25,10 @@ data/social_science_data/
 outputs*/enable_cleaned/*_scored.csv
 outputs*/**/*_predictions.csv
 outputs*/**/*_scored.csv
+
+# Bytecode cache for analysis scripts (generated on import)
+scripts/__pycache__/
+
+# Thesis asset bundle (local build product; see scripts/build_thesis_assets.py)
+outputs_v2/thesis_assets_v2/
+outputs_v2/thesis_assets_v2.zip

@@ -1,0 +1,195 @@
+region,wave,xpelecy_nonresp_zeroed,xpgasy_nonresp_zeroed,xpoily_nonresp_zeroed,xpsfly_nonresp_zeroed,any_component_zeroed
+East Midlands,a,101,97,0,<10,108
+East Midlands,b,75,74,<10,<10,83
+East Midlands,c,56,55,0,<10,61
+East Midlands,d,46,43,0,<10,50
+East Midlands,e,36,29,0,<10,38
+East Midlands,f,43,42,<10,<10,50
+East Midlands,g,44,39,<10,<10,48
+East Midlands,h,34,34,0,<10,40
+East Midlands,i,38,39,0,0,40
+East Midlands,j,45,38,<10,<10,47
+East Midlands,k,32,32,<10,<10,34
+East Midlands,l,40,39,0,<10,41
+East Midlands,m,36,39,0,<10,41
+East Midlands,n,49,48,0,<10,56
+East Midlands,o,70,70,<10,<10,72
+East of England,a,130,131,0,<10,143
+East of England,b,88,88,<10,<10,96
+East of England,c,75,73,0,<10,80
+East of England,d,58,58,<10,<10,64
+East of England,e,53,53,<10,<10,59
+East of England,f,61,60,<10,<10,66
+East of England,g,53,61,<10,<10,63
+East of England,h,53,61,0,0,65
+East of England,i,68,68,<10,<10,75
+East of England,j,61,62,<10,<10,64
+East of England,k,65,62,<10,<10,71
+East of England,l,45,44,0,<10,48
+East of England,m,66,63,0,0,68
+East of England,n,87,86,0,<10,92
+East of England,o,84,85,<10,<10,88
+London,a,392,412,0,<10,441
+London,b,219,215,0,0,244
+London,c,199,200,0,0,215
+London,d,168,157,0,0,177
+London,e,110,118,0,0,126
+London,f,314,315,<10,0,352
+London,g,173,177,<10,<10,194
+London,h,128,137,<10,0,145
+London,i,117,130,<10,0,138
+London,j,105,104,<10,<10,112
+London,k,113,119,<10,0,124
+London,l,105,111,<10,0,115
+London,m,109,116,<10,0,124
+London,n,139,138,0,0,151
+London,o,123,122,<10,<10,135
+Missing region,b,<10,<10,0,0,<10
+Missing region,c,0,0,0,0,0
+Missing region,d,0,0,0,0,0
+Missing region,e,<10,0,0,0,<10
+Missing region,f,0,0,0,0,0
+Missing region,g,<10,<10,0,0,<10
+Missing region,h,0,0,0,0,0
+Missing region,i,<10,0,0,0,<10
+Missing region,j,0,0,0,0,0
+Missing region,k,0,0,0,0,0
+Missing region,l,<10,<10,0,0,<10
+Missing region,m,0,<10,0,0,<10
+Missing region,n,0,<10,0,0,<10
+Missing region,o,0,0,0,0,0
+North East,a,43,40,0,0,45
+North East,b,13,14,0,0,17
+North East,c,16,13,0,0,19
+North East,d,20,18,0,0,21
+North East,e,19,19,0,<10,22
+North East,f,16,17,<10,<10,21
+North East,g,13,14,0,<10,14
+North East,h,18,19,<10,<10,21
+North East,i,29,31,0,<10,33
+North East,j,20,20,<10,<10,22
+North East,k,23,22,<10,<10,24
+North East,l,17,18,<10,<10,18
+North East,m,22,22,<10,<10,24
+North East,n,40,39,<10,<10,43
+North East,o,26,25,<10,0,27
+North West,a,172,162,0,<10,183
+North West,b,97,102,0,0,107
+North West,c,93,95,0,<10,106
+North West,d,68,65,0,<10,74
+North West,e,61,59,0,<10,65
+North West,f,99,94,0,0,105
+North West,g,80,80,<10,<10,88
+North West,h,61,62,<10,<10,67
+North West,i,76,78,<10,<10,81
+North West,j,65,61,0,<10,66
+North West,k,70,68,0,<10,76
+North West,l,68,71,<10,0,74
+North West,m,68,69,<10,<10,73
+North West,n,98,95,<10,<10,102
+North West,o,83,85,<10,<10,90
+Northern Ireland,a,13,11,<10,<10,19
+Northern Ireland,b,12,12,<10,0,17
+Northern Ireland,c,10,12,<10,<10,20
+Northern Ireland,d,<10,<10,<10,<10,16
+Northern Ireland,e,<10,<10,<10,<10,12
+Northern Ireland,f,<10,13,<10,<10,20
+Northern Ireland,g,13,11,<10,0,19
+Northern Ireland,h,13,10,<10,<10,16
+Northern Ireland,i,16,12,<10,<10,19
+Northern Ireland,j,21,17,<10,<10,27
+Northern Ireland,k,16,19,<10,<10,23
+Northern Ireland,l,24,23,<10,<10,29
+Northern Ireland,m,25,23,<10,<10,31
+Northern Ireland,n,40,35,<10,<10,46
+Northern Ireland,o,41,33,10,<10,46
+Scotland,a,98,99,<10,<10,110
+Scotland,b,87,86,<10,<10,95
+Scotland,c,64,66,0,<10,74
+Scotland,d,60,61,0,<10,68
+Scotland,e,56,61,<10,0,64
+Scotland,f,66,72,<10,<10,84
+Scotland,g,71,73,<10,<10,83
+Scotland,h,52,48,<10,<10,54
+Scotland,i,53,55,<10,<10,61
+Scotland,j,57,53,<10,<10,60
+Scotland,k,47,49,<10,<10,52
+Scotland,l,46,45,<10,<10,48
+Scotland,m,47,44,<10,<10,50
+Scotland,n,93,92,0,<10,98
+Scotland,o,76,76,<10,<10,83
+South East,a,244,249,<10,<10,269
+South East,b,171,169,<10,<10,190
+South East,c,136,141,0,<10,153
+South East,d,115,115,0,<10,128
+South East,e,95,90,0,0,103
+South East,f,101,89,0,<10,109
+South East,g,103,107,0,<10,122
+South East,h,96,104,<10,<10,109
+South East,i,96,96,0,<10,107
+South East,j,95,91,<10,<10,100
+South East,k,77,77,<10,<10,84
+South East,l,92,89,0,<10,98
+South East,m,74,75,0,<10,82
+South East,n,110,100,0,<10,112
+South East,o,112,105,<10,<10,122
+South West,a,90,87,0,<10,101
+South West,b,52,54,<10,<10,62
+South West,c,54,51,0,<10,62
+South West,d,41,40,0,<10,46
+South West,e,40,35,<10,<10,43
+South West,f,47,45,<10,<10,58
+South West,g,33,38,<10,<10,43
+South West,h,36,40,<10,<10,42
+South West,i,37,32,<10,<10,40
+South West,j,40,38,<10,<10,42
+South West,k,52,49,<10,0,57
+South West,l,51,48,<10,<10,55
+South West,m,46,41,<10,<10,49
+South West,n,75,71,0,<10,81
+South West,o,72,72,<10,<10,80
+Wales,a,45,49,0,<10,51
+Wales,b,69,68,<10,<10,73
+Wales,c,73,70,<10,<10,77
+Wales,d,65,64,0,<10,75
+Wales,e,62,60,<10,0,66
+Wales,f,69,65,0,<10,75
+Wales,g,54,56,0,<10,63
+Wales,h,48,43,0,0,51
+Wales,i,66,62,<10,<10,68
+Wales,j,68,67,<10,<10,76
+Wales,k,60,55,<10,<10,62
+Wales,l,43,46,<10,<10,50
+Wales,m,57,50,<10,<10,59
+Wales,n,73,69,<10,<10,79
+Wales,o,51,46,<10,<10,52
+West Midlands,a,137,133,<10,<10,148
+West Midlands,b,66,62,<10,<10,70
+West Midlands,c,53,51,0,<10,58
+West Midlands,d,52,50,0,0,54
+West Midlands,e,41,41,0,0,44
+West Midlands,f,80,79,0,<10,87
+West Midlands,g,53,53,0,0,57
+West Midlands,h,65,58,0,0,67
+West Midlands,i,52,52,<10,<10,56
+West Midlands,j,53,50,0,<10,54
+West Midlands,k,47,48,0,<10,53
+West Midlands,l,53,51,0,0,56
+West Midlands,m,49,50,<10,<10,56
+West Midlands,n,82,81,<10,0,88
+West Midlands,o,74,69,<10,<10,78
+Yorkshire and the Humber,a,119,120,<10,<10,131
+Yorkshire and the Humber,b,66,63,<10,<10,74
+Yorkshire and the Humber,c,54,53,0,<10,59
+Yorkshire and the Humber,d,50,53,0,<10,58
+Yorkshire and the Humber,e,46,46,<10,<10,52
+Yorkshire and the Humber,f,78,78,<10,<10,85
+Yorkshire and the Humber,g,78,79,<10,<10,84
+Yorkshire and the Humber,h,46,44,<10,<10,48
+Yorkshire and the Humber,i,53,59,0,<10,61
+Yorkshire and the Humber,j,55,53,0,<10,58
+Yorkshire and the Humber,k,54,50,<10,<10,56
+Yorkshire and the Humber,l,51,53,<10,<10,57
+Yorkshire and the Humber,m,67,71,0,<10,77
+Yorkshire and the Humber,n,71,73,<10,<10,76
+Yorkshire and the Humber,o,85,85,0,<10,90

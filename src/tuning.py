@@ -151,10 +151,11 @@ def tune_models(
     macro_full: pd.DataFrame,
     fast: bool = False,
     selection_basis: str = "validation",
-    out_dir: str = "outputs/tuning",
+    out_dir: str = "outputs_v2/tuning",
     full_train_end: str = "2016-12-01",
     forecast_start: str = "2017-01-01",
     forecast_end: str = "2017-12-01",
+    modes: tuple = ("core", "macro"),
 ) -> tuple[dict[tuple[str, str, str], dict[str, Any]], pd.DataFrame]:
     """
     Tune model hyperparameters and return best params keyed by
@@ -187,7 +188,7 @@ def tune_models(
         actual_target = core_full.loc[forecast_start:forecast_end, col]
         eval_actual = core_test[col].dropna()
 
-        for mode in ["core", "macro"]:
+        for mode in modes:
             use_macro = mode == "macro"
             for model_name in models_to_run:
                 grid = _candidate_grid(model_name, series, mode, fast)

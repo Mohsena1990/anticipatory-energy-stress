@@ -1,0 +1,4 @@
+gap,explanation,n,detail
+status_sum_off_by_one,"Stage 1 status counts omitted the A2 rows (v1 kept, A1 kept, spend differs): fuelduel=2 with gas not reported, so v1 adds xpgasy while A1 counts electricity only. No row-level detail is written out.",<10,
+v1_spend_rows_minus_v1_analytical_n,Rows with a v1 spend (same + zero-filled + A2) minus v1 analytical n: removed by the income step inside compute_fuel_to_income.,2110,"income missing=10; income<£1,200=2100"
+a1_spend_rows_minus_a1_analytical_n,Same gap for the A1 primary outcome.,2446,"income missing=13; income<£1,200=2433"

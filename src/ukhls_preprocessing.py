@@ -60,8 +60,8 @@ from src.logging_utils import get_logger
 from src.ukhls_mapping import (
     WAVE_LETTERS, WAVE_FIELDWORK_START_YEAR, MISSING_CODES,
     HH_IDENTIFIER, HH_LINK_VARS, HH_TIMING_VARS, HH_GEOGRAPHY_VARS,
-    HH_FUEL_EXPENDITURE_VARS, HH_INCOME_VARS, HH_HOUSING_VARS,
-    HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
+    HH_FUEL_EXPENDITURE_VARS, FUEL_NONRESPONSE_CODES, FUEL_AMOUNT_VARS,
+    HH_INCOME_VARS, HH_HOUSING_VARS, HH_HARDSHIP_VARS, HH_COPING_VARS_RECENT_ONLY, HH_COPING_AVAILABLE_WAVES,
     HH_OBJECT_VARS, HH_FAMILY_VARS, HH_EQUIVALISATION_VARS,
     IND_IDENTIFIER, IND_HH_LINK, IND_FINANCIAL_VARS, IND_WELLBEING_VARS,
     IND_CONDITION_VARS, IND_PERSONAL_VARS, IND_ENERGY_VARS,
@@ -124,6 +124,10 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
     prefixed = [f"{wave}_{c}" for c in wanted_bare]
     available = _available_columns(path)
     present = [c for c in prefixed if c in available]
+    # Household cross-sectional weight: name varies by wave (hhdenus_xw,
+    # hhdenub_xw, hhdenui_xw, hhdeng2_xw) -- loaded as `hh_xw`.
+    xw_cols = sorted(c for c in available if c.startswith(f"{wave}_") and c.endswith("_xw"))
+    present += xw_cols[:1]
     missing = sorted(set(prefixed) - set(present))
     if missing:
         log.debug("wave %s hhresp: %d requested vars absent (%s)",
@@ -131,9 +135,18 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
 
     df = pd.read_stata(path, columns=present, convert_categoricals=False)
     df = df.rename(columns={c: c[len(wave) + 1:] for c in present})
+    if xw_cols:
+        df = df.rename(columns={xw_cols[0][len(wave) + 1:]: "hh_xw"})
+        df["hh_xw_name"] = xw_cols[0][len(wave) + 1:]
     df["wave"] = wave
 
-    numeric_cols = [c for c in df.columns if c not in ("wave",)]
+    # Keep item nonresponse distinguishable from -8 inapplicable for the fuel
+    # amounts: the generic recode below turns both into NaN.
+    for col in FUEL_AMOUNT_VARS:
+        if col in df.columns:
+            df[f"{col}_nr"] = df[col].isin(FUEL_NONRESPONSE_CODES)
+
+    numeric_cols = [c for c in df.columns if c not in ("wave",) and not c.endswith("_nr")]
     df = _recode_missing(df, numeric_cols)
 
     if "tenure_dv" in df.columns:
@@ -168,12 +181,15 @@ def load_wave_hhresp(wave: str) -> pd.DataFrame:
         # duelpay/elecpay stays NaN instead of silently reading as "not prepay".
         duelpay_flag = np.where(duelpay.isna(), np.nan, (duelpay == 4).astype(float))
         elecpay_flag = np.where(elecpay.isna(), np.nan, (elecpay == 4).astype(float))
+        # Electricity-only households skip fuelduel (-8) and answer elecpay
+        # directly -- same routing as the A1 outcome.
+        elec_only = (df["fuelhave1"] == 1) & (df["fuelhave2"] == 0)
         prepay = pd.Series(
-            np.where(fuelduel == 1, duelpay_flag, np.where(fuelduel == 2, elecpay_flag, np.nan)),
+            np.where(fuelduel == 1, duelpay_flag,
+                     np.where((fuelduel == 2) | elec_only, elecpay_flag, np.nan)),
             index=df.index,
         )
         df["prepayment_meter"] = prepay.astype(float)
-        df.loc[fuelduel.isna(), "prepayment_meter"] = np.nan
 
     return df
 
@@ -234,23 +250,34 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
         # health: 1=has long-standing illness/disability, 2=no -> reverse
         # so higher=better personal resource (no illness=1, illness=0).
         df["health_good"] = df["health"].map({1: 0.0, 2: 1.0})
-    if "sf1" in df.columns:
-        # sf1: 1=excellent...5=poor -> reverse to higher=better, [0,1] scale.
-        df["sf1_good"] = (5.0 - df["sf1"]) / 4.0
+    if "sf1" in df.columns or "scsf1" in df.columns:
+        # Self-rated general health, 1=excellent...5=poor -> reversed to
+        # higher=better on [0,1]. Self-completion scsf1 (waves b-o) where
+        # valid, else interviewer sf1 (wave a; v1 used sf1 only, which is
+        # <11% observed after wave e).
+        sf1 = df.get("scsf1", pd.Series(np.nan, index=df.index)).combine_first(
+            df.get("sf1", pd.Series(np.nan, index=df.index)))
+        df["sf1_good"] = (5.0 - sf1) / 4.0
     if "qfhigh_dv" in df.columns:
         df["qfhigh_band"] = df["qfhigh_dv"].map(QFHIGH_BAND_RECODE)
-    if "health" in df.columns and "healthlink" in df.columns:
-        # Equality-Act-2010-style disability flag: health==1 (has a
-        # long-standing illness/disability) AND healthlink in {1,2}
-        # (limits activities "a lot" or "a little"). healthlink is only
-        # asked of respondents with health==1, so it's legitimately NaN
-        # (not missing data) for health==2 respondents -- those are
-        # "not disabled" regardless. Reversed to disability_free so
-        # higher=better, matching health_good/sf1_good's convention.
-        limited = df["healthlink"].isin([1, 2])
-        disabled = np.where(df["health"] == 1, limited, False)
-        df["disability_free"] = np.where(df["health"].isna(), np.nan,
-                                          np.where(disabled, 0.0, 1.0))
+    disdif = [f"disdif{i}" for i in range(1, 13) if f"disdif{i}" in df.columns]
+    if "health" in df.columns and disdif:
+        # Equality-Act-style disability (JRF/FRS definition): a long-standing
+        # illness or disability (health==1) AND at least one substantial
+        # difficulty (any disdif1-12 mentioned). health==2 -> not disabled.
+        # health==1 with every difficulty item observed and none mentioned
+        # -> not disabled; otherwise unknown. Consistent across waves even
+        # though disdif is asked of everyone in later waves but only of
+        # health==1 respondents in wave a. Reversed to disability_free
+        # (higher=better) to match health_good/sf1_good.
+        any_difficulty = (df[disdif] == 1).any(axis=1)
+        all_observed = df[disdif].notna().all(axis=1)
+        disabled = np.select(
+            [df["health"] == 2,
+             (df["health"] == 1) & any_difficulty,
+             (df["health"] == 1) & all_observed],
+            [0.0, 1.0, 0.0], default=np.nan)
+        df["disability_free"] = 1.0 - disabled
 
     # Recoded categorical items (finfut, jbstat, health, sf1, qfhigh_dv,
     # healthlink) are replaced by their derived ordinal/reversed columns
@@ -262,7 +289,7 @@ def load_wave_indresp_aggregated(wave: str) -> pd.DataFrame:
     # separately MAX-aggregated into has_fulltime_worker/has_selfemployed_worker
     # below, so they don't need a mean-aggregated column at all. jbhrs
     # (hours worked) stays mean-aggregated -- it's a genuine continuous value.
-    RECODED = {"finfut", "jbstat", "health", "sf1", "qfhigh_dv", "healthlink"}
+    RECODED = {"finfut", "jbstat", "health", "sf1", "scsf1", "qfhigh_dv"} | set(IND_DISABILITY_VARS)
     NOT_MEANABLE_CATEGORICAL = {"jbft_dv", "jbsemp", "jbterm1"}
     DERIVED = ["finfut_risk", "jbstat_security", "health_good", "sf1_good",
                "qfhigh_band", "disability_free"]
@@ -375,6 +402,90 @@ def load_wave_hrp_ethnicity(wave: str) -> pd.DataFrame:
     return df[[IND_IDENTIFIER, "ethnicity_group"]]
 
 
+def load_wave_hrp_move(wave: str) -> pd.DataFrame:
+    """Reference person's reported move-in date to the current address
+    (mvyr/mvmnth; asked mainly of movers and new entrants). Used only as
+    evidence of a move in `fill_urban_from_adjacent_waves`."""
+    path = _wave_path(wave, "indresp")
+    available = _available_columns(path)
+    cols = [c for c in (f"{wave}_mvyr", f"{wave}_mvmnth") if c in available]
+    if not cols:
+        return pd.DataFrame(columns=[IND_IDENTIFIER, "hrp_mvyr", "hrp_mvmnth"])
+    df = pd.read_stata(path, columns=[IND_IDENTIFIER] + cols, convert_categoricals=False)
+    df = df.rename(columns={f"{wave}_mvyr": "hrp_mvyr", f"{wave}_mvmnth": "hrp_mvmnth"})
+    df = _recode_missing(df, ["hrp_mvyr", "hrp_mvmnth"])
+    for c in ["hrp_mvyr", "hrp_mvmnth"]:
+        if c not in df:
+            df[c] = np.nan
+    return df[[IND_IDENTIFIER, "hrp_mvyr", "hrp_mvmnth"]]
+
+
+def fill_urban_from_adjacent_waves(panel: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fill missing urban_dv from the same household (linked by hrpid, as in
+    Stage 5) at the previous wave, else the next wave, only where there is no
+    evidence of a move between the two interviews (analysis_plan_rerun.md,
+    Stage 3 note). Evidence of a move: gor_dv differs; origadd switches
+    between 1 and 2; or the reference person's move-in date in the later
+    wave is on/after the earlier interview (year only if the month is
+    unknown). Absence of a move-in date is not proof of no move.
+
+    Adds urban_dv_filled, urban_fill_source (observed/previous/next/missing)
+    and rural (1 = rural, from urban_dv_filled).
+    """
+    p = panel
+    order = {w: i for i, w in enumerate(WAVE_LETTERS)}
+    p["_wi"] = p["wave"].map(order)
+    cols = ["hrpid", "_wi", "urban_dv", "gor_dv", "origadd", "interview_year",
+            "interview_month", "hrp_mvyr", "hrp_mvmnth"]
+    donors = (p[[c for c in cols if c in p.columns]].dropna(subset=["hrpid"])
+              .drop_duplicates(subset=["hrpid", "_wi"], keep=False))
+    for c in cols:
+        if c not in donors:
+            donors[c] = np.nan
+
+    def moved(early: pd.DataFrame, late: pd.DataFrame) -> pd.Series:
+        m = early["gor_dv"].notna() & late["gor_dv"].notna() & (early["gor_dv"] != late["gor_dv"])
+        m |= (early["origadd"].isin([1, 2]) & late["origadd"].isin([1, 2])
+              & (early["origadd"] != late["origadd"]))
+        e_ym = early["interview_year"] * 12 + early["interview_month"].fillna(12)
+        mv_ym = late["hrp_mvyr"] * 12 + late["hrp_mvmnth"]
+        by_month = late["hrp_mvmnth"].notna() & (mv_ym >= e_ym)
+        by_year = late["hrp_mvmnth"].isna() & (late["hrp_mvyr"] >= early["interview_year"])
+        m |= late["hrp_mvyr"].notna() & (by_month | by_year)
+        return m.fillna(False)
+
+    need = p["urban_dv"].isna() & p["hrpid"].notna()
+    rec = p.loc[need, [c for c in cols if c in p.columns]].copy()
+    for c in cols:
+        if c not in rec:
+            rec[c] = np.nan
+    filled = pd.Series(np.nan, index=p.index)
+    source = pd.Series(np.where(p["urban_dv"].notna(), "observed", "missing"), index=p.index)
+
+    prev = rec[["hrpid", "_wi"]].assign(_wi=rec["_wi"] - 1).merge(
+        donors, on=["hrpid", "_wi"], how="left").set_index(rec.index)
+    ok_prev = prev["urban_dv"].notna() & ~moved(prev, rec)
+    filled[ok_prev[ok_prev].index] = prev.loc[ok_prev, "urban_dv"]
+    source[ok_prev[ok_prev].index] = "previous"
+
+    rest = rec.loc[~ok_prev]
+    nxt = rest[["hrpid", "_wi"]].assign(_wi=rest["_wi"] + 1).merge(
+        donors, on=["hrpid", "_wi"], how="left").set_index(rest.index)
+    ok_next = nxt["urban_dv"].notna() & ~moved(rest, nxt)
+    filled[ok_next[ok_next].index] = nxt.loc[ok_next, "urban_dv"]
+    source[ok_next[ok_next].index] = "next"
+
+    p["urban_dv_filled"] = p["urban_dv"].combine_first(filled)
+    p["urban_fill_source"] = source
+    p["rural"] = (p["urban_dv_filled"] == 2).astype(float).where(p["urban_dv_filled"].notna())
+    p.drop(columns="_wi", inplace=True)
+    counts = source.value_counts().to_dict()
+    ni_k = p[(p["gor_dv"] == 12) & (p["wave"] == "k")]["urban_fill_source"].value_counts().to_dict()
+    log.info("urban_dv fill: %s | NI wave k: %s", counts, ni_k)
+    return p
+
+
 # =============================================================================
 # STEP 4 — Build one wave's household panel rows
 # =============================================================================
@@ -388,20 +499,30 @@ def build_wave_panel(wave: str) -> pd.DataFrame:
         eth = load_wave_hrp_ethnicity(wave)
         panel = panel.merge(eth, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
         panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
+        move = load_wave_hrp_move(wave)
+        panel = panel.merge(move, left_on="hrpid", right_on=IND_IDENTIFIER, how="left")
+        panel = panel.drop(columns=[IND_IDENTIFIER], errors="ignore")
 
+    # Sample year/month (address issue date), kept for comparison with v1.
     start_year = WAVE_FIELDWORK_START_YEAR[wave]
     if "month" in panel.columns:
         m = panel["month"].astype("float64")
-        panel["interview_year"] = np.where(
-            m.notna(), start_year + ((m - 1) // 12).fillna(0), start_year
-        ).astype(float)
-        panel["interview_month"] = np.where(
-            m.notna(), ((m - 1) % 12) + 1, np.nan
-        )
+        panel["sample_year"] = np.where(m.notna(), start_year + ((m - 1) // 12), np.nan)
+        panel["sample_month"] = np.where(m.notna(), ((m - 1) % 12) + 1, np.nan)
     else:
-        panel["interview_year"] = float(start_year)
-        panel["interview_month"] = np.nan
-
+        panel["sample_year"] = np.nan
+        panel["sample_month"] = np.nan
+    # Actual household interview date (v1 used the sample month here, which
+    # differs from the interview month for 25-76% of households per wave and
+    # from the interview year for 3.5-10%). Falls back to the sample date
+    # only where the interview date is missing.
+    iy = panel.get("intdatey", pd.Series(np.nan, index=panel.index)).astype("float64")
+    im = panel.get("intdatem", pd.Series(np.nan, index=panel.index)).astype("float64")
+    have = iy.notna() & im.notna()
+    panel["interview_year"] = np.where(have, iy, panel["sample_year"])
+    panel["interview_month"] = np.where(have, im, panel["sample_month"])
+    panel["interview_date_source"] = np.where(have, "intdate", np.where(panel["sample_year"].notna(), "sample_month", "missing"))
+    panel["interview_year"] = panel["interview_year"].fillna(float(start_year))
     return panel
 
 
@@ -416,6 +537,8 @@ def build_full_panel(waves: list[str] | None = None) -> pd.DataFrame:
     panel = pd.concat(frames, ignore_index=True, sort=False)
     log.info("Full panel: %d household-wave rows across %d waves",
               len(panel), len(frames))
+    if "urban_dv" in panel.columns and "hrpid" in panel.columns:
+        panel = fill_urban_from_adjacent_waves(panel)
     return panel
 
 
@@ -423,61 +546,130 @@ def build_full_panel(waves: list[str] | None = None) -> pd.DataFrame:
 # STEP 5 — Fuel-to-income ratio
 # =============================================================================
 
+_MIN_PLAUSIBLE_ANNUAL_INCOME = 1200.0
+
+# Outcome variants (analysis_plan_rerun.md amendment A1). Suffix "" is the
+# primary outcome; the others are sensitivity / comparison versions.
+FUEL_OUTCOME_VARIANTS = ("", "_s1", "_s2", "_v1")
+
+
+def _routed_fuel_spend(df: pd.DataFrame, nonresp_as_zero: bool) -> pd.Series:
+    """Annual fuel spend following the UKHLS questionnaire routing.
+
+    fuelduel is asked only of households using BOTH electricity and gas, so
+    single-fuel households are routed straight to xpelecy / xpgasy. A required
+    amount that is item nonresponse gives NaN, or 0 when nonresp_as_zero
+    (the S1 lower bound). Structural -8 zeros (fuel not used) are 0.
+    """
+    def amount(col: str) -> pd.Series:
+        s = df.get(col, pd.Series(np.nan, index=df.index))
+        if nonresp_as_zero:
+            nr = df.get(f"{col}_nr", pd.Series(False, index=df.index))
+            s = s.where(~nr, 0.0)
+        return s
+
+    elec, gas = df["fuelhave1"] == 1, df["fuelhave2"] == 1
+    fuelduel = df["fuelduel"]
+    duel_nr = df.get("fuelduel_nr", pd.Series(False, index=df.index))
+
+    elec_gas = pd.Series(0.0, index=df.index)
+    both = elec & gas
+    elec_gas[both & (fuelduel == 1)] = amount("xpduely")
+    # Separate bills, or billing type unknown (xpgasy/xpelecy are then asked).
+    elec_gas[both & ((fuelduel == 2) | duel_nr)] = amount("xpgasy") + amount("xpelecy")
+    elec_gas[elec & ~gas] = amount("xpelecy")
+    elec_gas[gas & ~elec] = amount("xpgasy")
+
+    oil = pd.Series(0.0, index=df.index)
+    oil[df["fuelhave3"] == 1] = amount("xpoily")
+    other = pd.Series(0.0, index=df.index)
+    other[df["fuelhave4"] == 1] = amount("xpsfly")
+    return elec_gas + oil + other
+
+
+def _v1_fuel_spend(df: pd.DataFrame) -> pd.Series:
+    """The submitted-draft-v1 rule, kept only as a comparison column: drops
+    every household with fuelduel missing (incl. -8, i.e. not dual-fuel) and
+    zero-fills nonresponse on the separate/oil/other amounts."""
+    combined = df.get("xpduely", pd.Series(np.nan, index=df.index))
+    separate = (df.get("xpgasy", pd.Series(0.0, index=df.index)).fillna(0)
+                + df.get("xpelecy", pd.Series(0.0, index=df.index)).fillna(0))
+    fuelduel = df["fuelduel"]
+    elec_gas = pd.Series(
+        np.where(fuelduel == 1, combined, np.where(fuelduel == 2, separate, np.nan)),
+        index=df.index)
+    total = (elec_gas + df.get("xpoily", pd.Series(0.0, index=df.index)).fillna(0)
+             + df.get("xpsfly", pd.Series(0.0, index=df.index)).fillna(0))
+    total[elec_gas.isna()] = np.nan
+    return total
+
+
+def _fuel_outcome_exclusion(df: pd.DataFrame, primary_raw: pd.Series) -> pd.Series:
+    """First A1 exclusion reason per row ("in_scope" if none), in the order
+    used by the sample-flow reconciliation."""
+    elec, gas = df["fuelhave1"] == 1, df["fuelhave2"] == 1
+    oil, other = df["fuelhave3"] == 1, df["fuelhave4"] == 1
+    reason = pd.Series("in_scope", index=df.index)
+    reason[primary_raw.isna()] = "item_nonresponse"
+    reason[~elec & ~gas & (oil | other)] = "elec_not_reported_oil_or_other_only"
+    reason[gas & ~elec] = "elec_not_reported_gas_only"
+    reason[~elec & ~gas & ~oil & ~other] = "no_fuel_reported"
+    reason[df[["fuelhave1", "fuelhave2", "fuelhave3", "fuelhave4"]].isna().any(axis=1)] = \
+        "fuelhave_module_nonresponse"
+    return reason
+
+
+def _ratio(spend: pd.Series, annual_net_income: pd.Series) -> pd.Series:
+    # Implausible near-zero or negative incomes (< GBP 1,200/yr) are set to
+    # NaN; >100% of income is capped at 1.0 (kept as severe hardship).
+    ratio = spend / annual_net_income
+    ratio[annual_net_income < _MIN_PLAUSIBLE_ANNUAL_INCOME] = np.nan
+    return ratio.clip(upper=1.0)
+
+
 def compute_fuel_to_income(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Total annual fuel spend: combined gas+electricity bill (fuelduel==1)
-    OR separate gas+electricity spend (fuelduel==2), plus oil/other fuel
-    for off-grid heating. NaN when the billing-type question itself was
-    unanswered (not the same as a genuine zero).
+    Fuel-to-income ratio, amendment A1 (analysis_plan_rerun.md).
+
+    Primary (`fuel_to_income_ratio`): routing-aware spend, complete-case on
+    every required amount, electricity use reported.
+    `_s1`: lower bound -- item nonresponse amounts set to 0.
+    `_s2`: primary + households not reporting electricity (gas-only,
+           oil/other-only), spend as reported.
+    `_v1`: submitted-draft-v1 rule, for comparison only.
+    `fuel_outcome_exclusion` records why a row is outside the primary outcome.
     """
-    combined = df.get("xpduely", pd.Series(np.nan, index=df.index))
-    separate = (
-        df.get("xpgasy", pd.Series(0.0, index=df.index)).fillna(0)
-        + df.get("xpelecy", pd.Series(0.0, index=df.index)).fillna(0)
-    )
-    fuelduel = df.get("fuelduel", pd.Series(np.nan, index=df.index))
-    elec_gas_spend = pd.Series(
-        np.where(fuelduel == 1, combined, np.where(fuelduel == 2, separate, np.nan)),
-        index=df.index,
-    )
+    primary_raw = _routed_fuel_spend(df, nonresp_as_zero=False)
+    reason = _fuel_outcome_exclusion(df, primary_raw)
+    in_scope = reason == "in_scope"
+    elec_not_reported = reason.str.startswith("elec_not_reported")
 
-    oil = df.get("xpoily", pd.Series(0.0, index=df.index)).fillna(0)
-    other = df.get("xpsfly", pd.Series(0.0, index=df.index)).fillna(0)
-    total_fuel_spend = elec_gas_spend + oil + other
-    total_fuel_spend[elec_gas_spend.isna()] = np.nan
-    df["total_fuel_spend"] = total_fuel_spend
-
+    spend = {
+        "": primary_raw.where(in_scope),
+        "_s1": _routed_fuel_spend(df, nonresp_as_zero=True).where(
+            in_scope | (reason == "item_nonresponse")),
+        "_s2": primary_raw.where(in_scope | elec_not_reported),
+        "_v1": _v1_fuel_spend(df),
+    }
     annual_net_income = df.get("fihhmnnet1_dv", pd.Series(np.nan, index=df.index)) * 12
-    ratio = total_fuel_spend / annual_net_income
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        df[f"total_fuel_spend{suffix}"] = spend[suffix]
+        df[f"fuel_to_income_ratio{suffix}"] = _ratio(spend[suffix], annual_net_income)
 
-    # Guard against implausible near-zero-income denominators: a handful of
-    # rows report annual net income under GBP 1,200 (GBP 100/month) --
-    # almost certainly a transient reporting artifact (e.g. a month with
-    # unreported benefit income), not a real sustained income level. Left
-    # unguarded, dividing by these produces ratios up to 2,778x income,
-    # which silently destroys Pearson-correlation-based validation
-    # (discovered via Stage 3's own validation step) even though the
-    # binary high_fuel_vulnerable threshold below is unaffected by it.
-    _MIN_PLAUSIBLE_ANNUAL_INCOME = 1200.0
-    ratio[annual_net_income < _MIN_PLAUSIBLE_ANNUAL_INCOME] = np.nan
+    income_excluded = in_scope & df["fuel_to_income_ratio"].isna()
+    reason[income_excluded & annual_net_income.isna()] = "income_missing"
+    reason[income_excluded & annual_net_income.notna()] = "income_below_1200"
+    df["fuel_outcome_exclusion"] = reason
 
-    # Hard sanity cap: spending >100% of net income on fuel alone for a
-    # full year, while not physically impossible, is implausible at scale
-    # and affects only ~0.27% of rows -- winsorized rather than dropped so
-    # these households (real, severe hardship in most cases) stay in the
-    # sample as "very high" rather than becoming absurd outliers.
-    n_capped = int((ratio > 1.0).sum())
-    if n_capped:
-        log.info("fuel_to_income_ratio: capping %d rows (%.2f%%) at 1.0 "
-                  "(uncapped max was %.1f)", n_capped,
-                  100.0 * n_capped / ratio.notna().sum(), ratio.max())
-    ratio = ratio.clip(upper=1.0)
-
-    df["fuel_to_income_ratio"] = ratio
-
-    n_valid = int(ratio.notna().sum())
-    log.info("fuel_to_income_ratio: %d/%d valid (%.1f%%)",
-              n_valid, len(df), 100.0 * n_valid / len(df))
+    n_capped = int((primary_raw.where(in_scope) / annual_net_income)
+                   .where(annual_net_income >= _MIN_PLAUSIBLE_ANNUAL_INCOME).gt(1.0).sum())
+    log.info("fuel_to_income_ratio: %d rows capped at 1.0", n_capped)
+    for r, n in reason.value_counts().items():
+        log.info("fuel_outcome_exclusion: %-40s %7d", r, n)
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        n_valid = int(df[f"fuel_to_income_ratio{suffix}"].notna().sum())
+        log.info("fuel_to_income_ratio%-4s: %d/%d valid (%.1f%%)",
+                  suffix, n_valid, len(df), 100.0 * n_valid / len(df))
     return df
 
 
@@ -487,9 +679,12 @@ def build_target(df: pd.DataFrame) -> pd.DataFrame:
     high_fuel_vulnerable_relative: within-wave P75 version, for continuity
     with the old AEV_QUANTILE convention.
     """
+    for suffix in FUEL_OUTCOME_VARIANTS:
+        r = df[f"fuel_to_income_ratio{suffix}"]
+        df[f"high_fuel_vulnerable{suffix}"] = (r >= FUEL_POVERTY_RATIO_THRESHOLD).astype("Int64")
+        df.loc[r.isna(), f"high_fuel_vulnerable{suffix}"] = pd.NA
+
     ratio = df["fuel_to_income_ratio"]
-    df["high_fuel_vulnerable"] = (ratio >= FUEL_POVERTY_RATIO_THRESHOLD).astype("Int64")
-    df.loc[ratio.isna(), "high_fuel_vulnerable"] = pd.NA
 
     wave_thresh = df.groupby("wave")["fuel_to_income_ratio"].transform(
         lambda x: x.quantile(FUEL_POVERTY_RELATIVE_QUANTILE)
@@ -553,23 +748,58 @@ def _normalize_01(s: pd.Series) -> pd.Series:
     return (s - lo) / (hi - lo)
 
 
+STRAIN_ITEMS = ["finnow", "finfut_risk", "scghq1_dv"]
+STRAIN_ITEMS_V1 = STRAIN_ITEMS + ["xphsdba"]
+
+
 def build_financial_strain_composite(df: pd.DataFrame) -> pd.DataFrame:
     """
-    One combined financial/psychological strain composite (context/feature,
-    NOT the target): finnow + finfut_risk + GHQ distress + bill arrears,
-    each min-max normalized across the full panel, row-mean (missing-aware).
-    UKHLS lacks item batteries as rich as ENABLE's per-dimension blocks, so
-    this collapses the old 4-construct COR design into a single score.
+    Financial/psychological strain: row mean (missing-aware) of min-max
+    normalised items (analysis_plan_rerun.md Stage 3).
+
+    financial_strain_score       primary: finnow + finfut_risk + GHQ distress.
+                                 Bill arrears (xphsdba) is left out because
+                                 it already enters the driver model as
+                                 bill_security.
+    financial_strain_score_v1    submitted-draft-v1 version incl. xphsdba
+                                 (sensitivity A).
+    *_lag1                       previous-wave values (hrpid link, as in
+                                 Stage 5) of each component and composite,
+                                 for the lagged-strain check.
+    Primary driver specification (plan deviation 2026-09-26) enters the
+    components separately; the composites are sensitivities.
     """
-    components = []
-    for col in ["finnow", "finfut_risk", "scghq1_dv", "xphsdba"]:
-        if col in df.columns:
-            components.append(_normalize_01(df[col]))
-    if not components:
+    norm = {c: _normalize_01(df[c]) for c in STRAIN_ITEMS_V1 if c in df.columns}
+    if not norm:
         log.warning("No components available for financial_strain_score")
-        df["financial_strain_score"] = np.nan
+        for c in ["financial_strain_score", "financial_strain_score_v1", "financial_strain_score_lag1"]:
+            df[c] = np.nan
         return df
-    df["financial_strain_score"] = pd.concat(components, axis=1).mean(axis=1)
+    df["financial_strain_score"] = pd.concat(
+        [norm[c] for c in STRAIN_ITEMS if c in norm], axis=1).mean(axis=1)
+    df["financial_strain_score_v1"] = pd.concat(list(norm.values()), axis=1).mean(axis=1)
+
+    # Lagged values: the same household's value at the previous wave,
+    # linked by hrpid as in Stage 5. Components are lagged too, because the
+    # primary driver specification enters them separately.
+    lag_cols = [c for c in STRAIN_ITEMS + ["financial_strain_score", "financial_strain_score_v1"]
+                if c in df.columns]
+    for c in lag_cols:
+        df[f"{c}_lag1"] = np.nan
+    if "hrpid" in df.columns:
+        next_wave = {w: WAVE_LETTERS[i + 1] for i, w in enumerate(WAVE_LETTERS[:-1])}
+        prev = (df[["wave", "hrpid"] + lag_cols]
+                .dropna(subset=["hrpid"]).drop_duplicates(subset=["wave", "hrpid"], keep=False))
+        prev = prev.assign(wave=prev["wave"].map(next_wave)).dropna(subset=["wave"])
+        lagged = df[["wave", "hrpid"]].merge(
+            prev.rename(columns={c: f"{c}_lag1" for c in lag_cols}),
+            on=["wave", "hrpid"], how="left")
+        for c in lag_cols:
+            df[f"{c}_lag1"] = lagged[f"{c}_lag1"].values
+    log.info("financial_strain_score: %d valid | _v1: %d | _lag1: %d",
+             df["financial_strain_score"].notna().sum(),
+             df["financial_strain_score_v1"].notna().sum(),
+             df["financial_strain_score_lag1"].notna().sum())
     return df
 
 
@@ -644,243 +874,90 @@ def attach_price_context(df: pd.DataFrame) -> pd.DataFrame:
 # STEP 8 — FES Magnitude / Delta (forward-looking shock vs. realised baseline)
 # =============================================================================
 
+FES_SERIES = ("gas", "electricity", "carbon")
+FES_MIN_ZSCORE_MONTHS = 36   # analysis_plan_rerun.md Stage 2: expanding window, min 36 months
+
+
+def _past_only_moments(core: pd.DataFrame, origin_end: pd.Timestamp) -> dict | None:
+    """Mean/SD of each growth series over data up to origin_end only
+    (expanding window from the start of the series)."""
+    hist = core.loc[:origin_end]
+    moments = {}
+    for s in FES_SERIES:
+        vals = hist[f"{s}_growth"].dropna()
+        if len(vals) < FES_MIN_ZSCORE_MONTHS:
+            return None
+        moments[s] = (float(vals.mean()), float(vals.std()) or 1.0)
+    return moments
+
+
 def attach_fes_delta(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Attach FES Magnitude (the forward-looking national energy-price shock)
-    and FES Delta (Magnitude minus each household-wave's own realised
-    exposure) -- operationalising Hobfoll's COR theory's requirement that
-    FES act as an explicit exogenous shock (direct effect + interaction
-    with Baseline Resource Stock in the SEM; a genuine conditioning signal
-    in the CVAE) rather than the flat per-row constant `attach_price_context`
-    alone would give every household in a single-year cross-section.
-    Requires `attach_price_context()` to have already merged
-    gas_growth/electricity_growth/carbon_growth.
+    FES Magnitude, FES Current and FES Delta per household-wave
+    (analysis_plan_rerun.md Stage 2).
 
-    FES Magnitude (varies per household-wave, by interview_year AND
-    interview_month where available)
-    -----------------------------------------------------------------
-    Three-level fallback, each stage logged so the active resolution is
-    always visible, not just assumed:
-
-      1. `outputs/fes/fes_rolling_monthly.csv` (from
-         `forecast_pipeline.run_rolling`, which already computes FES at
-         12-month resolution per as_of_year internally -- this just stops
-         discarding that detail at an annual-mean step). Each household-wave
-         row is joined on its own (interview_year, interview_month) against
-         (as_of_year, target_month) -- UKHLS's `month` fieldwork-timing
-         variable gives ~100% interview_month coverage, and energy prices
-         have real within-year seasonality, so this is a materially
-         different signal from a flat annual value for waves fielded in
-         different months of the same year.
-      2. `outputs/fes/fes_rolling_yearly.csv` (annual mean of the same
-         walk-forward run) for any row that didn't match at month
-         resolution (e.g. missing interview_month).
-      3. A single constant (mean `fes_selected` -- the per-series
-         best-of-core/macro composite, see
-         `src.fes_calculator._select_best_mode_per_series` -- over the
-         latest `outputs/fes/fes_monthly_{target_year}.csv`'s 12
-         forecast-target months) if `run_rolling` hasn't been executed at
-         all yet. Falls back further to `fes_core` for an older cached
-         monthly CSV saved before FES_selected existed. Kept so the
-         pipeline still runs (with a logged warning) without the rolling
-         walk-forward.
-
-    FES Actual, prior year (a single constant across every row, same
-    single-year caveat as tier 3 above)
-    -----------------------------------------------------------------
-    `fes_actual_prior_year`: the realised FES_actual baseline for the year
-    immediately before the forecast target window (year x, where
-    fes_magnitude's single-year fallback forecasts year x+1) -- computed
-    directly from realised data by
-    `src.fes_calculator.compute_fes`'s "FES_actual for the training-cutoff
-    year" step and read from `outputs/fes/fes_prior_actual_{x}.csv`. Not
-    used inside `fes_delta` (which already compares fes_magnitude against
-    each household's own realised exposure via fes_current); provided as an
-    additional reference point -- "what the index actually was last year"
-    alongside "what we forecast for next year" -- for analyses that want it.
-
-    In every case, "what was forecast for [this row's target period], using
-    only data available as of [this row's as_of_year]" -- a properly
-    ex-ante, per-household anticipatory shock, not one fixed constant
-    applied to every wave regardless of when it was fielded.
-
-    FES Current (varies per household-wave, by interview_year AND
-    interview_month where available)
-    -------------------------------------------------------------
-    Sum of z-scores of this household's own realised gas_growth/
-    electricity_growth/carbon_growth -- month-resolution values from
-    `attach_price_context` (which itself prefers the exact (interview_year,
-    interview_month) match against the core series, annual-mean fallback) --
-    standardized against those three series' own FULL-HISTORY MONTHLY
-    mean/std (every month present in `data/processed/core_energy_carbon.csv`,
-    not just the panel's own 2009-2024 window, and not annual-mean-of-means,
-    which would understate month-to-month variance).
-
-    FES Delta = FES Magnitude - FES Current
-    -----------------------------------------
-    Varies per household-wave through BOTH terms now (when the rolling
-    table is available) -- FES Magnitude no longer needs the
-    zero-variance/StandardScaler caveats that applied when it was a
-    single constant, though callers should still not assume every row has
-    a value: rows whose interview_year falls outside the rolling table's
-    covered years get NaN (documented, same pattern as
-    `attach_price_context`'s out-of-range handling).
-
-    Two approximations, documented rather than hidden (matching this
-    project's existing practice, e.g. the FIML CFI/TLI limitation flagged
-    in `src.ukhls_cor_sem`):
-      (a) FES Current's z-scoring window (full history) differs from the
-          forecast pipeline's own train-window baseline for a given
-          rolling year -- not reused directly here.
-      (b) FES Magnitude sums 4 z-terms (gas/elec/carbon/uncertainty); FES
-          Current sums 3 (no realised analogue of forecast-uncertainty
-          exists). Delta is therefore a reasonable, honestly-approximate
-          proxy for shock size, not an exact matched-scale subtraction.
+    Magnitude: core-mode rolling forecast from the December (Y-1) origin
+      (`as_of_year` = Y-1, trained on data through Dec Y-1), for the
+      household's own interview month in year Y. Nothing after the origin
+      is used, and the origin precedes every interview it is attached to.
+      `fes_magnitude` is the 4-term index (3 growth z-terms + forecast
+      uncertainty); `fes_magnitude_growth3` drops the uncertainty term.
+    Current: realised growth in the last complete month before the
+      interview (month m-1), z-scored with the same past-only moments as the
+      forecast (expanding window through Dec Y-1). Three terms: no realised
+      analogue of forecast uncertainty exists.
+    Delta: Magnitude - Current (and the growth-only analogue).
+    Households interviewed in years with no feasible origin (too little
+    history) get NaN and are logged.
     """
-    price_cols = ["gas_growth", "electricity_growth", "carbon_growth"]
+    for col in ["fes_magnitude", "fes_magnitude_growth3", "fes_current",
+                "fes_delta", "fes_delta_growth3"]:
+        df[col] = np.nan
+    df["fes_vintage_as_of_year"] = df["interview_year"] - 1
 
-    # Which of fes_core/fes_macro forecast_pipeline.run_rolling selected as
-    # the single best-performing variant (lowest mean RMSE vs realised FES
-    # across every rolling year) -- shared by both the monthly and annual
-    # branches below. Falls back to fes_core if the selection file doesn't
-    # exist yet.
-    fes_col = "fes_core"
-    if paths.FES_VARIANT_SELECTION_FILE.exists():
-        selection = pd.read_csv(paths.FES_VARIANT_SELECTION_FILE)
-        chosen_row = selection[selection["chosen"]]
-        if not chosen_row.empty:
-            variant_to_col = {
-                "Equal_Core": "fes_core", "Equal_Macro": "fes_macro",
-                "Equal_Selected": "fes_selected", "Equal_Weighted": "fes_weighted",
-            }
-            fes_col = variant_to_col.get(chosen_row.iloc[0]["FES_variant"], "fes_core")
-
-    if paths.FES_ROLLING_MONTHLY_FILE.exists():
-        # Best resolution: each household-wave row gets the forecast for
-        # ITS OWN interview month one year ahead (as_of_year=interview_year,
-        # target_month=interview_month) instead of a single value shared by
-        # every wave interviewed anywhere in that year. Energy prices have
-        # real within-year seasonality, so this is a materially different
-        # (and more honestly ex-ante) signal than the annual mean, using
-        # rolling-forecast output that was already being computed and
-        # previously discarded at the annual-average step.
-        monthly_rolling = pd.read_csv(paths.FES_ROLLING_MONTHLY_FILE)
-        mag_by_year_month = monthly_rolling.set_index(["as_of_year", "target_month"])[fes_col]
-        df["fes_magnitude"] = df.set_index(["interview_year", "interview_month"]).index.map(mag_by_year_month)
-
-        # Fall back to that interview year's annual mean (from the same
-        # monthly table, or the separate annual table) for any row whose
-        # exact month didn't match -- e.g. interview_month is NaN.
-        if paths.FES_ROLLING_FILE.exists():
-            annual_rolling = pd.read_csv(paths.FES_ROLLING_FILE)
-            mag_by_year = annual_rolling.set_index("as_of_year")[fes_col]
-        else:
-            mag_by_year = monthly_rolling.groupby("as_of_year")[fes_col].mean()
-        n_month_matched = df["fes_magnitude"].notna().sum()
-        df["fes_magnitude"] = df["fes_magnitude"].combine_first(df["interview_year"].map(mag_by_year))
-
-        log.info(
-            "FES magnitude: rolling walk-forward MONTHLY table (%s, column=%s, "
-            "%d/%d rows matched at (year, month) resolution, %d additional rows "
-            "fell back to their interview year's annual mean, %d/%d total matched)",
-            paths.FES_ROLLING_MONTHLY_FILE.name, fes_col, n_month_matched, len(df),
-            int(df["fes_magnitude"].notna().sum() - n_month_matched),
-            df["fes_magnitude"].notna().sum(), len(df),
-        )
-    elif paths.FES_ROLLING_FILE.exists():
-        rolling = pd.read_csv(paths.FES_ROLLING_FILE)
-        mag_by_year = rolling.set_index("as_of_year")[fes_col]
-        df["fes_magnitude"] = df["interview_year"].map(mag_by_year)
-        log.info(
-            "FES magnitude: rolling walk-forward table (%s, column=%s, %d years covered, "
-            "%d/%d household-wave rows matched)",
-            paths.FES_ROLLING_FILE.name, fes_col, mag_by_year.notna().sum(),
-            df["fes_magnitude"].notna().sum(), len(df),
-        )
-    elif paths.latest_fes_monthly_file() is not None:
-        monthly_file = paths.latest_fes_monthly_file()
-        monthly = pd.read_csv(monthly_file)
-        # fes_selected: per-series best-of-core/macro composite (see
-        # src.fes_calculator._select_best_mode_per_series) -- falls back to
-        # fes_core for an older cached monthly CSV saved before FES_selected
-        # existed.
-        single_run_col = "fes_selected" if "fes_selected" in monthly.columns else "fes_core"
-        df["fes_magnitude"] = float(monthly[single_run_col].mean())
-        log.warning(
-            "Rolling FES table not found (%s) -- falling back to a single "
-            "constant FES Magnitude from %s (column=%s). Run "
-            "forecast_pipeline.run_rolling() for a genuinely year-varying signal.",
-            paths.FES_ROLLING_FILE, monthly_file.name, single_run_col,
-        )
-    else:
-        log.warning("No FES file found (rolling or single-year) -- fes_magnitude/"
-                    "fes_current/fes_delta will be NaN. Run forecast_pipeline.py first.")
-        df["fes_magnitude"]         = np.nan
-        df["fes_current"]           = np.nan
-        df["fes_delta"]             = np.nan
-        df["fes_actual_prior_year"] = np.nan
+    if not paths.FES_ROLLING_MONTHLY_FILE.exists():
+        log.warning("No rolling monthly FES (%s) -- FES columns left NaN. Run "
+                    "forecast_pipeline.py --rolling --core-only --tune-per-origin.",
+                    paths.FES_ROLLING_MONTHLY_FILE)
         return df
 
-    # FES_actual for the training-cutoff year (year x) -- src.fes_calculator.
-    # compute_fes's realised baseline for the year immediately before its
-    # forecast target window, saved alongside fes_magnitude's year x+1
-    # forecast. A single constant across every row (same caveat as
-    # fes_magnitude's own single-year fallback above: genuinely per-row
-    # variation needs forecast_pipeline.run_rolling, not yet computed here).
-    prior_actual_file = paths.latest_fes_prior_actual_file()
-    if prior_actual_file is not None:
-        prior_actual = pd.read_csv(prior_actual_file)
-        df["fes_actual_prior_year"] = float(prior_actual["fes_actual"].mean())
-        log.info(
-            "FES actual, prior year baseline attached from %s: mean=%.4f",
-            prior_actual_file.name, df["fes_actual_prior_year"].iloc[0],
-        )
-    else:
-        log.warning(
-            "No fes_prior_actual_*.csv found -- fes_actual_prior_year will be NaN. "
-            "Run forecast_pipeline.py (src.fes_calculator.compute_fes) first."
-        )
-        df["fes_actual_prior_year"] = np.nan
+    monthly = pd.read_csv(paths.FES_ROLLING_MONTHLY_FILE)
+    assert (monthly["target_year"] == monthly["as_of_year"] + 1).all(), \
+        "rolling FES rows must forecast the year after their origin"
+    monthly["fes_core_growth3"] = monthly[[f"z_{s}_core" for s in FES_SERIES]].sum(
+        axis=1, min_count=len(FES_SERIES))
+    by_month = monthly.set_index(["as_of_year", "target_month"])
+    key = pd.MultiIndex.from_arrays([df["fes_vintage_as_of_year"], df["interview_month"]])
+    df["fes_magnitude"] = key.map(by_month["fes_core"])
+    df["fes_magnitude_growth3"] = key.map(by_month["fes_core_growth3"])
+    # Interview month unknown: annual mean of the SAME vintage.
+    by_year = monthly.groupby("as_of_year")[["fes_core", "fes_core_growth3"]].mean()
+    no_month = df["interview_month"].isna()
+    df.loc[no_month, "fes_magnitude"] = df.loc[no_month, "fes_vintage_as_of_year"].map(by_year["fes_core"])
+    df.loc[no_month, "fes_magnitude_growth3"] = df.loc[no_month, "fes_vintage_as_of_year"].map(
+        by_year["fes_core_growth3"])
 
-    if not paths.CORE_CSV.exists():
-        log.warning("Core price series not found: %s -- fes_current/fes_delta "
-                    "will be NaN.", paths.CORE_CSV)
-        df["fes_current"] = np.nan
-        df["fes_delta"]   = np.nan
-        return df
-
-    core = pd.read_csv(paths.CORE_CSV, index_col=0, parse_dates=True)
-
-    # z-scored against the core series' own full-history MONTHLY mean/std
-    # (not an annual-mean-of-means) -- df[col] itself is now month-resolution
-    # (attach_price_context joins by (interview_year, interview_month)), so
-    # the z-scoring reference has to be at the same resolution or the scale
-    # won't match (monthly values are noisier than annual averages).
-    z_parts = []
-    for col in price_cols:
-        if col not in df.columns or col not in core.columns:
+    core = pd.read_csv(paths.CORE_CSV, index_col=0, parse_dates=True).sort_index()
+    obs_date = pd.to_datetime(dict(year=df["interview_year"], month=df["interview_month"], day=1),
+                              errors="coerce") - pd.DateOffset(months=1)
+    current = pd.Series(np.nan, index=df.index)
+    for vintage in df["fes_vintage_as_of_year"].dropna().unique():
+        moments = _past_only_moments(core, pd.Timestamp(f"{int(vintage)}-12-01"))
+        if moments is None:
             continue
-        mu    = float(core[col].mean())
-        sigma = float(core[col].std()) or 1.0
-        z_parts.append((df[col] - mu) / sigma)
-
-    df["fes_current"] = (
-        pd.concat(z_parts, axis=1).sum(axis=1, skipna=True, min_count=1)
-        if z_parts else np.nan
-    )
+        rows = df.index[df["fes_vintage_as_of_year"] == vintage]
+        z = [(obs_date[rows].map(core[f"{s}_growth"]) - m) / sd for s, (m, sd) in moments.items()]
+        current[rows] = pd.concat(z, axis=1).sum(axis=1, min_count=len(FES_SERIES))
+    df["fes_current"] = current
     df["fes_delta"] = df["fes_magnitude"] - df["fes_current"]
+    df["fes_delta_growth3"] = df["fes_magnitude_growth3"] - df["fes_current"]
 
-    log.info(
-        "FES magnitude range [%.4f, %.4f] (unique values=%d) | "
-        "fes_current range [%.4f, %.4f] | fes_delta range [%.4f, %.4f] "
-        "(%d/%d rows valid) | fes_actual_prior_year=%.4f",
-        df["fes_magnitude"].min(skipna=True), df["fes_magnitude"].max(skipna=True),
-        df["fes_magnitude"].nunique(),
-        df["fes_current"].min(skipna=True), df["fes_current"].max(skipna=True),
-        df["fes_delta"].min(skipna=True), df["fes_delta"].max(skipna=True),
-        df["fes_delta"].notna().sum(), len(df),
-        df["fes_actual_prior_year"].iloc[0] if df["fes_actual_prior_year"].notna().any() else float("nan"),
-    )
+    covered = sorted(monthly["target_year"].unique())
+    n_ok = int(df["fes_delta"].notna().sum())
+    log.info("FES (core, Dec Y-1 vintage): target years %s-%s; %d/%d rows with fes_delta",
+             covered[0], covered[-1], n_ok, len(df))
+    for y, n in df.loc[df["fes_delta"].isna(), "interview_year"].value_counts().sort_index().items():
+        log.info("FES missing: interview_year=%s  rows=%d", y, n)
     return df
 
 
@@ -920,5 +997,5 @@ def run(waves: list[str] | None = None) -> pd.DataFrame:
 
 if __name__ == "__main__":
     from src.logging_utils import setup_logger
-    setup_logger("energy_stress", log_file="outputs/logs/pipeline.log")
+    setup_logger("energy_stress", log_file="outputs_v2/logs/pipeline.log")
     run()

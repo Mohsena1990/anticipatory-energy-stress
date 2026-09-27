@@ -1,0 +1,10 @@
+metric,value,n
+cronbach_alpha_primary_items,0.2712803186846703,312395
+"r(finnow,finfut_risk)",0.020942445091345904,312395
+"r(finnow,scghq1_dv)",0.3478343232400355,312395
+"r(finfut_risk,scghq1_dv)",0.10246328754477192,312395
+coverage_financial_strain_score,0.9913944829172083,336282
+coverage_financial_strain_score_v1,0.9992600257664335,338950
+coverage_financial_strain_score_lag1,0.7688125919440096,260782
+"r(primary, v1)",0.9546197674501611,336282
+"r(primary, lag1)",0.5660552820587001,259408

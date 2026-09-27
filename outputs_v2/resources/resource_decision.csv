@@ -1,0 +1,2 @@
+decision,cfa_passes,failures
+unit-weighted standardised composites (CFA failed pre-registered criteria),False,CFI 0.783 < 0.90; Heywood case; CONDITION:jbstat_security std loading -0.74 < 0.30; CONDITION:bill_security std loading -0.03 < 0.30; PERSONAL:qfhigh_band std loading 0.26 < 0.30; ENERGY:fiyrinvinc_dv std loading 0.14 < 0.30

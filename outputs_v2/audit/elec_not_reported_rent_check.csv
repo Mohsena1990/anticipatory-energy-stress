@@ -1,0 +1,4 @@
+group,n,n_waves_c_to_o,pct_renting,pct_social_rent,pct_private_rent,pct_owner,elecpay_asked_n,elecpay_included_in_rent_n,elecpay_included_in_rent_pct_of_asked,gaspay_asked_n,gaspay_included_in_rent_n,gaspay_included_in_rent_pct_of_asked,duelpay_asked_n,duelpay_included_in_rent_n,duelpay_included_in_rent_pct_of_asked,pct_with_positive_reported_spend,median_reported_spend_gbp
+gas_only,4278,3595,28.775128564749885,17.788686302010284,9.67741935483871,70.28985507246377,0,0,,3595,45,1.2517385257301807,0,0,,83.82421692379617,700.0
+oil_or_other_only,4003,3526,20.109917561828627,8.543592305770673,10.117411941044217,79.31551336497627,0,0,,0,0,,0,0,,93.30502123407445,900.0
+primary_in_scope (reference),289348,236196,30.045135960849912,17.648298934155413,11.482021648672188,69.36180654436872,118539,648,0.5466555310910334,81662,337,0.4126766427469325,117658,260,0.22097944891125126,99.42802438586062,1200.0

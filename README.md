@@ -1,604 +1,1167 @@
 # Anticipatory Fuel Stress Watch (AFSW)
 
 ### Who Becomes Fuel Vulnerable, and When? Forecast-Conditioned Household Risk Modelling in the UK
-**A Conservation of Resources (COR) Theory and Time-Series Forecasting Framework — UKHLS Household Panel Edition**
+
+**Status: rerun v2, analysis frozen 2026-09-26** (branch `rerun-v2`). The submitted thesis draft is tag `submitted-draft-v1`. v2 recomputes every result after an audit found errors in the v1 outcome, FES timing and several measures. The research questions (RQ1–RQ5) are unchanged. The evidence and several conclusions are not.
+
+| Where to look | What it holds |
+|---|---|
+| [`analysis_plan_rerun.md`](analysis_plan_rerun.md) | Pre-specified v2 plan, amendments A1 and A6, and the full deviation log (§9) |
+| [`outputs_v2/reports/v1_to_v2_change_summary.md`](outputs_v2/reports/v1_to_v2_change_summary.md) | What changed from v1 and the effect on each thesis claim |
+| [`outputs_v2/results_inventory.csv`](outputs_v2/results_inventory.csv) | Every quotable number (622 rows, IDs R0001–R0622), with source file and commit |
+| [`reports/`](reports/) | Outputs catalog, findings report, policy brief, journal materials, data description, methodology (all v2) |
+| `outputs_v2/thesis_assets_v2/` | Thesis figures (300 dpi) and tables with thesis numbering, plus a MANIFEST. A local build, not in git; see [Thesis asset bundle](#thesis-asset-bundle) |
+| `outputs/` | v1 outputs, read-only reference. Superseded by `outputs_v2/`; do not quote |
 
 ---
 
-## Research Objective
+## Research questions
 
-To forecast UK energy and carbon price stress (FES — Forecasted Energy Stress) via a walk-forward time-series pipeline, and to identify household-level fuel vulnerability across a real 15-wave household panel (UKHLS, Understanding Society, Study 6614, 2009–2024) by operationalising Hobfoll's Conservation of Resources theory: four resource dimensions (Object, Condition, Personal, Energy) extracted two ways — a classical Structural Equation Model (COR-SEM) and an FES-conditioned Conditional Variational Autoencoder (COR-CVAE) — feeding a soft, continuous vulnerability identification stage and a set of policy geography maps.
+| RQ | Question | Answered in |
+|---|---|---|
+| RQ1 | Can a forecast of energy-price stress (FES) be attached to households without look-ahead, and how good are the forecasts? | Stage 2 |
+| RQ2 | Do household resources buffer the effect of forecast-realised price stress (Conservation of Resources, H1)? | Stage 4 |
+| RQ3 | What drives fuel vulnerability, and does household financial position matter more than the price environment (H2, H3)? | Stage 3 |
+| RQ4 | How is fuel vulnerability distributed by region and social group, and does it match JRF income poverty (H4)? | Descriptives, Stage 5 |
+| RQ5 | Can next-wave fuel vulnerability be predicted before it is observed, and does the forecast help (H5)? | Stage 6 |
 
-**A second, prospective research question sits alongside the first**: not just *who is vulnerable now and what explains it*, but **who is about to become vulnerable, and roughly when** — so policymakers can act ahead of the shock rather than confirm it after the fact. Stage 5 answers this directly: it links households across consecutive UKHLS waves, trains on every known year-to-year transition across the 2009–2024 panel (does this household's current COR-resource profile plus the price shock already forecast for their own next year predict whether they become vulnerable at their next interview?), and applies the result to the most recent wave to flag likely near-term vulnerability before that year's survey data exists — genuinely forward, not a relabelling of the current-year explanatory model.
+**Outcome.** A household is *fuel vulnerable* when annual fuel spend is at least 10% of net household income (`high_fuel_vulnerable`). v2 builds the spend from the UKHLS questionnaire routing, treats item non-response as missing (complete-case), and reports two bounds: S1 sets non-response to £0 (a lower bound), and S2 adds households that did not report electricity.
 
-This is the **second major architecture** of this project. The first used a single-year UK cross-section (ENABLE.EU, 2017 only) split into three parallel "COR estimation routes" compared against each other. That architecture is fully removed from this repo (see [Migration note](#migration-note-from-the-enable-architecture) below) — every household in that dataset shared one FES value, so forecasted prices could only ever be background context, never a real predictor. UKHLS's panel structure fixes that: each household's interview year differs, so realised *and* forecasted price stress vary genuinely row-by-row.
-
----
-
-## Conceptual Logic
-
-```
-Stage 1 — Forecasting (forecast_pipeline.py)
-  Raw UK gas/electricity/carbon + macro series
-             ↓
-  4 models (SARIMA, Prophet, LSTM, TFT) × 2 modes (core, macro) × 3 series
-             ↓
-  Equal-weighted FES index (sum of z-scored components)
-             ↓
-  Single-year diagnostic (train through the year before the selected target
-  year, forecast the selected target year) OR
-  Rolling walk-forward -- the reported path (train through year Y, forecast
-  Y+1, for every feasible Y, capped at 2025)
-             ↓
-  FES variant selection: Equal_Core vs Equal_Macro vs Equal_Selected vs Equal_Weighted,
-  lowest mean RMSE vs realised FES wins
-
-Stage 2 — Latent extraction (household_stream.py, UKHLS Study 6614 panel)
-  15-wave household panel (waves a–o, interview years 2009–2024)
-             ↓
-  FES Magnitude (walk-forward forecast, joined by interview_year)
-  FES Current  (realised, own interview year)  →  FES Delta = Magnitude − Current
-             ↓
-  COR-SEM (Stage 2b): 4-factor CFA → BASELINE resource-stock factor
-                       → FES-moderation regression
-  COR-CVAE (Stage 2c): 4-dim latent space aligned to COR-SEM, FES-conditioned
-                       encoder + decoder → counterfactual FES-shift simulation
-
-Stage 3 — Vulnerability identification (fuzzy c-means + one-class SVM +
-           logistic driver analysis), validated against the objective
-           fuel-to-income ratio (UK's 10% fuel-poverty threshold)
-
-Stage 4 — Policy geography maps (real UK region boundaries, ONS Open
-           Geography Portal, 12 regions): resource-to-stress hotspot /
-           fuzzy-membership / vulnerability vector-shift
-
-Stage 5 — Forward vulnerability prediction (household_stream.py, hrpid-linked)
-  Link households across consecutive waves via hrpid (household reference
-  person's pidp) -- hidp alone can't, it's reissued whenever household
-  composition changes
-             ↓
-  14 wave-to-wave transition datasets (a->b ... n->o, 2009-2024): features
-  from wave t (COR-SEM/CVAE scores, fes_magnitude), label from wave t+1
-             ↓
-  Logistic model, walk-forward validated (train a->b...l->m, hold out
-  m->n/n->o) -> refit on all 14 -> score wave o using each household's own
-  profile + own already-forecast fes_magnitude
-             ↓
-  Per-household forward vulnerability probability for their own next
-  interview year (2024/2025) -- "who's about to become vulnerable, and
-  roughly when," not just who is vulnerable now
-```
-
-The framework does **not** claim FES *causes* household outcomes in a strict experimental sense. FES enters the household-level analysis in exactly two disciplined ways: (1) as `fes_delta` — a direct regression predictor and an interaction term with the SEM's `baseline_score`, testing Hobfoll's claim that low-resource households absorb a price shock worse than high-resource households — and (2) as a genuine conditioning variable in the CVAE's encoder and decoder, enabling a counterfactual "this household's own realised exposure vs. the shared forecasted shock" simulation. Both are the *actual mechanisms*, not a hand-wave: see [Stage 2](#stage-2--ukhls-household-panel-cor-sem-and-cor-cvae) below for exactly how.
+**FES (Forecasted Energy Stress).** The sum of the z-scored forecast growth of gas, electricity and carbon prices (growth-only, 3 terms; the 4-term index with forecast uncertainty is a sensitivity). A household interviewed in calendar year Y receives the forecast made in December Y−1 for its interview month. **FES Delta** = forecast − realised stress in the month before the interview, both z-scored with past-only moments.
 
 ---
 
-## How to Run
+## Headline results (v2)
+
+| Hypothesis | Verdict | Status | Key statistics |
+|---|---|---|---|
+| H1 Resource moderation (COR buffering) | Not supported | author-confirmed | R × Delta = -0.000034 (p = 0.16); buffering ≤ 17% of slope |
+| H2 FES independent predictor | Supported (small effect) | PROPOSED — author to confirm | FES Delta OR 0.972 [0.962, 0.981]; robust across sensitivities |
+| H3 Household financial position dominates macro stress | Supported (reframed: current financial difficulty and employment security) | PROPOSED — author to confirm | financial difficulty OR 1.65 per point; employment security OR 0.17; FES OR per SD 0.93 |
+| H4 External validation with JRF | Partially supported | PROPOSED — author to confirm | tenure ρ 0.80; family, work, disability same direction; region ρ -0.10 (excl. NI 0.18); ethnicity inconclusive |
+| H5 Prospective prediction | Partially supported | author-confirmed | P1 AUC 0.739; benchmark P0 0.780; FES: no improvement |
+
+*Table 4-10. Hypothesis verdicts. H2–H4 wording is proposed and awaits the author's confirmation.*
+
+- **Trend.** Weighted prevalence falls from 12.0% (wave a, fieldwork 2009–11) to 6.5% (wave l, 2020–22) and returns to 12.5% in wave n (2022–24) and 12.4% in wave o. By interview year the peak is 2023 (14.7%). The S1 lower bound follows the same shape.
+- **Drivers (H3).** Current financial difficulty is the dominant strain term (OR 1.65 per point [1.61, 1.69]). Employment-status security is the strongest protective factor (OR 0.17 [0.15, 0.20]). The v1 strain composite is not a scale (α = 0.27), so its v1 OR of 6.79 is not reported.
+- **FES (H2).** FES Delta has a small, robust association: OR 0.972 [0.962, 0.981] per unit, 0.93 per SD. Vulnerability is higher when realised stress exceeds the forecast.
+- **Buffering (H1).** Not supported. The resource × Delta interaction is −0.000034 [−0.000081, 0.000014] (p = 0.16). Any buffering compatible with the data is at most 17% of the Delta slope.
+- **JRF comparison (H4).** Tenure agrees (ρ = 0.80); disability, family type and work status point in the same direction; region does not agree (ρ = −0.10; 0.18 without Northern Ireland); ethnicity is inconclusive.
+- **Northern Ireland.** Highest regional rate in the JRF window, 14.4% [12.1, 17.0], ranked first in 95% of bootstrap replicates, despite having the lowest income poverty. Heating-oil use accounts for about two-thirds of NI's excess risk: the NI gap vs the South East falls from 6.8 to 2.4 percentage points once oil use is controlled.
+- **Prediction (H5).** Household predictors reach AUC 0.739 [0.727, 0.751] on held-out transitions, but this wave's fuel burden alone does better (AUC 0.780 [0.768, 0.792]). Adding FES gives no improvement (ΔAUC −0.0006).
+- **Forecasts (RQ1).** No v2 forecast significantly beats a no-change (naive) forecast. v2 beats the seasonal-naive benchmark significantly for carbon only (Diebold–Mariano p = 0.002). The 95% prediction intervals cover 28–48% of outcomes, so the uncertainty term was dropped from the primary FES.
+
+---
+
+## Pipeline
+
+![Figure 3-1. Analysis pipeline, rerun v2](outputs_v2/thesis_assets_v2/figures/fig3-1_pipeline_v2.png)
+
+*Figure 3-1. Analysis pipeline, rerun v2.*
+
+| Stage | What it does | Script | Outputs |
+|---|---|---|---|
+| Panel | Builds the 339,201-row household-wave panel from UKHLS waves a–o; attaches FES at the Dec Y−1 vintage | `src/ukhls_preprocessing.py` | `outputs_v2/ukhls_cleaned/` (row-level, never in git) |
+| 1 Outcome audit | Audits fuel-expenditure codes against the questionnaire routing; sample flow; missing-spend patterns | `scripts/audit_ukhls_codes.py` | `outputs_v2/audit_fuel_codes.csv`, `outputs_v2/audit/` |
+| 2 FES | Rolling core forecasts (SARIMA, Prophet, LSTM, TFT), tuned per origin; evaluation against naive and seasonal-naive benchmarks | `forecast_pipeline.py --rolling --core-only --tune-per-origin`, `scripts/stage2_fes_evaluation.py` | `outputs_v2/fes/`, `outputs_v2/fes_eval/`, `outputs_v2/figures/` |
+| Descriptives | Weighted prevalence by wave, interview year, region, social group | `scripts/descriptives_v2.py` | `outputs_v2/descriptives/` |
+| 3 Drivers | Logit with year FE and PSU clustering; 10 sensitivities; NI-oil sequence with AMEs | `scripts/stage3_drivers.py` | `outputs_v2/stage3/` |
+| 4 Resources, H1 | Four-factor CFA (failed pre-set criteria) → formative composites; resource × FES Delta | `scripts/stage4_resources.py`, `scripts/stage4_h1.py` | `outputs_v2/resources/`, `outputs_v2/stage4/` |
+| 5 JRF, NI | Time-matched, weighted comparison with JRF *UK Poverty 2025*; PSU-bootstrap CIs and ranks | `scripts/jrf_comparison_v2.py`, `scripts/stage5_jrf_thesis.py` | `outputs_v2/jrf/`, `outputs_v2/stage5/` |
+| 6 Prediction | P0 benchmark, P1 household, P2 + FES on one common sample; held-out m→n, n→o | `scripts/stage6_prediction.py`, `scripts/stage6_p3_posthoc.py`, `scripts/stage6_draft.py` | `outputs_v2/stage6/` |
+| 7 Scope | Equivalised-income sensitivity; descriptive refreshes; appendix note | `scripts/stage7_scope.py` | `outputs_v2/stage7/` |
+| Reporting | Results inventory; thesis bundle; small-cell suppression | `scripts/build_results_inventory.py`, `scripts/build_thesis_assets.py`, `scripts/suppress_small_cells.py` | `outputs_v2/results_inventory.csv`, `outputs_v2/thesis_assets_v2/` |
+
+---
+
+## How to run (v2)
+
+`src/paths.py` points `OUTPUTS_DIR` at `outputs_v2/`. The raw UKHLS files (`data/raw/ukhls/*.dta`, UK Data Service SN 6614) are licensed and not in the repository.
 
 ```bash
 pip install -r requirements.txt
 
-# Stage 1, rolling walk-forward FES (train through year Y, forecast Y+1,
-# for every feasible Y — ~15-18 years x 24 model fits; 45-90min in --fast
-# mode, multi-hour without). This is the reported path -- run it once
-# before Stage 2 so FES Magnitude/Delta vary by household interview year
-# AND month instead of falling back to a single constant. Defaults to
-# capping at 2025 (src.config.DEFAULT_TARGET_YEAR) -- see note below.
-python forecast_pipeline.py --rolling --fast
+# Stage 2 first: rolling walk-forward forecasts, core mode, re-tuned at every origin
+python forecast_pipeline.py --rolling --core-only --tune-per-origin
 
-# Stage 2-5 (requires Stage 1 to have produced at least the rolling FES
-# table above; falls back to a single constant with a logged warning if not)
-python main.py --stage household
-python household_stream.py                     # equivalent, run directly
-python household_stream.py --skip-cvae          # skip Stage 2c (most expensive)
-                                                 # -- Stage 5 still runs, on SEM scores only
+# Panel build (reads the rolling FES table; Dec Y-1 vintage, month-matched)
+python -m src.ukhls_preprocessing
 
-# Stage 1 single-year dev/diagnostics path -- also defaults to 2025
-python forecast_pipeline.py
+# Stage 1 audit, Stage 2 evaluation, descriptives
+python scripts/audit_ukhls_codes.py
+python scripts/stage2_fes_evaluation.py
+python scripts/descriptives_v2.py
 
-# Full pipeline: Stage 1 single-year dev path (target year 2025 by
-# default, NOT the reported results -- see Stage 1 below) then Stage 2-5
-python main.py
+# Stages 3-7
+python scripts/stage3_drivers.py
+python scripts/stage4_resources.py
+python scripts/stage4_h1.py
+python scripts/jrf_comparison_v2.py
+python scripts/stage5_jrf_thesis.py
+python scripts/stage6_prediction.py
+python scripts/stage6_p3_posthoc.py        # post-hoc, exploratory
+python scripts/stage6_draft.py
+python scripts/stage7_scope.py
 
-# Development mode: fewer LSTM/TFT epochs
-python main.py --fast
+# Disclosure control, inventory, thesis bundle
+python scripts/suppress_small_cells.py      # apply; --check must pass before any output commit
+python scripts/build_results_inventory.py   # needs committed outputs
+python scripts/build_thesis_assets.py       # writes outputs_v2/thesis_assets_v2/ and the .zip
 ```
 
-**Why default to 2025, not "whatever's latest"?** The raw UK gas/electricity/carbon price series get updated independently of (and faster than) the UKHLS social-science panel this project is built around, which currently only covers interview years 2009–2024. Both `forecast_pipeline.py` and `main.py` default `--target-year`/`--max-target-year` to `src.config.DEFAULT_TARGET_YEAR` (currently **2025**) for exactly this reason: a purely data-driven "one year ahead of whatever the price CSVs contain" default silently raced past 2025 the moment the raw price data itself reached 2026 — producing a 2026 forecast that no longer lines up with anything the household panel can use. Pass `--target-year YYYY` / `--max-target-year YYYY` explicitly to target a different year for one run (`0` restores the fully dynamic latest-available-year detection); bump `DEFAULT_TARGET_YEAR` by hand once UKHLS releases a new wave.
+**Disclosure control.** Row-level UKHLS files never enter git (`.gitignore` plus a local pre-commit hook that runs `suppress_small_cells.py --check`). Every tracked table has counts of 1–9 shown as `<10`, rates on fewer than 10 cases suppressed, and category rates on fewer than 100 households masked.
+
+**Legacy v1 entry points.** `main.py` and `household_stream.py` still run the v1 architecture (COR-SEM, COR-CVAE, fuzzy c-means, one-class SVM, policy maps, v1 forward prediction). v2 does not use them. Their results are superseded; the CVAE, fuzzy and SVM outputs are kept only as a v1 appendix (Figure A-4).
 
 ---
 
-## Stage 1 — Macro Forecasting and the Forecasted Energy Stress (FES) Index
+## Results, with every figure and table
 
-**Data.** UK gas, electricity, and carbon (EUA futures) monthly YoY growth series (`data/raw/`), plus a macro control set (CPIH inflation, GDP, temperature volatility, gas futures, electricity demand — `src/data_loader.py`). The usable history is auto-detected from the raw files at runtime (currently ~2006–2026), not hardcoded.
+The figures below are the thesis versions from `outputs_v2/thesis_assets_v2/figures/` (300 dpi, 16 cm wide). The pipeline figures from the tracked output folders follow in [Pipeline figures](#pipeline-figures-tracked-in-git). Every table is also rendered in [`reports/02_findings_report.md`](reports/02_findings_report.md).
 
-**Models.** SARIMA(X) (order search via `pmdarima.auto_arima`), Prophet (macro-mode regressors regularised via a tunable `regressor_prior_scale`, default 0.5, tighter than Prophet's ~10.0 default — macro regressors can go out-of-distribution in the forecast window), LSTM (Monte-Carlo dropout for prediction intervals; tuning re-enabled with epoch counts matched to production training, `config.LSTM_EPOCHS[_FAST]`), and TFT (`pytorch-forecasting`'s `TemporalFusionTransformer`, `lightning.pytorch.Trainer` — fits on train, evaluates against the genuine held-out test period, then refits on the full history and forecasts genuinely beyond it), each in **core** mode (target series only) and **macro** mode (+ exogenous macro regressors) — 24 model fits per forecast year (4 models × 2 modes × 3 series).
-
-**FES formula** (`src/fes_calculator.py`):
-
-```
-FES_t = z(GasGrowth_t) + z(ElecGrowth_t) + z(CarbonGrowth_t) + z(Uncertainty_t)
-```
-
-z-scored against the training-period mean/std, the 4 components always summed with equal (unit) weight (the *component*-level volatility-weighted and Bayesian-Kalman-filtered variants, and a 9-scenario macro simulation layer, were dropped as unused overhead — see [Migration note](#migration-note-from-the-enable-architecture)). This formula is applied to four candidate FES series, not one: **FES_core** (each series' core-mode forecast), **FES_macro** (macro-mode), **FES_selected** (whichever of core/macro validates best, chosen independently per series), and **FES_weighted** — added alongside the other three, never replacing them — which applies one inverse-validation-RMSE weight *per series* on top of `FES_selected`'s own mode choice, a data-driven alternative to Selected's hard per-series pick (`_compute_series_weights`).
-
-**Two ways to run Stage 1:**
-
-- **Single-year** (`compute_fes`, `python forecast_pipeline.py` without `--rolling`): train on one window, forecast one target year — defaults to `src.config.DEFAULT_TARGET_YEAR` (2025, aligned with the UKHLS panel's own coverage); pass `--target-year YYYY` to target a different year for one run, or `--target-year 0` for the fully dynamic "most recent year with a full December of real data" detection (which can run ahead of what the panel needs — see [How to Run](#how-to-run)) — a fast dev/diagnostics iteration path only. Its figures (`forecast_comparison_*`, `forecast_vs_actual_*`, `fes_monthly_{year}`, `prediction_intervals_{year}`, `model_ranking_polar_*`) are **not part of the reported results** and are not tracked in this repo — a single-year snapshot doesn't reflect how the pipeline is actually used (see below), so it isn't presented as if it did.
-- **Rolling walk-forward** (`run_rolling`, `--rolling` flag) — **this is the reported path**: for every feasible year Y (enough training history before Y, real data through Y available), retrain all 24 models on data through Y and forecast Y+1, selecting the best model **fresh each year** per (series, mode) rather than fixing one model across the whole timeline. `compute_fes` already produces this at 12-month resolution internally; `run_rolling` saves both the annual mean (`outputs/fes/fes_rolling_yearly.csv`) and the full month-level detail (`outputs/fes/fes_rolling_monthly.csv`) instead of discarding it — this is what makes FES Magnitude genuinely vary by household interview year **and month** in Stage 2, instead of being one fixed constant.
-
-**FES variant selection.** After a rolling run, `_select_best_fes_variant()` compares all **four** variants — Equal_Core, Equal_Macro, Equal_Selected, Equal_Weighted — by mean RMSE against three realised-FES benchmarks, averaged across every rolling year, and picks one winner to use exclusively downstream (`outputs/fes/fes_variant_selection.csv`). On the current run, **Equal_Macro wins** (mean RMSE 2.749), with Equal_Weighted a close second (2.790), Equal_Selected third (2.940), and the un-selected Equal_Core clearly worst (3.236) — a genuine four-way comparison, not a Core-vs-Macro-only choice. `fes_metrics_selected_variant_by_year.csv` then reports that winning variant's own RMSE and Pearson r for *every* rolling year individually (one clean table instead of a variant × benchmark grid per year), so accuracy over time is inspectable at a glance rather than only as one overall mean.
+### Data and sample (thesis Chapter 3)
 
 <table>
 <tr>
-<td align="center" width="33%"><img src="outputs/figures/fes_rolling_trend.png" width="320"><br><sub>Rolling walk-forward FES by target year</sub></td>
-<td align="center" width="33%"><img src="outputs/figures/model_selection_polar_core.png" width="320"><br><sub>Rolling performance, core mode — groups=series, bars=years</sub></td>
-<td align="center" width="33%"><img src="outputs/figures/model_selection_polar_macro.png" width="320"><br><sub>Rolling performance, macro mode</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig3-2_interview_timing.png" width="400"><br><sub>Figure 3-2. Interview timing from actual household interview dates (cells &lt; 10 masked)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig3-3_missing_spend_wave_mode.png" width="400"><br><sub>Figure 3-3. Fuel-spend item non-response by interview mode and wave</sub></td>
 </tr>
 <tr>
-<td align="center" width="33%"><img src="outputs/figures/rolling_forecast_performance_gas.png" width="320"><br><sub>Winning model's RMSE by year — gas</sub></td>
-<td align="center" width="33%"></td>
-<td align="center" width="33%"></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig3-4_distributions_outcome_fes.png" width="400"><br><sub>Figure 3-4. Distribution of the fuel-to-income ratio and of FES as attached to households</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig3-5_regional_counts.png" width="400"><br><sub>Figure 3-5. UKHLS household-waves by region</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%" colspan="2"><img src="outputs_v2/thesis_assets_v2/figures/fig3-6_core_forecast_vars.png" width="400"><br><sub>Figure 3-6. Core forecasting series, May 2006–March 2026</sub></td>
 </tr>
 </table>
 
-`rolling_forecast_performance_{series}.png` is one figure **per series** (gas/electricity/carbon each get their own file, matching `forecast_vs_actual_{series}.png`'s pattern) instead of one combined 3-panel figure; core/macro mode is shown as linestyle (solid/dashed) and each point is coloured by which model actually won that year (same `plotting_utils.MODEL_COLORS` palette as the polar charts) rather than a rotated text label next to every point.
+**Table 3-3. Sample flow, 339,201 household-waves to the analytical n.**
 
-**Every polar chart in this project** (Stage 1 model ranking/rolling performance, COR-SEM loadings, COR-CVAE alignment) shares one house style, `plotting_utils.plot_grouped_circular_bars`: each chart is a set of colour-coded **groups**, each drawn as its own arc + centred label, containing **individual (non-stacked) bars** — one per item — radiating from a common inner baseline circle, with item labels placed outside via thin leader lines. Nothing is summed into an ambiguous stacked total; a "winner" (when one exists) is shown structurally via a bolder gold arc + label, never inferred from bar length.
-
-- `model_selection_polar_{core,macro}.png` (one per mode): groups = the 3 series, each item = a rolling target year, bar height = that year's winning model's validation RMSE, bar colour = which model won.
-- `model_ranking_polar_{series}_{mode}.png` (single-year dev path only, not tracked here): groups = the 4 models, items = the same fixed evaluation-metric list every time (`forecast_actual_MAE/RMSE/SMAPE` once the target year is realised, falling back to 7 validation-period metrics otherwise) — the pipeline-selected model's group gets the gold highlight.
-- `outputs/ukhls_cor_sem/figures/cor_sem_loadings_polar.png`: groups = the 4 COR factors, items = each factor's own indicator items, bar = `|standardized loading|`.
-- `outputs/ukhls_cor_cvae/figures/cvae_alignment_polar.png`: groups = the 4 CVAE latent dimensions, items = the 4 COR-SEM factors, bar = `|Pearson r|` between them.
-
----
-
-## Stage 2 — UKHLS Household Panel, COR-SEM, and COR-CVAE
-
-**Data.** Understanding Society (UKHLS), UK Data Service Study 6614, waves a–o (`data/raw/ukhls/*.dta`, not committed — see `.gitignore`; obtain your own UKDS-registered extract). Column-selective Stata reads (`src/ukhls_preprocessing.py`) build a **339,201-row household-wave panel** spanning interview years 2009–2024.
-
-**Target.** `fuel_to_income_ratio` (total fuel spend ÷ net household income) and `high_fuel_vulnerable` = 1 if ratio ≥ 10% — the UK's standard fuel-poverty threshold. This is an **objective, government-standard** target, not a survey-derived composite.
-
-**Introducing the dataset** (`src/ukhls_dataset_overview.py`, Stage 2a-overview) — descriptive figures with no modeling, run right after the panel is built: sample size by wave (with the calendar year each wave was fielded), interview timing by calendar month (near-uniform, which is exactly why month-resolution FES matching below is viable), a real-map view of sample size by UK region, missingness by key variable, and histograms of the core outcome/control variables.
-
-<table>
-<tr>
-<td align="center" width="50%"><img src="outputs/ukhls_dataset_overview/figures/dataset_panel_composition.png" width="420"><br><sub>Sample size by wave + interview-month timing</sub></td>
-<td align="center" width="50%"><img src="outputs/ukhls_dataset_overview/figures/dataset_rows_by_year.png" width="420"><br><sub>Sample size by calendar year, split by contributing wave</sub></td>
-</tr>
-<tr>
-<td align="center" width="50%"><img src="outputs/ukhls_dataset_overview/figures/dataset_sample_size_by_region.png" width="420"><br><sub>Sample size by UK region (real map)</sub></td>
-<td align="center" width="50%"><img src="outputs/ukhls_dataset_overview/figures/dataset_missingness.png" width="420"><br><sub>Missingness by key variable</sub></td>
-</tr>
-<tr>
-<td align="center" width="50%" colspan="2"><img src="outputs/ukhls_dataset_overview/figures/dataset_key_distributions.png" width="420"><br><sub>Key variable distributions</sub></td>
-</tr>
-</table>
-
-**FES Magnitude / Current / Delta** (`attach_price_context` + `attach_fes_delta`, the mechanism connecting Stage 1 to Stage 2) — **month-resolution, not just year-resolution**, since UKHLS's own `month` fieldwork-timing variable gives ~100% `interview_month` coverage across all 15 waves and both the core price series and the rolling FES table are themselves genuinely monthly:
-
-- **FES Current** — sum of z-scores of the household's own realised gas/electricity/carbon growth for its *exact* `(interview_year, interview_month)`, standardized against each series' full-history **monthly** mean/std. Falls back to that year's annual mean for any row whose exact month doesn't match (in practice, essentially none).
-- **FES Magnitude** — from the Stage 1 rolling table, joined by `(interview_year, interview_month) == (as_of_year, target_month)`: "what was forecast for *this household's own interview month*, one year ahead, using only data available as of their interview year." Falls back to that year's annual mean, then to a single constant, if the finer tables haven't been computed yet — each fallback stage logged so the active resolution is never just assumed. That single-constant fallback is `fes_selected`'s mean for the target year (`src/fes_calculator.py`'s `_select_best_mode_per_series` — for each series independently, whichever of core/macro has the lower genuine walk-forward validation RMSE wins by default [`selection_basis='validation'`, the only mode `run_rolling` uses], rather than committing the whole index to one mode; a non-default, deliberately hindsight `forecast_actual_MAE`-based basis also exists for one-off retrospective diagnostics only), not the older `fes_core`-only fallback.
-- **FES Delta = Magnitude − Current** — the genuinely anticipatory, ex-ante "shock coming" signal, now varying by household-wave at month resolution (e.g. 2009 alone spans −4.94 to −4.85 across its 12 interview months, not one flat value).
-- **`fes_actual_prior_year`** — a separate, additional constant attached alongside Magnitude/Current/Delta: the realised FES for the year immediately *before* the forecast target window (`src/fes_calculator.py`'s `_compute_actual_fes_for_window`), i.e. "what the index actually was last year" next to "what we forecast for next year." Not used inside `fes_delta` (which already compares Magnitude against each household's own realised exposure via Current); provided as an additional reference point for analyses that want it.
-
-### COR resource dimensions (`src/ukhls_mapping.py`)
-
-| Factor | Items (final, post-recode) | Notes |
-|---|---|---|
-| **OBJECT** | `hsrooms`, `hsbeds`, `ncars`, `carval`, `hsval` | `hsval`/`carval` structurally missing for non-owners — CFA uses FIML, not row-drop |
-| **CONDITION** | `tenure_security`, `jbstat_security`, `bill_security` | 3rd item (`bill_security`, from "problems paying bills") added and empirically validated this iteration — see below |
-| **PERSONAL** | `health_good`, `sf1_good`, `qfhigh_band` | `dvage` deliberately excluded (loads with the *opposite* sign — kept as a plain control instead) |
-| **ENERGY** | `fihhmnnet1_dv`, `fiyrinvinc_dv` | `inoutflows2/3/4` excluded (waves m/o only, ~7% coverage — caused a degenerate FIML fit) |
-
-Two candidate revisions to CONDITION/PERSONAL were **empirically tested and rejected** — kept as documented negative results rather than silently discarded:
-- Adding `heatch` (has central heating) to CONDITION → standardized loading **0.012** (central heating is near-universal in the UK sample, almost no variance to correlate with anything). Reverted.
-- Excluding `sf1_good` from PERSONAL (its coverage collapses from ~99% in waves a–e to 0.3–11% in waves f–o, the same sparse-item pathology documented for `inoutflows2/3/4`) → CFI/TLI got **worse**, not better (0.17→−2.37, −0.14→−3.63), while SRMR only marginally improved. Reverted; item kept.
-- `bill_security` **was kept**: loading 0.226 (real, not near-zero), and it *strengthened* the other two CONDITION items too (`tenure_security` 0.254→0.372, `jbstat_security` 0.314→0.449).
-
-### Stage 2b — COR-SEM (`src/ukhls_cor_sem.py`)
-
-4-factor CFA (FIML, `semopy`) → second-order `BASELINE =~ OBJECT + CONDITION + PERSONAL + ENERGY` → FES-moderation OLS:
-
-```
-fuel_to_income_ratio ~ baseline_score + fes_delta + baseline_score × fes_delta
-```
-
-**Latest measurement loadings** (all correctly signed, all p<0.001, stable across reruns):
-
-| Factor | Item | Std. loading |
-|---|---|---|
-| OBJECT | hsbeds / ncars / hsval / hsrooms / carval | 0.67 / 0.67 / 0.55 / 0.58 / 0.43 |
-| CONDITION | jbstat_security / tenure_security / bill_security | 0.45 / 0.37 / 0.23 |
-| PERSONAL | sf1_good / health_good / qfhigh_band | 0.85 / 0.59 / 0.38 |
-| ENERGY | fihhmnnet1_dv / fiyrinvinc_dv | 0.58 / 0.37 |
-
-**FES-moderation result — significant, but the sign is not identified.** `fes_delta`'s own main effect is stable and significant across every refit (coefficient ≈ −0.0006 to −0.0009, p<0.0001, always negative). The interaction term `baseline_x_fes` is *also* significant in every refit (p<0.0001) but **its sign is not stable**: rerunning Stage 2b on materially the same data has produced +0.00004 (not significant, an earlier snapshot), +0.00049, and −0.00073 across successive runs of this pipeline. The second-order structural paths explain why (`structural_paths_baseline.csv`): CONDITION/PERSONAL/ENERGY's loadings on `BASELINE` converge to roughly −500 to −1200 (standardized ≈ −1.0) against `OBJECT`'s loading, which is fixed at +1.0 only by identification convention, not estimated from data — flipping every loading's sign at once fits identically well, so which direction "more baseline resources" points is arbitrary under the current specification. **Read this as: FES matters (robustly), baseline resources matter (robustly, as a main effect), but whether resources specifically *buffer* an FES shock is not yet a result this model can support in either direction** — it needs an explicit sign constraint on the second-order loadings before the interaction's direction can be trusted. This is a stronger and more specific caveat than the CFI/TLI note below; see `reports/06_methodology.md` §3.5 for the full diagnosis.
-
-**A known tool limitation** (documented in `src/ukhls_cor_sem.py`, verified empirically against a complete-case MLW comparison): under FIML, `semopy` 2.3.11 produces CFI/TLI outside [0,1] and an implausibly small chi² regardless of specification changes — this is a fit-*statistic-computation* limitation, not evidence the measurement model itself is misspecified. CFI/TLI also vary run-to-run (observed range: CFI −0.14 to −0.54, TLI −0.51 to −1.03) for the same reason the interaction's sign does. Read the loadings as the primary evidence; RMSEA/SRMR are reported alongside as a partial cross-check. The pooled 15-wave CFA also assumes measurement invariance over 2009–2024, untested here. One further, unrelated fix: rows with **zero** observed values across all 13 indicators (1 of 339,201) are now dropped before the FIML fit — such a row degenerates into a 0×0 per-pattern covariance submatrix that LAPACK cannot invert, which previously produced hundreds of spurious `DPOTRI` error lines per run without affecting any estimate (confirmed by direct before/after comparison).
-
-### Stage 2c — COR-CVAE (`src/ukhls_cor_cvae.py`)
-
-```
-encoder(items, FES Delta) → μ, logσ²     (4-dim latent, aligned to COR-SEM factor scores)
-z = μ + σ·ε
-decoder(z, FES Delta) → reconstruction
-predictor(z) → high_fuel_vulnerable (sigmoid)
-
-Loss = recon_MSE + β·KL + λ·align(μ, SEM scores) + γ·BCE(predictor(z), label)
-```
-
-`fes_magnitude` (constant per run before a rolling table exists) is never scaled/fed into the conditioning path — only `fes_delta` is, avoiding a std=0 StandardScaler blow-up. The train/validation split is **grouped by household** (`hidp`), not row-level — each household contributes ~15 near-identical wave-rows, and a row-level shuffle previously let the same household land in both folds, inflating the validation metric used for early stopping.
-
-**Latest CVAE ↔ SEM alignment** (`cvae_sem_alignment.csv`, Pearson r): z1↔OBJECT −0.79 (own factor, clearly largest), z2↔CONDITION 0.80 (own factor, clearly largest), z3↔PERSONAL 0.75 (own factor, clearly largest) — three of four latent dimensions cleanly dedicate to their intended factor. **z4 does not**: its correlation with OBJECT (0.75) now exceeds its correlation with its own intended factor, ENERGY (0.69) — z4 has drifted from "partially entangled with" to "more aligned with the wrong factor than the right one." Raw sign is an arbitrary consequence of VAE latent orientation, not an error — only the magnitude/ranking of |r| is meaningful.
-
-The **counterfactual FES-shift query** re-encodes each household's real item vector under its own realised `fes_current` vs. the shared forecast `fes_magnitude`, reporting the predicted-vulnerability probability shift — a labelled *simulation*, never presented as an observed outcome.
-
-<table>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_cor_sem/figures/cor_sem_loadings.png" width="320"><br><sub>COR-SEM measurement loadings by factor</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_cor_sem/figures/structural_paths_baseline.png" width="320"><br><sub>BASELINE second-order structural paths</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_cor_cvae/figures/cvae_sem_alignment_heatmap.png" width="320"><br><sub>CVAE latent ↔ COR-SEM factor-score alignment</sub></td>
-</tr>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_cor_sem/figures/cor_sem_loadings_polar.png" width="320"><br><sub>COR-SEM loadings, polar view (slices = factors, stacked = item loadings)</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_cor_cvae/figures/cvae_alignment_polar.png" width="320"><br><sub>CVAE alignment, polar view (slices = latent dims, stacked = |r| per SEM factor)</sub></td>
-<td align="center" width="33%"></td>
-</tr>
-</table>
-
----
-
-## Stage 3 — Vulnerability Identification (`src/ukhls_vulnerability_classification.py`)
-
-Two soft, continuous outputs — deliberately **not** a hard binary classifier — both validated against the objective `fuel_to_income_ratio`:
-
-| Method | Pearson r vs. ratio | Spearman r | AUC vs. `high_fuel_vulnerable` |
+| Step | Description | Change / total | Remaining |
 |---|---|---|---|
-| Fuzzy c-means ("Resource Depleted" membership) | 0.261 | 0.368 | 0.744 |
-| One-class SVM (anomaly score, resilient reference group) | 0.173 | 0.133 | 0.620 |
+| 0 | All UKHLS household-wave rows (waves a-o) | 339,201 |  |
+| 1 | Fuel-use module nonresponse (fuelhave* < 0) | -1,326 | 337,875 |
+| 2 | No fuel reported (fuelhave96 / none mentioned) | -1,182 | 336,693 |
+| 3 | Electricity not reported: gas only [S2 adds back] | -4,278 | 332,415 |
+| 4 | Electricity not reported: oil/other only [S2 adds back] | -4,003 | 328,412 |
+| 5a | Item nonresponse, first missing amount = xpduely [S1 adds back as 0] | -16,684 | 311,728 |
+| 5b | Item nonresponse, first missing amount = xpgasy [S1 adds back as 0] | -15,619 | 296,109 |
+| 5c | Item nonresponse, first missing amount = xpelecy [S1 adds back as 0] | -6,284 | 289,825 |
+| 5d | Item nonresponse, first missing amount = xpoily [S1 adds back as 0] | -256 | 289,569 |
+| 5e | Item nonresponse, first missing amount = xpsfly [S1 adds back as 0] | -221 | 289,348 |
+| 6 | Household net income missing (sentinel code) | -13 | 289,335 |
+| 7 | Annual net income < £1,200 guard (never logged in v1) | -2,433 | 286,902 |
+| = | Primary analytical n (fuel_to_income_ratio non-missing) | 286,902 |  |
+| info | of which ratio capped at 1.0 (kept, not excluded) | 2,106 |  |
+| info | v1 analytical n for comparison | 255,324 |  |
+| info | S1 (lower-bound) analytical n | 325,190 |  |
+| info | S2 (+elec-not-reported) analytical n | 294,310 |  |
+| v1.0 | All rows | 339,201 |  |
+| v1.1 | fuelduel = -8 inapplicable (not dual-fuel) -> dropped | -61,392 |  |
+| v1.2 | fuelduel DK/refused/missing -> dropped | -3,691 |  |
+| v1.3 | fuelduel = 1 and xpduely nonresponse -> dropped | -16,684 |  |
+| v1.4 | = rows with v1 spend | 257,434 |  |
+| v1.5 | income missing | -10 |  |
+| v1.6 | income < £1,200 guard (not logged in v1) | -2,100 |  |
+| v1.7 | = v1 analytical n | 255,324 |  |
 
-Plus a transparent **logistic driver analysis** (odds ratios, not a black-box feature-importance score) — now 17 covariates, extended this iteration with `large_family`, `workless_household`, `lone_parent`, and `ieqmoecd_dv` (equivalisation factor) alongside the original set. `financial_strain_score` remains dominant by a wide margin (OR 6.79); `large_family` (OR 1.68), `tenure_security` (OR 1.56), and `health_good` (OR 1.38) are the next-strongest positive drivers; `jbstat_security` (OR 0.16), `ieqmoecd_dv` (OR 0.28), and `qfhigh_band` (OR 0.50) the strongest protective factors. **`fes_delta` is a significant, if comparatively small, independent driver** (OR 0.94, p<0.0001) — consistently significant across every stage that tests it (see the FES-importance discussion below).
+<details><summary><b>Table 3-2. Household-waves and analytical n by wave</b></summary>
 
-Policy figures (prevalence by wave, by region, region×year heatmap, vulnerability rate by FES-severity tercile):
+| Wave | Fieldwork | Household-waves | Analytical n, primary | Analytical n, S1 lower bound | Analytical n, v1 rule |
+|---|---|---|---|---|---|
+| a | 2009–2011 | 30,169 | 25,649 | 28,881 | 23,440 |
+| b | 2010–2012 | 30,484 | 26,936 | 29,307 | 23,609 |
+| c | 2011–2013 | 27,751 | 24,765 | 26,945 | 21,694 |
+| d | 2012–2014 | 25,817 | 23,260 | 25,180 | 20,382 |
+| e | 2013–2015 | 24,325 | 21,970 | 23,653 | 19,244 |
+| f | 2014–2016 | 24,454 | 20,625 | 23,458 | 18,732 |
+| g | 2015–2017 | 23,033 | 19,814 | 22,205 | 17,847 |
+| h | 2016–2018 | 21,746 | 18,818 | 20,938 | 16,776 |
+| i | 2017–2019 | 20,048 | 17,004 | 19,298 | 15,149 |
+| j | 2018–2020 | 19,252 | 16,171 | 18,473 | 14,282 |
+| k | 2019–2021 | 18,139 | 14,884 | 17,268 | 13,167 |
+| l | 2020–2022 | 16,856 | 13,431 | 15,912 | 11,900 |
+| m | 2021–2023 | 16,156 | 12,478 | 15,152 | 11,168 |
+| n | 2022–2024 | 21,385 | 16,411 | 20,072 | 14,752 |
+| o | 2023–2025 | 19,586 | 14,686 | 18,448 | 13,182 |
+| total |  | 339,201 | 286,902 | 325,190 | 255,324 |
 
-<table>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_wave.png" width="320"><br><sub>Vulnerability prevalence by wave/year</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_region.png" width="320"><br><sub>Vulnerability prevalence by UK region</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_driver_odds_ratios.png" width="320"><br><sub>Driver analysis — odds ratios</sub></td>
-</tr>
-</table>
+</details>
 
-### Ethnicity, disability, and tenure breakdowns
+<details><summary><b>Table 3-4. Fuel-expenditure routing and code treatment</b></summary>
 
-Three descriptive breakdowns added to make this project's outputs directly comparable against external poverty statistics (see [External Validation](#external-validation-against-jrfs-uk-poverty-2025) below), mirroring the existing "vulnerability by region" breakdown's exact house style:
+| Variable | Asked if | Content | v2 treatment |
+|---|---|---|---|
+| fuelhave1–4 | all households | fuels used (electricity, gas, oil, other) | defines which amounts are required |
+| fuelduel | electricity AND gas used | 1 one bill / 2 separate | −8 = not dual-fuel (not missing); DK/refused → separate amounts asked |
+| xpduely | fuelduel = 1 | annual combined gas+electricity £ | −1/−2/−9 = item non-response → spend missing |
+| xpgasy, xpelecy | fuelduel = 2 or DK/refused, or single-fuel household | annual £ | −8 = fuel not used (structural 0); −1/−2/−9 → missing |
+| xpoily | oil used (fuelhave3 = 1) | annual £ | −8 = not used (0); non-response → missing |
+| xpsfly | other fuel used (fuelhave4 = 1) | annual £ | −8 = not used (0); non-response → missing |
 
-- **Ethnicity** (`plot_ethnicity_spread`) — attributed via the **household reference person**'s `racel_dv`, recoded into 11 groups matching JRF's own categories (`src/ukhls_mapping.py`'s `ETHNICITY_GROUP_RECODE`, codes verified against the raw `.dta` value labels, not guessed). Not household-mean-aggregated like the ordinal items below it — ethnicity is categorical and asked once per person, then carried forward by Understanding Society's own derived-variable logic.
-- **Disability** (`plot_disability_spread`) — a new Equality-Act-2010-style flag, `disability_free` (`health==1` AND `healthlink` limits activity "a lot"/"a little"), which the project previously had no equivalent of (only the milder self-rated-health proxies `health_good`/`sf1_good`, already inside the SEM's PERSONAL factor and left untouched). Breaks vulnerability out by whether the household contains a disabled adult.
-- **Tenure** (`plot_tenure_spread`) — `tenure_dv` regrouped into JRF's four categories (`TENURE_GROUP_RECODE`): Owned outright / Buying with mortgage / Social renting / Private renting, reusing a column already read for the SEM's `tenure_security` ordinal score.
+</details>
 
-**Deliberately not added as new SEM/CVAE latent variables or as covariates in the existing driver-analysis regression.** Ethnicity and disability are demographic/health covariates, not reflective indicators of an underlying continuous resource construct — forcing them into the COR-SEM/CVAE measurement model would misspecify it (JRF's own report treats them the same way: always separate stratified tables, never inputs to a single latent score). Kept out of the logistic driver analysis too, since several ethnicity categories are small-sample nationally (Chinese n=1,408, Any other Black background n=426) and adding 10 dummy variables risked destabilizing an already-validated model for no clear payoff.
+<details><summary><b>Table 3-5. Measures: items, coding, construction and α</b></summary>
 
-### Family composition and employment status
-
-Two further breakdowns, added specifically to make **two more** of this project's dimensions comparable against JRF's own framework (Table 5 p.36, family type; p.76, work status) — unlike ethnicity/disability/tenure above, these two flow *into* the driver-analysis regression (Section above) as `large_family`/`lone_parent`/`workless_household`, since family composition and employment status are theoretically upstream *causes* of resource stock, not just descriptive strata:
-
-- **Family composition** (`_derive_family_composition_group`, `src/ukhls_preprocessing.py`) — `hhtype_dv` × `nkids_dv` collapsed into 6 categories matching JRF's own family-type/large-family cross-cut (Table 5, p.36): No children (9.00%/229,491), Couple 1–2 children (3.67%/55,392), Couple 3+ children (5.27%/11,160), Lone parent 1–2 children (15.13%/16,378), Lone parent 3+ children (13.18%/2,165), Other multi-adult with children (4.32%/24,477).
-- **Employment status** (`load_wave_indresp_aggregated`, max-aggregated per household from `jbstat`/`jbft_dv`/`jbsemp`, not mean-aggregated — a household either has an employed adult or it doesn't) — Workless household (14.54%), Part-time only (9.29%), Full-time or self-employed (3.25%).
-- **Prepayment-meter flag** (`fuelduel`/`duelpay`/`elecpay`, all 15 waves) — a documented UK self-disconnection/rationing proxy, used to test a specific blind spot in the ratio-based `fuel_to_income_ratio` target (a household that copes by rationing energy use shows a *lower*, not higher, spend ratio). Prepayment-meter rate is higher among already-flagged-vulnerable households (24.9%) than not (12.9%) — some rationing is happening, but not enough to be hiding a materially different population within "not vulnerable" (`rationing_evidence_prepayment.csv`).
-
-<table>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_ethnicity.png" width="320"><br><sub>Vulnerability prevalence by ethnicity group</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_disability.png" width="320"><br><sub>Vulnerability prevalence by disability status</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_tenure.png" width="320"><br><sub>Vulnerability prevalence by housing tenure</sub></td>
-</tr>
-</table>
-
----
-
-## External Validation Against JRF's UK Poverty 2025
-
-`src/ukhls_external_validation.py` checks this project's own vulnerability outputs against an independent external benchmark: the Joseph Rowntree Foundation's "UK Poverty 2025" report (published January 2025, using DWP Households Below Average Income data) — **deliberately not an apples-to-apples comparison**. Ours measures fuel-to-income vulnerability (pooled UKHLS waves 2009–2024); JRF measures relative income poverty after housing costs (mostly averaged 2021/22–2022/23). Both measure household financial hardship, so groups should broadly rank similarly even though the two constructs have different drivers — agreement is the check, and *divergence is reported as informative, not hidden or treated as failure*.
-
-| Dimension | n | Spearman ρ | Pearson r | Read |
+| Construct | Items | Coding | Construction | Cronbach α (descriptive) |
 |---|---|---|---|---|
-| Region | 12 | 0.73 (excl. NI) | 0.68 (excl. NI) | Strong once Northern Ireland's documented fuel-oil driver (below) is set aside |
-| Tenure | 4 | **0.80** | **0.68** | Strong agreement despite only 4 categories |
-| Family type | 2 | 1.00 | 1.00 | **New this iteration** — collapses the 6-category breakdown above into JRF's lone-parent/couple-with-children split (Table 5, p.36); ranks agree, but n=2 is a necessarily weak test |
-| Work status | 2 | 1.00 | 1.00 | **New this iteration** — collapses full-time/self-employed + part-time into JRF's "in work" vs. "not in work" split (p.76); ranks agree, same n=2 caveat |
-| Disability | 2 | — | — | Directionally consistent (ours 10.3%→12.9%, JRF 19%→29%) |
-| Ethnicity | 6 | 0.14 | 0.27 | Weak — see divergence below |
+| Outcome | high_fuel_vulnerable | annual fuel spend / (12 × monthly net income) ≥ 0.10 | routing-aware spend, complete-case; income < £1,200 excluded; ratio capped at 1 |  |
+| Strain | finnow | current financial situation, 1 comfortable … 5 very difficult | household mean of adults | 0.27 (3-item composite; not used as a scale) |
+| Strain | scghq1_dv | GHQ-12 Likert 0–36 (higher = more distress) | household mean |  |
+| Strain | finfut_risk | financial expectations: 0 better / 0.5 same / 1 worse | household mean; always with age |  |
+| Resources: OBJECT | hsrooms, hsbeds, ncars, carval, hsval | log(1+x) for £ items; z-scored | mean of z (≥ 50% observed), re-standardised | 0.60 |
+| Resources: CONDITION | tenure_security, jbstat_security, bill_security | 0–1 security codings | as above | 0.34 |
+| Resources: PERSONAL | sf1_good (self-rated health), health_good (no long-standing illness), qfhigh_band | higher = better | as above | 0.58 |
+| Resources: ENERGY | fihhmnnet1_dv, fiyrinvinc_dv | log(1+x) | as above | 0.32 |
+| Disability | health + disdif1–12 | long-standing illness and ≥ 1 substantial difficulty | household: any observed adult |  |
+| Oil use | fuelhave3 | 1 = uses heating oil |  |  |
+| Rural | urban_dv | 2 = rural | missing filled from adjacent wave if no move |  |
+| FES | fes_magnitude_growth3, fes_delta_growth3 | sum of 3 growth z-scores (past-only moments); Delta = forecast − realised (m−1) | Dec Y−1 vintage; interviews 2010+ |  |
 
-Benchmark values are hardcoded from numbers explicitly **stated in JRF's report text** (Table 6 p.51 for region, p.9/42 for ethnicity, Table 8 p.67 for disability, Table 10 p.95 for tenure, Table 5 p.36 for family type, p.76 for work status) — categories JRF shows only in a chart with no stated number (e.g. Indian, Chinese, Mixed ethnic groups) are left out of the benchmark rather than read off pixels. Family type and work status are the two newest dimensions — they were not computable before this iteration's household-composition/employment features (above) existed, so this is their first-ever run against JRF.
+</details>
 
-**Why Northern Ireland is excluded from the region correlation coefficient, but nowhere else.** NI ranks *highest* on our fuel-specific measure (15.6%) but *lowest* in JRF's income-poverty ranking (17%) — investigated rather than assumed to be noise or a bug. Verified directly against this project's own panel data (`_save_ni_oil_heating_evidence`, `outputs/ukhls_vulnerability/tables/ni_oil_heating_evidence_*.csv`):
+<details><summary><b>Table 3-6. Core forecasting series, May 2006–March 2026</b></summary>
 
-- 71.2% of NI households report spending on oil heating, vs 0.1–9.8% in every GB region (mains gas never reached large parts of NI).
-- **Within NI alone** (a controlled, same-region comparison): oil-heating households average £2,017/year on fuel and a 20.9% vulnerability rate, vs £1,243/year and 12.3% for non-oil NI households.
+| Series | n | Missing | Mean | SD | Median | Skew | Excess kurtosis |
+|---|---|---|---|---|---|---|---|
+| gas_growth | 239 | 0 | 9.39 | 29.76 | 1.40 | 2.42 | 7.01 |
+| electricity_index | 239 | 0 | 119.01 | 47.80 | 100.20 | 1.10 | 0.09 |
+| electricity_growth | 239 | 0 | 7.80 | 15.49 | 5.70 | 1.85 | 4.85 |
+| carbon_growth | 239 | 0 | 5.98 | 149.33 | 3.78 | 0.28 | 8.87 |
 
-That within-region gap is real signal, not an artifact of region-mapping or missing data: heating oil is bought in lump-sum deliveries, is price-volatile, and — unlike gas/electricity — sits outside Ofgem's price cap, a genuine fuel-specific cost exposure with no reason to appear in an income-based poverty measure. NI is therefore excluded **only** from the region correlation coefficient (a like-for-like check of construct agreement); it stays fully in every other regional output (maps, tables, driver analysis), where dropping it would throw away the clearest example of this project's fuel-specific measure doing exactly what it's for.
+</details>
 
-**Two further divergences flagged, not smoothed over:**
-- **Tenure reversal**: owned-outright households rank *above* private renters on our measure (9.9% vs 8.5%), the opposite of JRF's income-poverty ranking (14% vs 35%). Plausible driver: outright owners skew older/pensioner, in older, harder-to-heat housing that's paid off but expensive to run.
-- **Ethnicity divergence**: Black Caribbean households rank *highest* on our measure (14.1%) but *lowest* of the minority groups on JRF's income poverty (30%, vs Bangladeshi's 56%); Bangladeshi households, JRF's highest-poverty group, sit close to White on ours (9.5%). A genuine difference in construct, not an error — flagged for further investigation rather than dismissed.
+<details><summary><b>Table 3-7. JRF benchmark metadata and matching windows</b></summary>
 
-**The wave-level trend** (`plot_wave_trend_vs_jrf_narrative`) is a second, independent check: our fuel-vulnerability rate declines from 11.6% (2009) to a low of 5.1% (2020), then spikes sharply to 10.8%/10.6% in exactly the 2022/2023 waves — reproducing the shape of JRF's own faster cost-of-living tracker (hardship peaking around October 2022) rather than the "broadly flat" shape of JRF's own slower annual relative-poverty measure over the same window (p.19). The metric is sensitive to the right real-world event, checked against an indicator JRF itself uses to make the same point.
+| Dimension | Window | JRF population | JRF measure | JRF period | JRF source | UKHLS window | UKHLS unit | UKHLS definition | Waves | Categories | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| region | primary | People (all ages) | Relative poverty, AHC | '2021–2023': HBAI '3-year' average of FY 2021/22 and 2022/23 only (DWP excludes 2020/21) | Table 6, p.51; exclusion of 2020/21: note p.43, Annex p.162 | interviews 2021-04 to 2023-03 | Household (gor_dv) | Region of household | k,l,m,n,o | 12 | JRF 'East' = East of England. Sensitivity window adds Apr 2020-Mar 2021. |
+| region | sensitivity | People (all ages) | Relative poverty, AHC | '2021–2023': HBAI '3-year' average of FY 2021/22 and 2022/23 only (DWP excludes 2020/21) | Table 6, p.51; exclusion of 2020/21: note p.43, Annex p.162 | interviews 2020-04 to 2023-03 | Household (gor_dv) | Region of household | j,k,l,m,n,o | 12 | JRF 'East' = East of England. Sensitivity window adds Apr 2020-Mar 2021. |
+| ethnicity | primary | People in households, by ethnicity of household head | Relative poverty, AHC | FY 2021/22 and 2022/23 (text says 2020/21-2022/23; note p.43: 2020/21 excluded) | p.9 and p.42 (text); Figure 13 and note, p.43; Annex p.162 | interviews 2021-04 to 2023-03 | Household (ethnicity of household reference person) | ethnicity_group of HRP | k,l,m,n,o | 6 | Only categories with a rate stated in JRF text are compared. |
+| ethnicity | sensitivity | People in households, by ethnicity of household head | Relative poverty, AHC | FY 2021/22 and 2022/23 (text says 2020/21-2022/23; note p.43: 2020/21 excluded) | p.9 and p.42 (text); Figure 13 and note, p.43; Annex p.162 | interviews 2020-04 to 2023-03 | Household (ethnicity of household reference person) | ethnicity_group of HRP | j,k,l,m,n,o | 6 | Only categories with a rate stated in JRF text are compared. |
+| tenure | primary | People | Relative poverty, AHC | FY 2022/23 | Table 10, p.95 | interviews 2022-04 to 2023-03 | Household (tenure_dv) | Social = LA + housing association; private incl. rented from employer; 'Other' tenure excluded | l,m,n,o | 4 |  |
+| disability | primary | People, by disability mix of family | Relative poverty, AHC | FY 2022/23 | Table 8, p.67 | interviews 2022-04 to 2023-03 | Household with >=1 adult disability status observed | Disabled = health==1 and any disdif1-12; household contains a disabled adult if any observed adult is disabled | l,m,n,o | 2 | JRF 'Disabled adults only' (29) vs 'No one is disabled' (19). UKHLS does not observe child disability, so JRF's child rows (28, 36) are not compared. Directional (n=2). |
+| family_type | primary | CHILDREN, by family type | Child relative poverty, AHC | FY 2022/23 | Table 5, p.36 | interviews 2022-04 to 2023-03 | Household with dependent children | family_composition_group lone parent (any size) vs couple (any size); other multi-adult excluded | l,m,n,o | 2 | Unit mismatch: JRF rate is per child, UKHLS rate per household. Directional (n=2). |
+| work_status | primary | WORKING-AGE ADULTS, by household work status | Relative poverty, AHC | FY 2022/23 (latest year in report) | p.77 (text) | interviews 2022-04 to 2023-03 | Household with >=1 respondent aged 16-64 | Workless = no responding adult in paid/self-employment | l,m,n,o | 2 | Corrected from v1 (12/43). Unit mismatch: JRF per working-age adult, UKHLS per household. Directional (n=2). |
 
-<table>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/external_validation_region_scatter.png" width="320"><br><sub>Region: ours vs JRF poverty rate</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/external_validation_tenure_scatter.png" width="320"><br><sub>Tenure: ours vs JRF poverty rate</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/external_validation_wave_trend.png" width="320"><br><sub>Wave-level trend vs JRF's cost-of-living-crisis account</sub></td>
-</tr>
-</table>
+</details>
 
----
-
-## Stage 4 — Policy Geography Maps (`src/ukhls_policy_maps.py`)
-
-Drawn on **real UK region boundaries** (`data/geo/uk_nuts1_regions.geojson` — ONS Open Geography Portal, "NUTS, level 1 (January 2018) Boundaries UK BUC," Open Government Licence v3.0, downloaded once via the portal's public ArcGIS FeatureServer — attribution rendered directly on every map figure). UKHLS (End User Licence) only exposes geography at this 12-region level (9 English regions + Wales + Scotland + Northern Ireland) — the shared helper, `src/ukhls_geo_maps.py`, is reused by Stage 3's variable maps below too.
-
-1. **Resource-to-Stress Hotspot Map** — two side-by-side real maps (mean SEM `baseline_resource_score`; regional `high_fuel_vulnerable` prevalence) plus the 3×3 bivariate policy-tier legend. *Adapted from the original brief's literal bivariate "FES axis" map* — FES here is a single **national** scalar with no regional variation to map, so the second map uses the regional vulnerability-outcome prevalence instead (same underlying policy intent: cash-transfer vs. structural-infrastructure priority zones).
-2. **Fuzzy Membership Map** — real choropleth of mean "Vulnerable to Loss" fuzzy membership (the % of households near the 0.5 "about to tip" boundary is in the saved table).
-3. **Vulnerability Vector Shift Map** — arrow at each region's real centroid: mean predicted vulnerability under each household's own realised FES vs. under the shared forecast shock (reuses the Stage 2c counterfactual output) — red = rising risk, green = falling. London's arrow/label is nudged into open space with a leader line (a standard cartographic fix — London is geographically tiny and sits inside South East, so a same-length arrow at its true centroid collided with its neighbour's). **Latest run: the shift is small and mixed in direction** — 5 of 12 regions rise under the forecast shock (East of England, London, Scotland, South East, South West), 7 fall — with magnitudes ranging roughly 0.00004 to 0.0143 percentage points and **London**, not Northern Ireland, now showing the largest-magnitude shift (Northern Ireland sits mid-ranked, 5th of 12 by magnitude); this differs from earlier runs, which showed a uniform direction throughout. The sign and ranking are sensitive to exactly which forecast/realised FES values are attached (Stage 2a), so this map should be read as "the shift is small everywhere" more confidently than "the shift points in direction X" for any specific region.
-
-<table>
-<tr>
-<td align="center" width="33%"><img src="outputs/ukhls_policy_maps/figures/policy_map1_resource_stress_hotspot.png" width="320"><br><sub>Map 1 — Resource-to-Stress Hotspot (real boundaries)</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_policy_maps/figures/policy_map2_fuzzy_membership.png" width="320"><br><sub>Map 2 — Fuzzy Membership (real boundaries)</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_policy_maps/figures/policy_map3_vulnerability_vector_shift.png" width="320"><br><sub>Map 3 — Vulnerability Vector Shift (real boundaries)</sub></td>
-</tr>
-</table>
-
-### Additional real-map and policy-analysis views (Stage 3)
-
-Beyond the headline vulnerability rate, the same real-boundary helper draws maps for other key variables, plus two further policy-analysis angles distinct from the pooled-national figures above:
+### Stage 2: forecasts and FES (RQ1)
 
 <table>
 <tr>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_vulnerability_by_region_map.png" width="320"><br><sub>Fuel-poverty prevalence — real map (companion to the ranked bar chart below)</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_map_baseline_resource_by_region.png" width="320"><br><sub>Mean Baseline Resource Stock by region</sub></td>
-<td align="center" width="33%"><img src="outputs/ukhls_vulnerability/figures/policy_temporal_change_map.png" width="320"><br><sub>Change in prevalence, 2009-13 vs. 2019-24 (diverging)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-1_relrmse_by_year.png" width="400"><br><sub>Figure 4-1. Forecast accuracy relative to naive and seasonal-naive benchmarks, by target year</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-2_fes_growth3_forecast_vs_realised.png" width="400"><br><sub>Figure 4-2. Growth-only FES: forecast vs realised by target month, 2010–2025</sub></td>
 </tr>
 </table>
 
-- **Regional driver heterogeneity** (`run_driver_analysis_by_region`): re-fits the Stage 3 logistic driver analysis separately per region instead of pooled nationally — does *what causes* vulnerability differ by place, not just how much of it there is? (`outputs/ukhls_vulnerability/tables/driver_analysis_by_region.csv` + `driver_analysis_by_region.png`.)
-- **Temporal-change map**: vulnerability-prevalence change between waves a–e (2009–2013) and waves k–o (2019–2024) per region, as a diverging real choropleth — complements the existing region×year heatmap (a grid) with a genuinely spatial "where is it getting worse" view. Northern Ireland shows the largest improvement in the most recent run (−10.2 percentage points).
+**Table 4-1. Forecast accuracy (relative RMSE, Diebold–Mariano p) and 95% prediction-interval coverage.** Relative RMSE below 1 means the model beats the benchmark.
 
----
+| Series | Version | RMSE | Rel. RMSE vs naive | DM p vs naive | Rel. RMSE vs seasonal naive | DM p vs seasonal naive | 95% PI coverage (%) |
+|---|---|---|---|---|---|---|---|
+| carbon | v1_core | 48.29 | 1.028 | 0.845 | 0.788 | 0.054 | 28.6 |
+| carbon | v1_macro | 55.47 | 1.180 | 0.403 | 0.905 | 0.551 | 37.5 |
+| carbon | v2_core | 46.47 | 0.989 | 0.905 | 0.758 | 0.002 | 27.6 |
+| electricity | v1_core | 16.99 | 0.973 | 0.899 | 0.740 | 0.200 | 60.4 |
+| electricity | v1_macro | 13.97 | 0.800 | 0.458 | 0.609 | 0.140 | 49.5 |
+| electricity | v2_core | 14.41 | 0.825 | 0.526 | 0.627 | 0.143 | 48.4 |
+| gas | v1_core | 43.32 | 1.228 | 0.172 | 0.956 | 0.710 | 56.2 |
+| gas | v1_macro | 55.79 | 1.582 | 0.202 | 1.231 | 0.424 | 68.8 |
+| gas | v2_core | 25.11 | 0.712 | 0.373 | 0.554 | 0.130 | 32.3 |
 
-## Stage 5 — Forward Vulnerability Prediction (`src/ukhls_forward_prediction.py`)
+<details><summary><b>Table A-1. MASE</b></summary>
 
-Every stage above answers "who is vulnerable now, and what explains it" — a **contemporaneous** question. Stage 5 answers a genuinely different, **prospective** one: **who is about to become vulnerable, and roughly when** — using a household's *current* COR-SEM profile plus the price signal already forecast for their own next year, before that next year's survey data exists.
+| Series | Version | MAE | MASE |
+|---|---|---|---|
+| carbon | naive | 38.44 | 1.020 |
+| carbon | snaive | 51.78 | 1.390 |
+| carbon | v1_core | 36.43 | 0.914 |
+| carbon | v1_macro | 38.89 | 0.940 |
+| carbon | v2_core | 37.16 | 0.960 |
+| electricity | naive | 9.19 | 5.693 |
+| electricity | snaive | 14.46 | 8.684 |
+| electricity | v1_core | 11.22 | 6.749 |
+| electricity | v1_macro | 8.60 | 5.291 |
+| electricity | v2_core | 9.06 | 5.556 |
+| gas | naive | 15.74 | 6.326 |
+| gas | snaive | 26.05 | 9.817 |
+| gas | v1_core | 20.41 | 7.970 |
+| gas | v1_macro | 24.75 | 9.555 |
+| gas | v2_core | 13.50 | 5.419 |
 
-**The linkage problem.** UKHLS's per-wave rows carry no stable household key on their own — `hidp` is reissued whenever household composition changes. The fix: `hrpid` (household reference person's `pidp`), verified present in every wave's raw `hhresp` file and added to the panel via `src.ukhls_mapping.HH_LINK_VARS`. Matching `hrpid_t == hrpid_{t+1}` directly links the same reference person's household across one wave gap — **72–85% of households link per transition** (14 wave-pairs checked, a→b through n→o), a normal UKHLS attrition/HRP-turnover rate, not a bug.
+</details>
 
-**Training data.** Every linked (wave t, wave t+1) pair becomes one example: features from wave t (COR-SEM object/condition/personal/energy scores, `financial_strain_score`, `dvage`, `heatch`, and — the anticipatory signal — `fes_magnitude`, already the forecast for *that household's own next year*, computed using only data available as of wave t), label from wave t+1 (`high_fuel_vulnerable`). **261,759 linked transition rows** across all 14 wave-pairs, 2009–2024.
+<details><summary><b>Table A-5. Relative RMSE by target year</b></summary>
 
-**Model and validation.** A logistic regression (transparent odds ratios, same choice Stage 3 already made over a black-box model) is **walk-forward validated** — trained on the 12 earliest transitions (a→b … l→m), held out on the 2 most recent *known* transitions (m→n, n→o) — before being trusted on the genuinely unknown future:
+| Series | Target year | v1 core vs naive | v1 core vs s-naive | v1 macro vs naive | v1 macro vs s-naive | v2 core vs naive | v2 core vs s-naive |
+|---|---|---|---|---|---|---|---|
+| carbon | 2010 | 1.157 | 0.605 | 0.764 | 0.400 | 1.159 | 0.607 |
+| carbon | 2011 | 2.588 | 2.721 | 3.265 | 3.432 | 0.905 | 0.952 |
+| carbon | 2012 | 0.509 | 0.241 | 0.752 | 0.356 | 1.424 | 0.674 |
+| carbon | 2013 | 0.864 | 1.664 | 1.338 | 2.576 | 1.091 | 2.100 |
+| carbon | 2014 | 0.838 | 0.584 | 0.994 | 0.692 | 0.901 | 0.628 |
+| carbon | 2015 | 1.070 | 0.829 | 0.866 | 0.672 | 0.567 | 0.440 |
+| carbon | 2016 | 1.104 | 0.894 | 0.991 | 0.803 | 0.982 | 0.796 |
+| carbon | 2017 | 0.645 | 0.443 | 0.807 | 0.554 | 1.475 | 1.014 |
+| carbon | 2018 | 1.247 | 1.091 | 1.576 | 1.379 | 1.289 | 1.128 |
+| carbon | 2019 | 0.398 | 0.412 | 0.182 | 0.189 | 0.543 | 0.562 |
+| carbon | 2020 | 1.227 | 0.344 | 0.904 | 0.254 | 1.118 | 0.314 |
+| carbon | 2021 | 1.000 | 0.640 | 0.522 | 0.334 | 0.710 | 0.454 |
+| carbon | 2022 | 0.395 | 0.398 | 0.474 | 0.477 | 0.576 | 0.580 |
+| carbon | 2023 | 1.352 | 0.346 | 1.122 | 0.287 | 1.126 | 0.288 |
+| carbon | 2024 | 1.144 | 0.827 | 0.752 | 0.543 | 1.247 | 0.901 |
+| carbon | 2025 | 0.658 | 0.360 | 0.978 | 0.535 | 0.571 | 0.313 |
+| electricity | 2010 | 1.847 | 0.721 | 1.148 | 0.448 | 1.086 | 0.424 |
+| electricity | 2011 | 1.038 | 0.813 | 1.093 | 0.856 | 1.046 | 0.819 |
+| electricity | 2012 | 0.338 | 0.328 | 0.649 | 0.631 | 0.701 | 0.681 |
+| electricity | 2013 | 0.481 | 0.319 | 0.724 | 0.480 | 1.952 | 1.295 |
+| electricity | 2014 | 0.962 | 0.941 | 1.162 | 1.137 | 0.623 | 0.610 |
+| electricity | 2015 | 12.015 | 0.862 | 11.426 | 0.819 | 9.804 | 0.703 |
+| electricity | 2016 | 42.620 | 15.713 | 44.338 | 16.346 | 16.869 | 6.219 |
+| electricity | 2017 | 0.830 | 0.828 | 0.897 | 0.896 | 1.170 | 1.168 |
+| electricity | 2018 | 0.741 | 0.417 | 0.631 | 0.355 | 0.870 | 0.490 |
+| electricity | 2019 | 1.034 | 0.789 | 0.913 | 0.697 | 0.921 | 0.703 |
+| electricity | 2020 | 1.629 | 0.894 | 1.645 | 0.903 | 1.629 | 0.894 |
+| electricity | 2021 | 0.791 | 0.737 | 0.909 | 0.846 | 0.892 | 0.831 |
+| electricity | 2022 | 1.279 | 1.016 | 1.086 | 0.863 | 1.221 | 0.970 |
+| electricity | 2023 | 0.552 | 0.550 | 0.563 | 0.561 | 0.333 | 0.332 |
+| electricity | 2024 | 4.225 | 0.537 | 2.368 | 0.301 | 4.285 | 0.545 |
+| electricity | 2025 | 2.513 | 1.296 | 0.805 | 0.415 | 0.678 | 0.350 |
+| gas | 2010 | 10.387 | 0.572 | 7.159 | 0.395 | 1.438 | 0.079 |
+| gas | 2011 | 1.392 | 1.128 | 1.175 | 0.952 | 1.232 | 0.998 |
+| gas | 2012 | 0.943 | 0.646 | 1.476 | 1.011 | 0.498 | 0.341 |
+| gas | 2013 | 1.623 | 0.543 | 0.745 | 0.249 | 4.146 | 1.386 |
+| gas | 2014 | 0.846 | 0.817 | 0.847 | 0.818 | 0.913 | 0.882 |
+| gas | 2015 | 2.879 | 1.008 | 2.896 | 1.014 | 3.190 | 1.117 |
+| gas | 2016 | 3.377 | 1.318 | 4.876 | 1.904 | 3.377 | 1.318 |
+| gas | 2017 | 1.075 | 0.819 | 0.585 | 0.446 | 1.052 | 0.802 |
+| gas | 2018 | 0.410 | 0.359 | 1.155 | 1.012 | 0.536 | 0.470 |
+| gas | 2019 | 0.873 | 0.980 | 0.657 | 0.738 | 0.569 | 0.639 |
+| gas | 2020 | 1.700 | 0.814 | 1.503 | 0.720 | 1.463 | 0.701 |
+| gas | 2021 | 1.024 | 1.002 | 0.768 | 0.752 | 1.029 | 1.007 |
+| gas | 2022 | 1.143 | 0.888 | 1.215 | 0.944 | 1.178 | 0.915 |
+| gas | 2023 | 1.259 | 1.286 | 1.707 | 1.743 | 0.298 | 0.304 |
+| gas | 2024 | 1.561 | 0.230 | 2.171 | 0.321 | 1.507 | 0.223 |
+| gas | 2025 | 0.747 | 0.355 | 2.440 | 1.160 | 0.490 | 0.233 |
 
-| | |
-|---|---|
-| Held-out transitions | m→n, n→o |
-| n (train / validation) | 177,408 / 21,161 |
-| **AUC vs. actual `high_fuel_vulnerable` at t+1** | **0.760** |
-| Pearson r vs. actual `fuel_to_income_ratio` at t+1 | 0.270 |
+</details>
 
-An AUC of 0.76 on data the model never saw during training — genuinely forward-predicted, not fit — is the number that justifies trusting the final model's forward predictions at all.
+<details><summary><b>Table A-6. Diebold–Mariano tests</b></summary>
 
-**Drivers** (final model, refit on all 14 known transitions — extended this iteration with `lone_parent`/`large_family`/`workless_household` alongside the original controls; deliberately excludes `baseline_resource_score` alongside its own four components, which are correlated at r=0.65–0.77 and produce unstable, compensating coefficients together; the four first-order scores alone give clean per-dimension odds ratios):
+| Version | Series | Benchmark | Months | DM statistic | p | Verdict |
+|---|---|---|---|---|---|---|
+| v1_core | carbon | naive | 192 | 0.196 | 0.845 | not significantly different |
+| v1_core | carbon | seasonal naive | 192 | -1.939 | 0.054 | not significantly different |
+| v1_core | electricity | naive | 192 | -0.127 | 0.899 | not significantly different |
+| v1_core | electricity | seasonal naive | 192 | -1.286 | 0.200 | not significantly different |
+| v1_core | gas | naive | 192 | 1.369 | 0.173 | not significantly different |
+| v1_core | gas | seasonal naive | 192 | -0.372 | 0.710 | not significantly different |
+| v1_macro | carbon | naive | 192 | 0.838 | 0.403 | not significantly different |
+| v1_macro | carbon | seasonal naive | 192 | -0.597 | 0.551 | not significantly different |
+| v1_macro | electricity | naive | 192 | -0.743 | 0.458 | not significantly different |
+| v1_macro | electricity | seasonal naive | 192 | -1.483 | 0.140 | not significantly different |
+| v1_macro | gas | naive | 192 | 1.279 | 0.202 | not significantly different |
+| v1_macro | gas | seasonal naive | 192 | 0.800 | 0.425 | not significantly different |
+| v2_core | carbon | naive | 192 | -0.119 | 0.905 | not significantly different |
+| v2_core | carbon | seasonal naive | 192 | -3.185 | 0.002 | better than benchmark |
+| v2_core | electricity | naive | 192 | -0.635 | 0.526 | not significantly different |
+| v2_core | electricity | seasonal naive | 192 | -1.469 | 0.143 | not significantly different |
+| v2_core | gas | naive | 192 | -0.893 | 0.373 | not significantly different |
+| v2_core | gas | seasonal naive | 192 | -1.521 | 0.130 | not significantly different |
 
-| Predictor | Odds ratio | Direction |
+</details>
+
+### Descriptives: trend, regions, social groups (RQ4)
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-3_trend_wave_s1band.png" width="400"><br><sub>Figure 4-3. National trend by wave, weighted, with S1 lower bound</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-4_trend_vs_jrf_tracker.png" width="400"><br><sub>Figure 4-4. Trend by interview year with the JRF cost-of-living crisis window shaded</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-5_region_map_weighted.png" width="400"><br><sub>Figure 4-5. Regional prevalence, weighted</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-6_region_year_heatmap_masked.png" width="400"><br><sub>Figure 4-6. Weighted prevalence by region and interview year (cells n &lt; 100 masked)</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-7_region_change_map.png" width="400"><br><sub>Figure 4-7. Change in weighted regional prevalence, waves a–e to k–o (navy = fall, orange = rise)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-8_resource_and_findifficulty_by_region.png" width="400"><br><sub>Figure 4-8. Weighted mean resource composite and current financial difficulty by region</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-9_social_groups_panel_ci.png" width="400"><br><sub>Figure 4-9. Pooled weighted prevalence by social group, 95% CIs (n &lt; 100 suppressed)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-10_prepayment.png" width="400"><br><sub>Figure 4-10. Prepayment-meter use by vulnerability status</sub></td>
+</tr>
+</table>
+
+<details><summary><b>Table 4-2. Pooled weighted prevalence by region and social group, 95% PSU-bootstrap CI</b></summary>
+
+| Dimension | Category | n | Weighted % [95% CI] |
+|---|---|---|---|
+| region | East Midlands | 21,104 | 9.4 [8.5, 10.2] |
+| region | East of England | 24,393 | 7.3 [6.6, 8.0] |
+| region | London | 33,423 | 6.7 [6.1, 7.3] |
+| region | North East | 11,085 | 9.0 [8.0, 9.9] |
+| region | North West | 29,472 | 9.1 [8.4, 9.7] |
+| region | Northern Ireland | 16,646 | 18.0 [16.8, 19.4] |
+| region | Scotland | 25,951 | 10.3 [9.5, 11.1] |
+| region | South East | 33,992 | 6.6 [6.1, 7.1] |
+| region | South West | 23,661 | 7.4 [6.8, 8.1] |
+| region | Wales | 19,274 | 10.4 [9.5, 11.3] |
+| region | West Midlands | 23,778 | 9.9 [9.0, 10.7] |
+| region | Yorkshire and the Humber | 23,905 | 9.1 [8.3, 9.9] |
+| tenure | Buying with mortgage | 98,150 | 4.2 [4.0, 4.5] |
+| tenure | Owned outright | 101,166 | 11.1 [10.8, 11.6] |
+| tenure | Private renting | 35,200 | 8.9 [8.3, 9.5] |
+| tenure | Social renting | 50,611 | 11.1 [10.6, 11.6] |
+| family_composition_group | Couple, 1-2 children | 47,733 | 3.8 [3.5, 4.0] |
+| family_composition_group | Couple, 3+ children | 9,748 | 5.2 [4.5, 6.1] |
+| family_composition_group | Lone parent, 1-2 children | 14,579 | 15.1 [14.1, 16.2] |
+| family_composition_group | Lone parent, 3+ children | 1,929 | 13.6 [11.2, 16.4] |
+| family_composition_group | No children | 192,368 | 9.7 [9.5, 10.0] |
+| family_composition_group | Other multi-adult, with children | 20,374 | 3.8 [3.5, 4.2] |
+| employment_group | Full-time or self-employed | 151,626 | 3.5 [3.3, 3.6] |
+| employment_group | Part-time only | 29,607 | 10.0 [9.5, 10.6] |
+| employment_group | Workless household | 104,093 | 15.0 [14.6, 15.5] |
+| ethnicity_group | Any other Asian background | 2,144 | 6.2 [4.6, 8.0] |
+| ethnicity_group | Any other Black background | 349 | 14.6 [9.5, 19.9] |
+| ethnicity_group | Bangladeshi | 3,246 | 9.3 [7.5, 11.3] |
+| ethnicity_group | Black African | 5,508 | 11.2 [9.7, 12.7] |
+| ethnicity_group | Black Caribbean | 5,615 | 14.7 [12.6, 17.2] |
+| ethnicity_group | Chinese | 1,099 | 7.5 [4.6, 11.3] |
+| ethnicity_group | Indian | 7,646 | 8.0 [6.8, 9.5] |
+| ethnicity_group | Mixed/multiple ethnic groups | 3,989 | 9.9 [8.0, 11.9] |
+| ethnicity_group | Other ethnic group | 1,872 | 10.7 [7.2, 15.0] |
+| ethnicity_group | Pakistani | 5,584 | 13.8 [12.2, 15.5] |
+| ethnicity_group | White | 229,098 | 8.8 [8.6, 9.1] |
+| disability | Contains disabled adult | 98,015 | 10.5 [10.2, 10.9] |
+| disability | No disabled adult | 186,994 | 7.6 [7.4, 7.9] |
+
+</details>
+
+### Stage 3: drivers (RQ3; H2, H3)
+
+<table>
+<tr>
+<td align="center" width="100%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-11_driver_forest.png" width="560"><br><sub>Figure 4-11. Primary driver model, odds ratios (FES in orange)</sub></td>
+</tr>
+</table>
+
+**Table 4-3. Primary driver model** (logit of `high_fuel_vulnerable`; interview-year fixed effects; SEs clustered on PSU; n = 221,877 household-waves, interviews 2010–2025; 17,209 events; McFadden R² 0.153).
+
+| Predictor | Term | OR [95% CI] | p | OR per SD | SD in sample |
+|---|---|---|---|---|---|
+| Current financial difficulty (1-5) | `finnow` | 1.649 [1.607, 1.691] | <0.001 | 1.595 | 0.934 |
+| Bedrooms | `hsbeds` | 1.335 [1.285, 1.386] | <0.001 | 1.341 | 1.015 |
+| Tenure security | `tenure_security` | 2.034 [1.767, 2.340] | <0.001 | 1.186 | 0.240 |
+| Rooms | `hsrooms` | 1.149 [1.106, 1.195] | <0.001 | 1.158 | 1.054 |
+| No long-standing illness/disability | `health_good` | 1.253 [1.185, 1.325] | <0.001 | 1.097 | 0.412 |
+| Age (mean of adults) | `dvage` | 1.003 [1.001, 1.005] | 0.013 | 1.050 | 16.703 |
+| Self-rated general health | `sf1_good` | 1.026 [0.918, 1.147] | 0.649 | 1.006 | 0.235 |
+| Psychological distress, GHQ-12 (0-36) | `scghq1_dv` | 0.991 [0.987, 0.995] | <0.001 | 0.956 | 4.976 |
+| Financial expectations: worse off (0-1) | `finfut_risk` | 0.818 [0.762, 0.879] | <0.001 | 0.946 | 0.278 |
+| FES Delta (growth-only) | `fes_delta_growth3` | 0.972 [0.962, 0.981] | <0.001 | 0.932 | 2.459 |
+| Bill-payment security | `bill_security` | 0.587 [0.518, 0.664] | <0.001 | 0.931 | 0.134 |
+| Cars | `ncars` | 0.856 [0.824, 0.889] | <0.001 | 0.848 | 1.057 |
+| Highest qualification band | `qfhigh_band` | 0.548 [0.509, 0.590] | <0.001 | 0.802 | 0.368 |
+| Employment-status security | `jbstat_security` | 0.174 [0.154, 0.197] | <0.001 | 0.630 | 0.264 |
+| OECD equivalence scale | `ieqmoecd_dv` | 0.275 [0.255, 0.297] | <0.001 | 0.468 | 0.589 |
+| Has central heating | `heatch` | 1.087 [1.013, 1.167] | 0.020 |  |  |
+| Lone-parent household | `lone_parent` | 1.499 [1.379, 1.629] | <0.001 |  |  |
+| Large family (3+ children) | `large_family` | 1.963 [1.738, 2.218] | <0.001 |  |  |
+| Workless household | `workless_household` | 1.046 [0.957, 1.144] | 0.318 |  |  |
+
+<details><summary><b>Table 4-4. Continuous predictors ranked by |log OR per SD|</b></summary>
+
+| Predictor | SD | OR per SD [95% CI] | log OR per SD | p | Note |
+|---|---|---|---|---|---|
+| OECD equivalence scale | 0.589 | 0.468 [0.447, 0.489] | -0.760 | <0.001 | partly mechanical: outcome uses unequivalised income, so larger households have more income per fuel need |
+| Current financial difficulty (1-5) | 0.934 | 1.595 [1.557, 1.633] | 0.467 | <0.001 |  |
+| Employment-status security | 0.264 | 0.630 [0.609, 0.651] | -0.462 | <0.001 |  |
+| Bedrooms | 1.015 | 1.341 [1.290, 1.393] | 0.293 | <0.001 |  |
+| Highest qualification band | 0.368 | 0.802 [0.780, 0.824] | -0.221 | <0.001 |  |
+| Tenure security | 0.240 | 1.186 [1.147, 1.227] | 0.171 | <0.001 |  |
+| Cars | 1.057 | 0.848 [0.815, 0.883] | -0.164 | <0.001 |  |
+| Rooms | 1.054 | 1.158 [1.112, 1.206] | 0.147 | <0.001 |  |
+| No long-standing illness/disability | 0.412 | 1.097 [1.072, 1.123] | 0.093 | <0.001 |  |
+| Bill-payment security | 0.134 | 0.931 [0.916, 0.947] | -0.071 | <0.001 |  |
+| FES Delta (growth-only) | 2.459 | 0.932 [0.910, 0.954] | -0.071 | <0.001 |  |
+| Financial expectations: worse off (0-1) | 0.278 | 0.946 [0.927, 0.965] | -0.056 | <0.001 |  |
+| Age (mean of adults) | 16.703 | 1.050 [1.010, 1.091] | 0.049 | 0.013 |  |
+| Psychological distress, GHQ-12 (0-36) | 4.976 | 0.956 [0.936, 0.976] | -0.045 | <0.001 |  |
+| Self-rated general health | 0.235 | 1.006 [0.980, 1.033] | 0.006 | 0.649 |  |
+
+</details>
+
+<details><summary><b>Table A-3. All driver-model specifications (OR, main model)</b></summary>
+
+| Predictor (OR, main model) | primary | sens_composite | sens_composite_v1 | sens_lagged_components | sens_lagged_composite | sens_lagged_composite_v1 | sens_month_fe | sens_fes_4term | sens_outcome_s1 | sens_outcome_s2 | sens_no_qualification |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Tenure security | 2.034 | 1.639 | 1.624 | 2.038 | 1.696 | 1.723 | 2.036 | 2.034 | 2.101 | 2.016 | 1.908 |
+| Employment-status security | 0.174 | 0.153 | 0.152 | 0.145 | 0.146 | 0.147 | 0.174 | 0.174 | 0.178 | 0.178 | 0.163 |
+| No long-standing illness/disability | 1.253 | 1.293 | 1.293 | 1.269 | 1.306 | 1.304 | 1.250 | 1.253 | 1.241 | 1.257 | 1.257 |
+| Self-rated general health | 1.026 | 0.980 | 0.959 | 0.937 | 0.899 | 0.881 | 1.029 | 1.026 | 1.046 | 1.027 | 0.906 |
+| Highest qualification band | 0.548 | 0.522 | 0.521 | 0.550 | 0.523 | 0.523 | 0.549 | 0.548 | 0.553 | 0.555 | — |
+| Age (mean of adults) | 1.003 | 0.999 | 0.999 | 1.002 | 0.999 | 1.000 | 1.003 | 1.003 | 1.004 | 1.003 | 1.007 |
+| Has central heating | 1.087 | 1.102 | 1.103 | 1.065 | 1.072 | 1.074 | 1.087 | 1.087 | 1.083 | 1.041 | 1.108 |
+| Bedrooms | 1.335 | 1.315 | 1.315 | 1.300 | 1.296 | 1.296 | 1.335 | 1.335 | 1.305 | 1.327 | 1.320 |
+| Rooms | 1.149 | 1.127 | 1.127 | 1.152 | 1.129 | 1.127 | 1.148 | 1.149 | 1.146 | 1.150 | 1.123 |
+| Cars | 0.856 | 0.821 | 0.818 | 0.848 | 0.816 | 0.818 | 0.855 | 0.856 | 0.866 | 0.857 | 0.836 |
+| Bill-payment security | 0.587 | 0.415 | 0.694 | 0.436 | 0.360 | 0.417 | 0.585 | 0.587 | 0.573 | 0.583 | 0.605 |
+| Lone-parent household | 1.499 | 1.531 | 1.533 | 1.505 | 1.543 | 1.533 | 1.501 | 1.499 | 1.600 | 1.503 | 1.544 |
+| Large family (3+ children) | 1.963 | 1.926 | 1.930 | 2.092 | 2.005 | 2.014 | 1.967 | 1.963 | 1.971 | 1.964 | 1.982 |
+| OECD equivalence scale | 0.275 | 0.280 | 0.280 | 0.261 | 0.270 | 0.269 | 0.275 | 0.275 | 0.284 | 0.276 | 0.281 |
+| Workless household | 1.046 | 0.948 | 0.947 | 0.937 | 0.899 | 0.898 | 1.047 | 1.046 | 1.021 | 1.055 | 1.038 |
+| Current financial difficulty (1-5) | 1.649 | — | — | — | — | — | 1.648 | 1.649 | 1.639 | 1.646 | 1.674 |
+| Psychological distress, GHQ-12 (0-36) | 0.991 | — | — | — | — | — | 0.991 | 0.991 | 0.990 | 0.991 | 0.989 |
+| Financial expectations: worse off (0-1) | 0.818 | — | — | — | — | — | 0.818 | 0.818 | 0.843 | 0.819 | 0.837 |
+| FES Delta (growth-only) | 0.972 | 0.973 | 0.973 | 0.972 | 0.973 | 0.973 | 0.968 | — | 0.974 | 0.972 | 0.973 |
+| Strain composite (no bill arrears) | — | 4.756 | — | — | — | — | — | — | — | — | — |
+| Strain composite, v1 (incl. bill arrears) | — | — | 7.515 | — | — | — | — | — | — | — | — |
+| Current financial difficulty, previous wave | — | — | — | 1.502 | — | — | — | — | — | — | — |
+| GHQ-12 distress, previous wave | — | — | — | 0.989 | — | — | — | — | — | — | — |
+| Financial expectations, previous wave | — | — | — | 0.994 | — | — | — | — | — | — | — |
+| Strain composite, previous wave | — | — | — | — | 4.052 | — | — | — | — | — | — |
+| Strain composite v1, previous wave | — | — | — | — | — | 5.393 | — | — | — | — | — |
+| FES Delta (4-term) | — | — | — | — | — | — | — | 0.970 | — | — | — |
+| n | 221,877 | 233,980 | 234,102 | 183,078 | 194,151 | 194,692 | 221,877 | 221,877 | 249,200 | 227,007 | 248,802 |
+
+The full table (`TA-3_driver_sensitivities.csv`, 1,450 rows) also holds every term of the two-way-clustered and NI-oil models. They are rendered in [`reports/02_findings_report.md`](reports/02_findings_report.md).
+
+</details>
+
+<details><summary><b>Table A-4. Driver-model N, events and pseudo-R²</b></summary>
+
+| Specification | Model | n | Events | PSUs | Interview years | McFadden R² | AIC | Clustering | Converged |
+|---|---|---|---|---|---|---|---|---|---|
+| primary | `main` | 221,877 | 17,209 | 8,801 | 2010-2025 | 0.1531 | 102,581 | psu | True |
+| primary | `main_twoway_cluster` | 221,877 | 17,209 | 8,801 | 2010-2025 | 0.1531 | 102,581 | psu x interview year-month | True |
+| primary | `ni_a_regionFE_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1586 | 101,869 | psu | True |
+| primary | `ni_b_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1626 | 101,388 | psu | True |
+| primary | `ni_b_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1631 | 101,336 | psu | True |
+| primary | `ni_c_ni_x_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1626 | 101,390 | psu | True |
+| primary | `ni_c_ni_x_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1631 | 101,338 | psu | True |
+| primary | `ni_b_oil_observed_only` | 221,611 | 17,176 | 8,800 | 2010-2025 | 0.1625 | 101,295 | psu | True |
+| primary | `ni_b_oil_rural_observed_only` | 221,611 | 17,176 | 8,800 | 2010-2025 | 0.1629 | 101,243 | psu | True |
+| primary | `ni_c_ni_x_oil_observed_only` | 221,611 | 17,176 | 8,800 | 2010-2025 | 0.1625 | 101,297 | psu | True |
+| primary | `ni_c_ni_x_oil_rural_observed_only` | 221,611 | 17,176 | 8,800 | 2010-2025 | 0.1629 | 101,245 | psu | True |
+| sens_composite | `main` | 233,980 | 19,022 | 9,224 | 2010-2025 | 0.1408 | 113,425 | psu | True |
+| sens_composite | `ni_a_regionFE_filled` | 233,873 | 19,008 | 9,223 | 2010-2025 | 0.1459 | 112,697 | psu | True |
+| sens_composite | `ni_b_oil_filled` | 233,873 | 19,008 | 9,223 | 2010-2025 | 0.1499 | 112,171 | psu | True |
+| sens_composite | `ni_b_oil_rural_filled` | 233,873 | 19,008 | 9,223 | 2010-2025 | 0.1503 | 112,120 | psu | True |
+| sens_composite | `ni_c_ni_x_oil_filled` | 233,873 | 19,008 | 9,223 | 2010-2025 | 0.1499 | 112,173 | psu | True |
+| sens_composite | `ni_c_ni_x_oil_rural_filled` | 233,873 | 19,008 | 9,223 | 2010-2025 | 0.1503 | 112,122 | psu | True |
+| sens_composite_v1 | `main` | 234,102 | 19,055 | 9,233 | 2010-2025 | 0.1403 | 113,637 | psu | True |
+| sens_composite_v1 | `ni_a_regionFE_filled` | 233,995 | 19,041 | 9,232 | 2010-2025 | 0.1455 | 112,909 | psu | True |
+| sens_composite_v1 | `ni_b_oil_filled` | 233,995 | 19,041 | 9,232 | 2010-2025 | 0.1495 | 112,381 | psu | True |
+| sens_composite_v1 | `ni_b_oil_rural_filled` | 233,995 | 19,041 | 9,232 | 2010-2025 | 0.1499 | 112,331 | psu | True |
+| sens_composite_v1 | `ni_c_ni_x_oil_filled` | 233,995 | 19,041 | 9,232 | 2010-2025 | 0.1495 | 112,383 | psu | True |
+| sens_composite_v1 | `ni_c_ni_x_oil_rural_filled` | 233,995 | 19,041 | 9,232 | 2010-2025 | 0.1499 | 112,333 | psu | True |
+| sens_lagged_components | `main` | 183,078 | 13,518 | 8,130 | 2010-2025 | 0.1456 | 82,494 | psu | True |
+| sens_lagged_components | `ni_a_regionFE_filled` | 183,013 | 13,507 | 8,130 | 2010-2025 | 0.1512 | 81,913 | psu | True |
+| sens_lagged_components | `ni_b_oil_filled` | 183,013 | 13,507 | 8,130 | 2010-2025 | 0.1559 | 81,465 | psu | True |
+| sens_lagged_components | `ni_b_oil_rural_filled` | 183,013 | 13,507 | 8,130 | 2010-2025 | 0.1565 | 81,406 | psu | True |
+| sens_lagged_components | `ni_c_ni_x_oil_filled` | 183,013 | 13,507 | 8,130 | 2010-2025 | 0.1559 | 81,467 | psu | True |
+| sens_lagged_components | `ni_c_ni_x_oil_rural_filled` | 183,013 | 13,507 | 8,130 | 2010-2025 | 0.1565 | 81,407 | psu | True |
+| sens_lagged_composite | `main` | 194,151 | 15,018 | 8,407 | 2010-2025 | 0.1380 | 91,190 | psu | True |
+| sens_lagged_composite | `ni_a_regionFE_filled` | 194,079 | 15,006 | 8,406 | 2010-2025 | 0.1438 | 90,540 | psu | True |
+| sens_lagged_composite | `ni_b_oil_filled` | 194,079 | 15,006 | 8,406 | 2010-2025 | 0.1484 | 90,060 | psu | True |
+| sens_lagged_composite | `ni_b_oil_rural_filled` | 194,079 | 15,006 | 8,406 | 2010-2025 | 0.1490 | 90,001 | psu | True |
+| sens_lagged_composite | `ni_c_ni_x_oil_filled` | 194,079 | 15,006 | 8,406 | 2010-2025 | 0.1484 | 90,062 | psu | True |
+| sens_lagged_composite | `ni_c_ni_x_oil_rural_filled` | 194,079 | 15,006 | 8,406 | 2010-2025 | 0.1490 | 90,003 | psu | True |
+| sens_lagged_composite_v1 | `main` | 194,692 | 15,067 | 8,416 | 2010-2025 | 0.1379 | 91,486 | psu | True |
+| sens_lagged_composite_v1 | `ni_a_regionFE_filled` | 194,620 | 15,055 | 8,415 | 2010-2025 | 0.1438 | 90,824 | psu | True |
+| sens_lagged_composite_v1 | `ni_b_oil_filled` | 194,620 | 15,055 | 8,415 | 2010-2025 | 0.1483 | 90,346 | psu | True |
+| sens_lagged_composite_v1 | `ni_b_oil_rural_filled` | 194,620 | 15,055 | 8,415 | 2010-2025 | 0.1489 | 90,287 | psu | True |
+| sens_lagged_composite_v1 | `ni_c_ni_x_oil_filled` | 194,620 | 15,055 | 8,415 | 2010-2025 | 0.1483 | 90,348 | psu | True |
+| sens_lagged_composite_v1 | `ni_c_ni_x_oil_rural_filled` | 194,620 | 15,055 | 8,415 | 2010-2025 | 0.1489 | 90,289 | psu | True |
+| sens_month_fe | `main` | 221,877 | 17,209 | 8,801 | 2010-2025 | 0.1538 | 102,519 | psu | True |
+| sens_month_fe | `ni_a_regionFE_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1593 | 101,807 | psu | True |
+| sens_month_fe | `ni_b_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1633 | 101,328 | psu | True |
+| sens_month_fe | `ni_b_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1637 | 101,278 | psu | True |
+| sens_month_fe | `ni_c_ni_x_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1633 | 101,330 | psu | True |
+| sens_month_fe | `ni_c_ni_x_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1637 | 101,280 | psu | True |
+| sens_fes_4term | `main` | 221,877 | 17,209 | 8,801 | 2010-2025 | 0.1531 | 102,576 | psu | True |
+| sens_fes_4term | `ni_a_regionFE_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1587 | 101,864 | psu | True |
+| sens_fes_4term | `ni_b_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1627 | 101,384 | psu | True |
+| sens_fes_4term | `ni_b_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1631 | 101,332 | psu | True |
+| sens_fes_4term | `ni_c_ni_x_oil_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1627 | 101,385 | psu | True |
+| sens_fes_4term | `ni_c_ni_x_oil_rural_filled` | 221,778 | 17,197 | 8,801 | 2010-2025 | 0.1631 | 101,334 | psu | True |
+| sens_outcome_s1 | `main` | 249,200 | 17,320 | 8,950 | 2010-2025 | 0.1480 | 107,228 | psu | True |
+| sens_outcome_s1 | `ni_a_regionFE_filled` | 249,076 | 17,308 | 8,950 | 2010-2025 | 0.1544 | 106,370 | psu | True |
+| sens_outcome_s1 | `ni_b_oil_filled` | 249,076 | 17,308 | 8,950 | 2010-2025 | 0.1588 | 105,829 | psu | True |
+| sens_outcome_s1 | `ni_b_oil_rural_filled` | 249,076 | 17,308 | 8,950 | 2010-2025 | 0.1592 | 105,777 | psu | True |
+| sens_outcome_s1 | `ni_c_ni_x_oil_filled` | 249,076 | 17,308 | 8,950 | 2010-2025 | 0.1588 | 105,829 | psu | True |
+| sens_outcome_s1 | `ni_c_ni_x_oil_rural_filled` | 249,076 | 17,308 | 8,950 | 2010-2025 | 0.1592 | 105,779 | psu | True |
+| sens_outcome_s2 | `main` | 227,007 | 17,406 | 8,868 | 2010-2025 | 0.1521 | 104,233 | psu | True |
+| sens_outcome_s2 | `ni_a_regionFE_filled` | 226,907 | 17,394 | 8,868 | 2010-2025 | 0.1563 | 103,673 | psu | True |
+| sens_outcome_s2 | `ni_b_oil_filled` | 226,907 | 17,394 | 8,868 | 2010-2025 | 0.1600 | 103,223 | psu | True |
+| sens_outcome_s2 | `ni_b_oil_rural_filled` | 226,907 | 17,394 | 8,868 | 2010-2025 | 0.1604 | 103,172 | psu | True |
+| sens_outcome_s2 | `ni_c_ni_x_oil_filled` | 226,907 | 17,394 | 8,868 | 2010-2025 | 0.1600 | 103,225 | psu | True |
+| sens_outcome_s2 | `ni_c_ni_x_oil_rural_filled` | 226,907 | 17,394 | 8,868 | 2010-2025 | 0.1604 | 103,174 | psu | True |
+| sens_no_qualification | `main` | 248,802 | 20,416 | 9,291 | 2010-2025 | 0.1484 | 120,317 | psu | True |
+| sens_no_qualification | `ni_a_regionFE_filled` | 248,687 | 20,400 | 9,291 | 2010-2025 | 0.1571 | 119,029 | psu | True |
+| sens_no_qualification | `ni_b_oil_filled` | 248,687 | 20,400 | 9,291 | 2010-2025 | 0.1614 | 118,417 | psu | True |
+| sens_no_qualification | `ni_b_oil_rural_filled` | 248,687 | 20,400 | 9,291 | 2010-2025 | 0.1622 | 118,315 | psu | True |
+| sens_no_qualification | `ni_c_ni_x_oil_filled` | 248,687 | 20,400 | 9,291 | 2010-2025 | 0.1615 | 118,415 | psu | True |
+| sens_no_qualification | `ni_c_ni_x_oil_rural_filled` | 248,687 | 20,400 | 9,291 | 2010-2025 | 0.1622 | 118,315 | psu | True |
+
+</details>
+
+### Stage 4: resources and H1 (RQ2)
+
+<table>
+<tr>
+<td align="center" width="100%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-12_h1_delta_slopes.png" width="560"><br><sub>Figure 4-12. H1: predicted FES Delta slopes at resource percentiles (95% CIs)</sub></td>
+</tr>
+</table>
+
+**Table 4-5. H1 verdicts** (OLS of the fuel-to-income ratio; year FE; PSU-clustered; n = 269,372). The coefficients, the slopes and the buffering bound are in the collapsed parts below.
+
+| Model | R × Delta interaction | p | Verdict | Governs H1 | n |
+|---|---|---|---|---|---|
+| primary | -0.0000338 | 0.163 | not supported | True | 269,372 |
+| sens_R_with_energy | 0.0000180 | 0.400 | not supported | False | 269,372 |
+| sens_logit_binary | -0.0035192 | <0.001 | contrary to COR | False | 269,372 |
+| sens_fes_4term | -0.0000070 | 0.755 | not supported | False | 269,372 |
+
+<details><summary><b>Table 4-5, continued: coefficients, Delta slopes, buffering bound, logit footnote</b></summary>
+
+| Model | Estimator | Outcome | Term | Coefficient [95% CI] | SE | p | R² / pseudo-R² | PSUs |
+|---|---|---|---|---|---|---|---|---|
+| primary | ols | fuel_to_income_ratio | `R_primary` | -0.004678 [-0.004851, -0.004506] | 0.000088 | <0.001 | 0.0446 | 9,775 |
+| primary | ols | fuel_to_income_ratio | `fes_delta_growth3` | -0.000545 [-0.000693, -0.000398] | 0.000075 | <0.001 | 0.0446 | 9,775 |
+| primary | ols | fuel_to_income_ratio | `R_primary x fes_delta_growth3` | -0.000034 [-0.000081, 0.000014] | 0.000024 | 0.163 | 0.0446 | 9,775 |
+| sens_R_with_energy | ols | fuel_to_income_ratio | `R_with_energy` | -0.005366 [-0.005505, -0.005227] | 0.000071 | <0.001 | 0.0810 | 9,775 |
+| sens_R_with_energy | ols | fuel_to_income_ratio | `fes_delta_growth3` | -0.000547 [-0.000696, -0.000397] | 0.000076 | <0.001 | 0.0810 | 9,775 |
+| sens_R_with_energy | ols | fuel_to_income_ratio | `R_with_energy x fes_delta_growth3` | 0.000018 [-0.000024, 0.000060] | 0.000021 | 0.400 | 0.0810 | 9,775 |
+| sens_logit_binary | logit | high_fuel_vulnerable | `R_primary` | -0.240102 [-0.249174, -0.231029] | 0.004629 | <0.001 | 0.0511 | 9,775 |
+| sens_logit_binary | logit | high_fuel_vulnerable | `fes_delta_growth3` | -0.031140 [-0.039455, -0.022825] | 0.004242 | <0.001 | 0.0511 | 9,775 |
+| sens_logit_binary | logit | high_fuel_vulnerable | `R_primary x fes_delta_growth3` | -0.003519 [-0.005608, -0.001430] | 0.001066 | <0.001 | 0.0511 | 9,775 |
+| sens_fes_4term | ols | fuel_to_income_ratio | `R_primary` | -0.004666 [-0.004840, -0.004492] | 0.000089 | <0.001 | 0.0446 | 9,775 |
+| sens_fes_4term | ols | fuel_to_income_ratio | `fes_delta` | -0.000564 [-0.000707, -0.000421] | 0.000073 | <0.001 | 0.0446 | 9,775 |
+| sens_fes_4term | ols | fuel_to_income_ratio | `R_primary x fes_delta` | -0.000007 [-0.000051, 0.000037] | 0.000022 | 0.755 | 0.0446 | 9,775 |
+
+| Model | R percentile | R value | Delta slope [95% CI] | Scale |
+|---|---|---|---|---|
+| primary | p10 | -2.959 | -0.000446 [-0.000672, -0.000219] | fuel-to-income ratio per unit Delta |
+| primary | p50 | 0.329 | -0.000557 [-0.000701, -0.000412] | fuel-to-income ratio per unit Delta |
+| primary | p90 | 2.506 | -0.000630 [-0.000795, -0.000465] | fuel-to-income ratio per unit Delta |
+| sens_R_with_energy | p10 | -3.614 | -0.000612 [-0.000876, -0.000347] | fuel-to-income ratio per unit Delta |
+| sens_R_with_energy | p50 | 0.344 | -0.000540 [-0.000683, -0.000398] | fuel-to-income ratio per unit Delta |
+| sens_R_with_energy | p90 | 3.366 | -0.000486 [-0.000626, -0.000346] | fuel-to-income ratio per unit Delta |
+| sens_logit_binary | p10 | -2.959 | -0.020728 [-0.030373, -0.011083] | log-odds per unit Delta |
+| sens_logit_binary | p50 | 0.329 | -0.032299 [-0.040738, -0.023861] | log-odds per unit Delta |
+| sens_logit_binary | p90 | 2.506 | -0.039960 [-0.050385, -0.029535] | log-odds per unit Delta |
+| sens_fes_4term | p10 | -2.959 | -0.000543 [-0.000758, -0.000328] | fuel-to-income ratio per unit Delta |
+| sens_fes_4term | p50 | 0.329 | -0.000566 [-0.000706, -0.000426] | fuel-to-income ratio per unit Delta |
+| sens_fes_4term | p90 | 2.506 | -0.000581 [-0.000740, -0.000423] | fuel-to-income ratio per unit Delta |
+
+| Interaction value | b (R × Delta) | R p10 → p90 | SD of Delta | Slope change p10→p90 per SD Delta (ratio units) | Same, pp of income | Slope at p10 per SD Delta (pp) | Change as % of p10 slope (+ = flatter, i.e. buffering) |
+|---|---|---|---|---|---|---|---|
+| point estimate | -0.0000338 | -2.96 → 2.51 | 2.375 | -0.000438 | -0.044 | -0.106 | -41% |
+| CI lower | -0.0000812 | -2.96 → 2.51 | 2.375 | -0.001053 | -0.105 | -0.106 | -100% |
+| CI upper (max buffering) | 0.0000136 | -2.96 → 2.51 | 2.375 | 0.000177 | 0.018 | -0.106 | +17% |
+
+Logit sensitivity on the probability scale:
+
+| R percentile | R value | Delta effect, pp per SD [95% CI] |
 |---|---|---|
-| `financial_strain_score` | 4.98 | ↑ risk |
-| `lone_parent` | 1.53 | ↑ risk |
-| `workless_household` | 1.43 | ↑ risk |
-| `object_score` | 1.42 | ↑ risk (counter-intuitive — see below) |
-| `fes_magnitude` (the forecast signal itself) | 1.07 | ↑ risk |
-| `dvage` | 1.01 | ~neutral |
-| `large_family` | 0.96 (n.s.) | ~neutral |
-| `personal_score` | 0.93 | ↓ risk |
-| `heatch` | 0.92 | ↓ risk |
-| `condition_score` | 0.89 | ↓ risk |
-| `energy_score` | 0.31 | ↓ risk |
+| p10 | -2.959 | -0.61 [-0.89, -0.33] |
+| p50 | 0.329 | -0.52 [-0.65, -0.38] |
+| p90 | 2.506 | -0.41 [-0.51, -0.30] |
 
-Three of the four COR-SEM factors (`personal_score`, `condition_score`, `energy_score`) behave exactly as "more baseline resource → lower future risk" predicts, with `energy_score` (essentially income) dominant. `object_score` is the one consistent exception — households with more rooms/cars/property value are predicted *more*, not less, likely to become vulnerable — plausibly because larger, older, owned housing costs more to heat (the same pattern behind the tenure reversal in External Validation below), not a data error. This means "baseline resources protect households" is well-supported for 3 of 4 dimensions, not a uniform story across all four — see the FES/COR summary below.
+</details>
 
-**Application.** Refit on all 14 known transitions, then scored every wave-o household (the most recent wave) using their own profile + their own already-forecast `fes_magnitude` — genuinely unobserved. **19,140 of 19,586** wave-o households scored (446 missing ≥1 feature); mean predicted probability 0.071. Each prediction targets that household's *own* next interview year (2024 or 2025, depending on exactly when within wave o they were interviewed) and — since `fes_magnitude` already matches interview month to the same calendar month one year ahead — their own target month too, giving a month-level view of when risk peaks.
+<details><summary><b>Table A-9. CFA fit (failed the pre-registered criteria)</b></summary>
+
+| n (complete case) | χ² | df | CFI | TLI | RMSEA | SRMR | Pre-registered criteria |
+|---|---|---|---|---|---|---|---|
+| 143,770 | 51,361.8 | 59 | 0.783 | 0.714 | 0.078 | 0.066 | CFI ≥ 0.90, RMSEA ≤ 0.08, SRMR ≤ 0.08, no Heywood case, all std. loadings ≥ 0.30 → **failed** |
+
+</details>
+
+<details><summary><b>Table A-10. CFA loadings</b></summary>
+
+| Factor | Item | Label | Estimate | Std. estimate | SE | p |
+|---|---|---|---|---|---|---|
+| OBJECT | `hsrooms` | Rooms | 1.000 | 0.544 | fixed (marker) | — |
+| OBJECT | `hsbeds` | Bedrooms | 1.230 | 0.669 | 0.0087 | <0.001 |
+| OBJECT | `ncars` | Cars | 0.736 | 0.400 | 0.0068 | <0.001 |
+| OBJECT | `carval` | Car value (log) | 0.598 | 0.325 | 0.0065 | <0.001 |
+| OBJECT | `hsval` | House value (log) | 0.938 | 0.510 | 0.0074 | <0.001 |
+| CONDITION | `tenure_security` | Tenure security | 1.000 | 0.512 | fixed (marker) | — |
+| CONDITION | `jbstat_security` | Employment-status security | -1.450 | -0.743 | 0.0141 | <0.001 |
+| CONDITION | `bill_security` | Bill-payment security | -0.058 | -0.030 | 0.0063 | <0.001 |
+| PERSONAL | `sf1_good` | Self-rated general health | 1.000 | 0.720 | fixed (marker) | — |
+| PERSONAL | `health_good` | No long-standing illness/disability | 0.903 | 0.651 | 0.0075 | <0.001 |
+| PERSONAL | `qfhigh_band` | Highest qualification band | 0.358 | 0.258 | 0.0048 | <0.001 |
+| ENERGY | `fihhmnnet1_dv` | Net household income (log) | 1.000 | 1.000 | fixed (marker) | — |
+| ENERGY | `fiyrinvinc_dv` | Investment income (log) | 0.141 | 0.141 | 0.0058 | <0.001 |
+
+</details>
+
+### Stage 5: JRF comparison and Northern Ireland (RQ4; H4)
 
 <table>
 <tr>
-<td align="center" width="50%"><img src="outputs/ukhls_forward_prediction/figures/stage5_validation_roc.png" width="380"><br><sub>Walk-forward validation ROC (held-out m→n/n→o, AUC=0.760)</sub></td>
-<td align="center" width="50%"><img src="outputs/ukhls_forward_prediction/figures/stage5_forward_prediction_map.png" width="380"><br><sub>Predicted forward vulnerability by UK region</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-13_jrf_regions.png" width="400"><br><sub>Figure 4-13. Regional fuel vulnerability vs JRF income poverty (time-matched)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-14_jrf_other_dims.png" width="400"><br><sub>Figure 4-14. Other JRF dimensions, time-matched, with 95% CIs</sub></td>
 </tr>
 <tr>
-<td align="center" width="50%" colspan="2"><img src="outputs/ukhls_forward_prediction/figures/stage5_forward_prediction_by_month.png" width="500"><br><sub>Which target month carries the highest predicted risk</sub></td>
+<td align="center" width="100%" colspan="2"><img src="outputs_v2/thesis_assets_v2/figures/fig4-15_ni_oil.png" width="560"><br><sub>Figure 4-15. Northern Ireland: rates by heating fuel and the NI gap across models</sub></td>
+</tr>
+</table>
+
+**Table 4-7. NI-oil sequence: average marginal effects (percentage points).**
+
+| Model | n | Contrast | AME, pp [95% CI] | SE (pp) |
+|---|---|---|---|---|
+| `ni_a_regionFE_filled` | 221,778 | NI vs South East | 6.82 [5.76, 7.88] | 0.54 |
+| `ni_b_oil_filled` | 221,778 | NI vs South East | 2.39 [1.40, 3.37] | 0.50 |
+| `ni_b_oil_filled` | 221,778 | oil vs no oil | 5.84 [4.88, 6.79] | 0.49 |
+| `ni_b_oil_rural_filled` | 221,778 | NI vs South East | 2.51 [1.52, 3.51] | 0.51 |
+| `ni_b_oil_rural_filled` | 221,778 | oil vs no oil | 4.93 [3.96, 5.89] | 0.49 |
+| `ni_c_ni_x_oil_filled` | 221,778 | NI vs South East | 2.63 [1.22, 4.03] | 0.72 |
+| `ni_c_ni_x_oil_filled` | 221,778 | oil vs no oil | 5.90 [4.89, 6.92] | 0.52 |
+| `ni_c_ni_x_oil_rural_filled` | 221,778 | NI vs South East | 2.59 [1.19, 3.99] | 0.72 |
+| `ni_c_ni_x_oil_rural_filled` | 221,778 | oil vs no oil | 4.95 [3.92, 5.97] | 0.52 |
+| `ni_b_oil_observed_only` | 221,611 | NI vs South East | 2.39 [1.40, 3.38] | 0.50 |
+| `ni_b_oil_observed_only` | 221,611 | oil vs no oil | 5.83 [4.87, 6.79] | 0.49 |
+| `ni_b_oil_rural_observed_only` | 221,611 | NI vs South East | 2.52 [1.53, 3.52] | 0.51 |
+| `ni_b_oil_rural_observed_only` | 221,611 | oil vs no oil | 4.92 [3.95, 5.88] | 0.49 |
+| `ni_c_ni_x_oil_observed_only` | 221,611 | NI vs South East | 2.65 [1.23, 4.06] | 0.72 |
+| `ni_c_ni_x_oil_observed_only` | 221,611 | oil vs no oil | 5.90 [4.88, 6.92] | 0.52 |
+| `ni_c_ni_x_oil_rural_observed_only` | 221,611 | NI vs South East | 2.62 [1.20, 4.03] | 0.72 |
+| `ni_c_ni_x_oil_rural_observed_only` | 221,611 | oil vs no oil | 4.94 [3.92, 5.97] | 0.52 |
+
+<details><summary><b>Table 4-6. JRF comparison with CIs, and agreement</b></summary>
+
+| Dimension | Window | Category | JRF % (rank) | n | Fuel-vulnerable % [95% CI] | Rank [95% CI] | P(rank 1) |
+|---|---|---|---|---|---|---|---|
+| region | primary (2021-04 to 2023-03) | North East | 21 (5) | 1,047 | 8.8 [6.5, 11.3] | 7 [3–12] | 0.001 |
+| region | primary (2021-04 to 2023-03) | North West | 25 (2) | 2,757 | 7.9 [6.6, 9.4] | 9 [6–12] | 0.000 |
+| region | primary (2021-04 to 2023-03) | Yorkshire and the Humber | 23 (4) | 2,367 | 9.5 [7.7, 11.3] | 6 [3–10] | 0.000 |
+| region | primary (2021-04 to 2023-03) | East Midlands | 20 (8) | 1,996 | 10.5 [8.6, 12.5] | 5 [2–8] | 0.004 |
+| region | primary (2021-04 to 2023-03) | West Midlands | 27 (1) | 2,203 | 10.6 [8.6, 12.6] | 4 [2–8] | 0.004 |
+| region | primary (2021-04 to 2023-03) | East of England | 18 (11) | 2,377 | 8.6 [7.2, 10.1] | 8 [5–11] | 0.000 |
+| region | primary (2021-04 to 2023-03) | London | 24 (3) | 2,676 | 6.7 [5.0, 8.7] | 12 [8–12] | 0.000 |
+| region | primary (2021-04 to 2023-03) | South East | 19 (9) | 3,433 | 7.4 [6.2, 8.7] | 11 [7–12] | 0.000 |
+| region | primary (2021-04 to 2023-03) | South West | 19 (9) | 2,343 | 7.8 [6.4, 9.3] | 10 [6–12] | 0.000 |
+| region | primary (2021-04 to 2023-03) | Wales | 21 (5) | 1,691 | 11.4 [9.4, 13.6] | 2 [1–6] | 0.027 |
+| region | primary (2021-04 to 2023-03) | Scotland | 21 (5) | 2,677 | 11.2 [9.4, 13.2] | 3 [2–6] | 0.018 |
+| region | primary (2021-04 to 2023-03) | Northern Ireland | 17 (12) | 1,562 | 14.4 [12.1, 17.0] | 1 [1–2] | 0.946 |
+| region | sensitivity (2020-04 to 2023-03) | North East | 21 (5) | 1,607 | 8.1 [6.3, 10.1] | 7 [3–11] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | North West | 25 (2) | 4,189 | 7.1 [6.1, 8.2] | 9 [6–12] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | Yorkshire and the Humber | 23 (4) | 3,614 | 8.4 [7.0, 9.8] | 6 [3–9] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | East Midlands | 20 (8) | 3,094 | 9.2 [7.6, 11.0] | 5 [2–8] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | West Midlands | 27 (1) | 3,438 | 9.4 [7.9, 10.8] | 4 [2–7] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | East of England | 18 (11) | 3,635 | 7.7 [6.4, 9.1] | 8 [4–11] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | London | 24 (3) | 4,311 | 6.3 [4.8, 8.0] | 12 [7–12] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | South East | 19 (9) | 5,235 | 6.5 [5.6, 7.5] | 11 [8–12] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | South West | 19 (9) | 3,596 | 7.0 [5.9, 8.2] | 10 [6–12] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | Wales | 21 (5) | 2,643 | 9.4 [7.9, 11.1] | 3 [2–7] | 0.000 |
+| region | sensitivity (2020-04 to 2023-03) | Scotland | 21 (5) | 4,017 | 10.3 [8.9, 11.8] | 2 [2–5] | 0.002 |
+| region | sensitivity (2020-04 to 2023-03) | Northern Ireland | 17 (12) | 2,305 | 14.2 [12.1, 16.4] | 1 [1–1] | 0.999 |
+| ethnicity | primary (2021-04 to 2023-03) | White | 19 (6) | 21,646 | 9.3 [8.7, 9.8] | 5 [3–6] | 0.000 |
+| ethnicity | primary (2021-04 to 2023-03) | Pakistani | 49 (2) | 459 | 12.5 [8.2, 17.4] | 2 [1–5] | 0.108 |
+| ethnicity | primary (2021-04 to 2023-03) | Bangladeshi | 56 (1) | 223 | 11.3 [4.6, 18.6] | 3 [1–6] | 0.080 |
+| ethnicity | primary (2021-04 to 2023-03) | Black African | 40 (3) | 380 | 11.1 [7.2, 15.7] | 4 [1–6] | 0.034 |
+| ethnicity | primary (2021-04 to 2023-03) | Black Caribbean | 30 (5) | 445 | 17.8 [10.2, 26.6] | 1 [1–4] | 0.770 |
+| ethnicity | primary (2021-04 to 2023-03) | Any other Asian background | 34 (4) | 158 | 7.8 [3.0, 14.0] | 6 [2–6] | 0.009 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | White | 19 (6) | 33,189 | 8.2 [7.8, 8.7] | 5 [3–6] | 0.000 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | Pakistani | 49 (2) | 733 | 11.1 [7.5, 15.0] | 2 [1–5] | 0.084 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | Bangladeshi | 56 (1) | 362 | 9.0 [4.5, 14.1] | 4 [1–6] | 0.029 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | Black African | 40 (3) | 627 | 10.2 [7.1, 13.8] | 3 [1–5] | 0.036 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | Black Caribbean | 30 (5) | 743 | 17.0 [10.2, 25.2] | 1 [1–3] | 0.848 |
+| ethnicity | sensitivity (2020-04 to 2023-03) | Any other Asian background | 34 (4) | 261 | 6.3 [2.7, 10.6] | 6 [3–6] | 0.002 |
+| tenure | primary (2022-04 to 2023-03) | Owned outright | 14 (3) | 5,753 | 13.8 [12.7, 15.0] | 2 [1–2] | 0.348 |
+| tenure | primary (2022-04 to 2023-03) | Buying with mortgage | 10 (4) | 4,602 | 5.9 [5.1, 6.8] | 4 [4–4] | 0.000 |
+| tenure | primary (2022-04 to 2023-03) | Social renting | 44 (1) | 2,035 | 14.3 [12.2, 16.5] | 1 [1–2] | 0.648 |
+| tenure | primary (2022-04 to 2023-03) | Private renting | 35 (2) | 1,667 | 11.4 [9.4, 13.5] | 3 [2–3] | 0.004 |
+| disability | primary (2022-04 to 2023-03) | No disabled adult | 19 (2) | 9,071 | 9.5 [8.8, 10.4] | 2 [2–2] | 0.000 |
+| disability | primary (2022-04 to 2023-03) | Contains disabled adult | 29 (1) | 4,797 | 14.3 [13.0, 15.6] | 1 [1–1] | 1.000 |
+| family_type | primary (2022-04 to 2023-03) | Lone parent | 44 (1) | 584 | 20.8 [16.8, 25.1] | 1 [1–1] | 1.000 |
+| family_type | primary (2022-04 to 2023-03) | Couple with children | 25 (2) | 2,317 | 7.8 [6.4, 9.4] | 2 [2–2] | 0.000 |
+| work_status | primary (2022-04 to 2023-03) | Not in work | 54 (1) | 1,656 | 22.5 [19.6, 25.3] | 1 [1–1] | 1.000 |
+| work_status | primary (2022-04 to 2023-03) | In work | 15 (2) | 8,178 | 7.0 [6.3, 7.7] | 2 [2–2] | 0.000 |
+
+| Dimension | Window | Subset | Categories | Spearman ρ | Pearson r | Two groups, same direction |
+|---|---|---|---|---|---|---|
+| region | primary | all | 12 | -0.10 | -0.26 |  |
+| region | primary | excl. Northern Ireland | 11 | 0.18 | 0.08 |  |
+| region | sensitivity | all | 12 | -0.10 | -0.31 |  |
+| region | sensitivity | excl. Northern Ireland | 11 | 0.18 | 0.11 |  |
+| ethnicity | primary | all | 6 | 0.26 | 0.05 |  |
+| ethnicity | sensitivity | all | 6 | 0.14 | -0.06 |  |
+| tenure | primary | all | 4 | 0.80 | 0.58 |  |
+| disability | primary | all | 2 |  |  | True |
+| family_type | primary | all | 2 |  |  | True |
+| work_status | primary | all | 2 |  |  | True |
+
+</details>
+
+<details><summary><b>Table A-12. Regional rates in the JRF windows, with rank CIs</b></summary>
+
+| Window | Outcome | Region | n | PSUs | Weighted % [95% CI] | Rank [95% CI] | P(rank 1) |
+|---|---|---|---|---|---|---|---|
+| primary (2021-04 to 2023-03) | primary | North East | 1,047 | 198 | 8.8 [6.5, 11.3] | 7 [3–12] | 0.001 |
+| primary (2021-04 to 2023-03) | primary | North West | 2,757 | 607 | 7.9 [6.6, 9.4] | 9 [6–12] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | Yorkshire and the Humber | 2,367 | 478 | 9.5 [7.7, 11.3] | 6 [3–10] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | East Midlands | 1,996 | 426 | 10.5 [8.6, 12.5] | 5 [2–8] | 0.004 |
+| primary (2021-04 to 2023-03) | primary | West Midlands | 2,203 | 526 | 10.6 [8.6, 12.6] | 4 [2–8] | 0.004 |
+| primary (2021-04 to 2023-03) | primary | East of England | 2,377 | 564 | 8.6 [7.2, 10.1] | 8 [5–11] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | London | 2,676 | 1,065 | 6.7 [5.0, 8.7] | 12 [8–12] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | South East | 3,433 | 759 | 7.4 [6.2, 8.7] | 11 [7–12] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | South West | 2,343 | 501 | 7.8 [6.4, 9.3] | 10 [6–12] | 0.000 |
+| primary (2021-04 to 2023-03) | primary | Wales | 1,691 | 316 | 11.4 [9.4, 13.6] | 2 [1–6] | 0.027 |
+| primary (2021-04 to 2023-03) | primary | Scotland | 2,677 | 457 | 11.2 [9.4, 13.2] | 3 [2–6] | 0.018 |
+| primary (2021-04 to 2023-03) | primary | Northern Ireland | 1,562 | 890 | 14.4 [12.1, 17.0] | 1 [1–2] | 0.946 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | North East | 1,264 | 216 | 7.5 [5.4, 9.6] | 7 [3–11] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | North West | 3,388 | 636 | 6.5 [5.4, 7.7] | 9 [6–12] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | Yorkshire and the Humber | 2,919 | 508 | 7.8 [6.4, 9.4] | 6 [3–10] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | East Midlands | 2,421 | 450 | 8.8 [7.1, 10.5] | 4 [2–8] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | West Midlands | 2,744 | 568 | 8.7 [7.1, 10.3] | 5 [2–8] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | East of England | 2,945 | 611 | 7.0 [5.8, 8.2] | 8 [5–11] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | London | 3,449 | 1,200 | 5.2 [3.8, 6.7] | 12 [9–12] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | South East | 4,200 | 802 | 6.0 [5.0, 7.1] | 11 [7–12] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | South West | 2,856 | 531 | 6.5 [5.3, 7.7] | 10 [6–12] | 0.000 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | Wales | 2,085 | 328 | 9.2 [7.5, 10.9] | 3 [2–7] | 0.003 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | Scotland | 3,159 | 468 | 9.5 [8.0, 11.2] | 2 [2–6] | 0.004 |
+| primary (2021-04 to 2023-03) | s1_lower_bound | Northern Ireland | 1,745 | 953 | 13.2 [11.1, 15.5] | 1 [1–1] | 0.993 |
+| sensitivity (2020-04 to 2023-03) | primary | North East | 1,607 | 212 | 8.1 [6.3, 10.1] | 7 [3–11] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | North West | 4,189 | 640 | 7.1 [6.1, 8.2] | 9 [6–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | Yorkshire and the Humber | 3,614 | 505 | 8.4 [7.0, 9.8] | 6 [3–9] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | East Midlands | 3,094 | 452 | 9.2 [7.6, 11.0] | 5 [2–8] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | West Midlands | 3,438 | 574 | 9.4 [7.9, 10.8] | 4 [2–7] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | East of England | 3,635 | 604 | 7.7 [6.4, 9.1] | 8 [4–11] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | London | 4,311 | 1,209 | 6.3 [4.8, 8.0] | 12 [7–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | South East | 5,235 | 805 | 6.5 [5.6, 7.5] | 11 [8–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | South West | 3,596 | 533 | 7.0 [5.9, 8.2] | 10 [6–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | Wales | 2,643 | 330 | 9.4 [7.9, 11.1] | 3 [2–7] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | primary | Scotland | 4,017 | 469 | 10.3 [8.9, 11.8] | 2 [2–5] | 0.002 |
+| sensitivity (2020-04 to 2023-03) | primary | Northern Ireland | 2,305 | 990 | 14.2 [12.1, 16.4] | 1 [1–1] | 0.999 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | North East | 1,909 | 228 | 7.1 [5.5, 8.8] | 6 [2–10] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | North West | 5,121 | 663 | 5.9 [4.9, 6.8] | 10 [7–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | Yorkshire and the Humber | 4,392 | 530 | 7.0 [5.9, 8.3] | 7 [3–9] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | East Midlands | 3,692 | 473 | 7.8 [6.5, 9.4] | 3 [2–8] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | West Midlands | 4,191 | 605 | 7.8 [6.5, 9.0] | 4 [2–7] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | East of England | 4,464 | 643 | 6.3 [5.2, 7.4] | 8 [5–11] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | London | 5,494 | 1,325 | 5.0 [3.8, 6.4] | 12 [8–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | South East | 6,347 | 845 | 5.3 [4.5, 6.1] | 11 [8–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | South West | 4,309 | 558 | 5.9 [5.0, 6.9] | 9 [6–12] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | Wales | 3,210 | 338 | 7.7 [6.5, 9.1] | 5 [2–8] | 0.000 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | Scotland | 4,685 | 479 | 8.8 [7.5, 10.3] | 2 [2–5] | 0.001 |
+| sensitivity (2020-04 to 2023-03) | s1_lower_bound | Northern Ireland | 2,555 | 1,046 | 13.0 [11.0, 15.1] | 1 [1–1] | 0.999 |
+
+</details>
+
+### Stage 6: next-wave prediction (RQ5; H5)
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-16_roc_p0_p3.png" width="400"><br><sub>Figure 4-16. ROC curves, validation transitions m→n and n→o (n = 19,960)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-17_calibration.png" width="400"><br><sub>Figure 4-17. Calibration by decile of predicted risk, validation transitions</sub></td>
+</tr>
+</table>
+
+**Table 4-8. Next-wave prediction, P0–P3** (training a→b … l→m, n = 170,895; validation m→n and n→o, n = 19,960; 95% CIs from 2,000 PSU bootstrap replicates; P3 is post-hoc).
+
+| Model | ROC-AUC [95% CI] | PR-AUC [95% CI] | Calibration slope | Calibration-in-the-large | Top 5%: sensitivity / PPV (%) | Top 10%: sensitivity / PPV (%) | n validation | prevalence (%) | note |
+|---|---|---|---|---|---|---|---|---|---|
+| P0 current burden (benchmark) | 0.780 [0.768, 0.792] | 0.334 [0.314, 0.359] | 0.78 [0.74, 0.82] | 0.39 [0.34, 0.44] | 22.0 [20.6, 23.6] / 46.4 [43.3, 50.1] | 38.6 [36.6, 40.4] / 40.6 [38.4, 43.2] | 19960 | 10.54 |  |
+| P1 household predictors | 0.739 [0.727, 0.751] | 0.280 [0.261, 0.302] | 0.93 [0.88, 0.98] | 0.45 [0.40, 0.49] | 18.8 [17.3, 20.3] / 39.6 [36.1, 43.1] | 30.9 [29.0, 32.6] / 32.5 [30.1, 34.7] | 19960 | 10.54 |  |
+| P2 = P1 + FES (growth-only magnitude, t+1) | 0.739 [0.726, 0.750] | 0.278 [0.259, 0.300] | 0.93 [0.87, 0.98] | 0.42 [0.37, 0.47] | 18.7 [17.2, 20.2] / 39.4 [36.0, 42.7] | 30.7 [28.8, 32.4] / 32.3 [29.8, 34.6] | 19960 | 10.54 | no improvement over P1 (ΔAUC -0.0006) |
+| P3 = P0 + P1 (POST-HOC / EXPLORATORY) | 0.781 [0.770, 0.792] | 0.341 [0.320, 0.365] |  |  |  | 39.0 [37.1, 40.6] / 41.1 [38.6, 43.6] | 19960 | 10.54 |  |
+
+<details><summary><b>Table A-2. Per-transition AUC</b></summary>
+
+| Model | Transition | n | Prevalence (%) | AUC [95% CI] |
+|---|---|---|---|---|
+| P0 | m→n | 9,075 | 9.6 | 0.781 [0.763, 0.800] |
+| P0 | n→o | 10,885 | 11.3 | 0.777 [0.762, 0.792] |
+| P1 | m→n | 9,075 | 9.6 | 0.738 [0.720, 0.756] |
+| P1 | n→o | 10,885 | 11.3 | 0.740 [0.725, 0.754] |
+| P2 | m→n | 9,075 | 9.6 | 0.737 [0.719, 0.755] |
+| P2 | n→o | 10,885 | 11.3 | 0.740 [0.725, 0.754] |
+
+</details>
+
+<details><summary><b>Table A-7. Calibration slope and intercept</b></summary>
+
+| Model | Calibration slope [95% CI] | Calibration-in-the-large [95% CI] |
+|---|---|---|
+| P0 | 0.783 [0.743, 0.824] | 0.386 [0.335, 0.436] |
+| P1 | 0.930 [0.878, 0.981] | 0.446 [0.399, 0.494] |
+| P2 | 0.926 [0.875, 0.978] | 0.420 [0.373, 0.468] |
+
+</details>
+
+<details><summary><b>Table A-8. Prediction sample flow</b></summary>
+
+| Step | n | Wave-t households |
+|---|---|---|
+| linked transitions a→b | 21,886 | 30,169 |
+| linked transitions b→c | 24,404 | 30,484 |
+| linked transitions c→d | 22,961 | 27,751 |
+| linked transitions d→e | 22,034 | 25,817 |
+| linked transitions e→f | 19,771 | 24,325 |
+| linked transitions f→g | 20,001 | 24,454 |
+| linked transitions g→h | 19,288 | 23,033 |
+| linked transitions h→i | 17,954 | 21,746 |
+| linked transitions i→j | 17,083 | 20,048 |
+| linked transitions j→k | 16,234 | 19,252 |
+| linked transitions k→l | 15,021 | 18,139 |
+| linked transitions l→m | 14,253 | 16,856 |
+| linked transitions m→n | 13,725 | 16,156 |
+| linked transitions n→o | 17,144 | 21,385 |
+| all linked transitions | 261,759 |  |
+|   of which outcome at t+1 missing | 36,602 |  |
+|   missing y (only this missing: 19,945) | 36,602 |  |
+|   missing fuel_to_income_ratio (only this missing: 0) | 35,291 |  |
+|   missing high_fuel_vulnerable (only this missing: 0) | 35,291 |  |
+|   missing finnow (only this missing: 20) | 1,115 |  |
+|   missing scghq1_dv (only this missing: 9,282) | 14,901 |  |
+|   missing finfut_risk (only this missing: 1,694) | 3,997 |  |
+|   missing dvage (only this missing: <10) | 730 |  |
+|   missing heatch (only this missing: 28) | 773 |  |
+|   missing workless_household (only this missing: 0) | 724 |  |
+|   missing OBJECT (only this missing: 1,525) | 3,237 |  |
+|   missing CONDITION (only this missing: 0) | 306 |  |
+|   missing PERSONAL (only this missing: 12) | 1,402 |  |
+|   missing ENERGY (only this missing: 0) | <10 |  |
+| common sample (P0/P1/P2) | 190,855 |  |
+|   training transitions (a→b ... l→m) | 170,895 |  |
+|   validation transitions (m→n, n→o) | 19,960 |  |
+|   validation prevalence (%) | 10.54 |  |
+| P2b common sample (adds FES Delta at t; loses 2009 wave-t interviews) | 183,179 |  |
+
+</details>
+
+### Stage 7 and robustness
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-18_equivalisation_sensitivity.png" width="400"><br><sub>Figure 4-18. Sensitivity to equivalising income only (fuel spend not equivalised)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/fig4-19_fes_tercile.png" width="400"><br><sub>Figure 4-19. Prevalence by FES tercile (descriptive)</sub></td>
+</tr>
+</table>
+
+<details><summary><b>Table 4-9. Robustness summary across pre-specified sensitivities</b></summary>
+
+| Estimate | Specification | Value [95% CI] | n |
+|---|---|---|---|
+| FES Delta OR | primary (main) | 0.972 [0.962, 0.981] | 221,877 |
+| FES Delta OR | primary (main_twoway_cluster) | 0.972 [0.958, 0.985] | 221,877 |
+| FES Delta OR | sens_composite (main) | 0.973 [0.964, 0.982] | 233,980 |
+| FES Delta OR | sens_composite_v1 (main) | 0.973 [0.964, 0.982] | 234,102 |
+| FES Delta OR | sens_lagged_components (main) | 0.972 [0.962, 0.983] | 183,078 |
+| FES Delta OR | sens_lagged_composite (main) | 0.973 [0.962, 0.983] | 194,151 |
+| FES Delta OR | sens_lagged_composite_v1 (main) | 0.973 [0.963, 0.983] | 194,692 |
+| FES Delta OR | sens_month_fe (main) | 0.968 [0.959, 0.978] | 221,877 |
+| FES Delta OR | sens_fes_4term (main) | 0.970 [0.961, 0.980] | 221,877 |
+| FES Delta OR | sens_outcome_s1 (main) | 0.974 [0.965, 0.983] | 249,200 |
+| FES Delta OR | sens_outcome_s2 (main) | 0.972 [0.963, 0.981] | 227,007 |
+| FES Delta OR | sens_no_qualification (main) | 0.973 [0.964, 0.981] | 248,802 |
+| NI gap AME (pp) | ni_a_regionFE_filled | 6.82 [5.76, 7.88] | 221,778 |
+| NI gap AME (pp) | ni_b_oil_filled | 2.39 [1.40, 3.37] | 221,778 |
+| NI gap AME (pp) | ni_b_oil_rural_filled | 2.51 [1.52, 3.51] | 221,778 |
+| NI gap AME (pp) | ni_c_ni_x_oil_filled | 2.63 [1.22, 4.03] | 221,778 |
+| NI gap AME (pp) | ni_c_ni_x_oil_rural_filled | 2.59 [1.19, 3.99] | 221,778 |
+| NI gap AME (pp) | ni_b_oil_observed_only | 2.39 [1.40, 3.38] | 221,611 |
+| NI gap AME (pp) | ni_b_oil_rural_observed_only | 2.52 [1.53, 3.52] | 221,611 |
+| NI gap AME (pp) | ni_c_ni_x_oil_observed_only | 2.65 [1.23, 4.06] | 221,611 |
+| NI gap AME (pp) | ni_c_ni_x_oil_rural_observed_only | 2.62 [1.20, 4.03] | 221,611 |
+| NI rate (%) | NI rate, primary window (2021-04 to 2023-03), outcome primary | 14.42 [12.09, 16.96] |  |
+| NI rate (%) | NI rate, primary window (2021-04 to 2023-03), outcome s1_lower_bound | 13.20 [11.11, 15.54] |  |
+| NI rate (%) | NI rate, sensitivity window (2020-04 to 2023-03), outcome primary | 14.17 [12.09, 16.40] |  |
+| NI rate (%) | NI rate, sensitivity window (2020-04 to 2023-03), outcome s1_lower_bound | 13.02 [10.99, 15.05] |  |
+| H1 verdict | primary | not supported | 269,372 |
+| H1 verdict | sens_R_with_energy | not supported | 269,372 |
+| H1 verdict | sens_logit_binary | contrary to COR | 269,372 |
+| H1 verdict | sens_fes_4term | not supported | 269,372 |
+| Prediction AUC (P2b sample) | P1 (P2b sample) | 0.739 [, ] | 19,960 |
+| Prediction AUC (P2b sample) | P2b | 0.740 [, ] | 19,960 |
+| Prevalence wave a (%) | primary | 11.98 [, ] |  |
+| Prevalence wave l (%) | primary | 6.52 [, ] |  |
+| Prevalence wave n (%) | primary | 12.47 [, ] |  |
+| Prevalence wave o (%) | primary | 12.42 [, ] |  |
+| Prevalence wave a (%) | S1 lower bound | 10.81 [, ] |  |
+| Prevalence wave l (%) | S1 lower bound | 5.56 [, ] |  |
+| Prevalence wave n (%) | S1 lower bound | 10.22 [, ] |  |
+| Prevalence wave o (%) | S1 lower bound | 9.94 [, ] |  |
+| Prevalence wave a (%) | S2 incl. electricity not reported | 11.93 [, ] |  |
+| Prevalence wave l (%) | S2 incl. electricity not reported | 6.41 [, ] |  |
+| Prevalence wave n (%) | S2 incl. electricity not reported | 12.27 [, ] |  |
+| Prevalence wave o (%) | S2 incl. electricity not reported | 12.23 [, ] |  |
+| Prevalence wave a (%) | v1 rule | 10.77 [, ] |  |
+| Prevalence wave l (%) | v1 rule | 5.69 [, ] |  |
+| Prevalence wave n (%) | v1 rule | 11.42 [, ] |  |
+| Prevalence wave o (%) | v1 rule | 11.43 [, ] |  |
+
+</details>
+
+<details><summary><b>Table A-11. Sensitivity to equivalising income only</b></summary>
+
+| Household size | n | Flagged, primary (%) | Flagged, income equivalised (%) | Flip (%) | In → out (%) | Out → in (%) |
+|---|---|---|---|---|---|---|
+| 1 | 73,682 | 15.9 | 15.9 | 0.0 | 0.0 | 0.0 |
+| 2 | 99,863 | 6.5 | 17.4 | 11.5 | 0.0 | 11.5 |
+| 3 | 45,329 | 5.3 | 22.1 | 18.2 | 0.0 | 18.2 |
+| 4 | 43,354 | 3.6 | 27.0 | 25.3 | 0.0 | 25.3 |
+| 5+ | 24,478 | 4.3 | 46.4 | 45.8 | 0.0 | 45.8 |
+
+</details>
+
+### Appendix figures and tables
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/figA_radial_winners.png" width="400"><br><sub>Figure A-1. Winning rolling core model by series and target year, read clockwise from 12 o'clock</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/figA_macro_covariates.png" width="400"><br><sub>Figure A-2. Macro covariates (descriptive; not used by the v2 core-only forecasts)</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/figA_trend_interview_year.png" width="400"><br><sub>Figure A-3. Trend by interview year (supplementary)</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/thesis_assets_v2/figures/figA_v1_exploratory.png" width="400"><br><sub>Figure A-4. v1 exploratory models (CVAE, fuzzy c-means, one-class SVM), labelled v1, not re-estimated</sub></td>
+</tr>
+</table>
+
+<details><summary><b>Table A-13. Household-waves by wave × interview year (cells &lt; 10 omitted)</b></summary>
+
+| Wave | 2009 | 2010 | 2011 | 2012 | 2013 | 2014 | 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| a | 15,146 | 14,029 | 994 | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| b | — | 17,742 | 12,205 | 537 | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| c | — | — | 16,336 | 10,820 | 591 | — | — | — | — | — | — | — | — | — | — | — | — |
+| d | — | — | — | 15,044 | 10,013 | 760 | — | — | — | — | — | — | — | — | — | — | — |
+| e | — | — | — | — | 13,936 | 9,698 | 691 | — | — | — | — | — | — | — | — | — | — |
+| f | — | — | — | — | — | 12,672 | 10,549 | 1,233 | — | — | — | — | — | — | — | — | — |
+| g | — | — | — | — | — | — | 12,145 | 9,963 | 925 | — | — | — | — | — | — | — | — |
+| h | — | — | — | — | — | — | — | 11,813 | 8,902 | 1,031 | — | — | — | — | — | — | — |
+| i | — | — | — | — | — | — | — | — | 10,960 | 8,243 | 845 | — | — | — | — | — | — |
+| j | — | — | — | — | — | — | — | — | — | 10,619 | 8,092 | 541 | — | — | — | — | — |
+| k | — | — | — | — | — | — | — | — | — | — | 10,141 | 7,660 | 338 | — | — | — | — |
+| l | — | — | — | — | — | — | — | — | — | — | — | 9,887 | 6,704 | 265 | — | — | — |
+| m | — | — | — | — | — | — | — | — | — | — | — | — | 9,549 | 6,299 | 308 | — | — |
+| n | — | — | — | — | — | — | — | — | — | — | — | — | — | 11,043 | 9,698 | 644 | — |
+| o | — | — | — | — | — | — | — | — | — | — | — | — | — | — | 10,758 | 8,528 | 300 |
+
+</details>
+
+<details><summary><b>Table A-14. Household-waves by region</b></summary>
+
+| Region | Household-waves |
+|---|---|
+| East Midlands | 24,339 |
+| East of England | 28,545 |
+| London | 41,318 |
+| North East | 12,643 |
+| North West | 34,392 |
+| Northern Ireland | 21,486 |
+| Scotland | 30,538 |
+| South East | 40,315 |
+| South West | 27,323 |
+| Wales | 22,768 |
+| West Midlands | 27,592 |
+| Yorkshire and the Humber | 27,761 |
+
+</details>
+
+### Pipeline figures (tracked in git)
+
+These are drawn by the analysis scripts and committed with their PDF twins. Several are earlier renderings of the thesis figures above.
+
+<table>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/figures/fes_rolling_trend.png" width="400"><br><sub>Rolling walk-forward FES by target year: forecast (4-term, annual mean) vs realised. <code>outputs_v2/figures/fes_rolling_trend.png</code></sub></td>
+<td align="center" width="50%"><img src="outputs_v2/figures/model_selection_polar_core.png" width="400"><br><sub>Winning core model and its validation RMSE by series and target year. <code>outputs_v2/figures/model_selection_polar_core.png</code></sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/figures/rolling_forecast_performance_gas.png" width="400"><br><sub>Winning model's validation RMSE by year, gas</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/figures/rolling_forecast_performance_electricity.png" width="400"><br><sub>Winning model's validation RMSE by year, electricity</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/figures/rolling_forecast_performance_carbon.png" width="400"><br><sub>Winning model's validation RMSE by year, carbon</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/descriptives/trend_primary_with_s1_band.png" width="400"><br><sub>Trend by wave, primary with S1 band. <code>outputs_v2/descriptives/</code></sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/descriptives/trend_by_interview_year_supplementary.png" width="400"><br><sub>Trend by interview year, supplementary. <code>outputs_v2/descriptives/</code></sub></td>
+<td align="center" width="50%"><img src="outputs_v2/resources/figures/resource_composite_by_region.png" width="400"><br><sub>Resource composite by region (weighted means). <code>outputs_v2/resources/figures/</code></sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/stage3/figures/primary_or_forest.png" width="400"><br><sub>Primary driver model, odds-ratio forest plot. <code>outputs_v2/stage3/figures/</code></sub></td>
+<td align="center" width="50%"><img src="outputs_v2/stage5/figures/F5_1_region_vs_jrf.png" width="400"><br><sub>F5.1 Region vs JRF. <code>outputs_v2/stage5/figures/</code></sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/stage5/figures/F5_2_dimensions_vs_jrf.png" width="400"><br><sub>F5.2 Other dimensions vs JRF</sub></td>
+<td align="center" width="50%"><img src="outputs_v2/stage5/figures/F5_3_ni_oil.png" width="400"><br><sub>F5.3 Northern Ireland and heating oil</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/stage6/figures/roc.png" width="400"><br><sub>Stage 6 ROC curves (P0, P1, P2). <code>outputs_v2/stage6/figures/</code></sub></td>
+<td align="center" width="50%"><img src="outputs_v2/stage6/figures/calibration.png" width="400"><br><sub>Stage 6 calibration</sub></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img src="outputs_v2/stage7/figures/sensitivity_equivalised_income_only.png" width="400"><br><sub>Sensitivity to equivalising income only. <code>outputs_v2/stage7/figures/</code></sub></td>
+<td align="center" width="50%"></td>
 </tr>
 </table>
 
 ---
 
-## Does FES, and COR Theory, Actually Hold Up? A Cross-Stage Verdict
+## Thesis asset bundle
 
-Three distinct claims are tested across this pipeline, and they do not all fare equally — reported here together since no single stage's output makes this clear on its own.
+`python scripts/build_thesis_assets.py` writes `outputs_v2/thesis_assets_v2/` (29 figures, 30 tables, 7 documents and `MANIFEST.md`) and `outputs_v2/thesis_assets_v2.zip`. The MANIFEST records each file's thesis number, source script, source files and their commits. All CSVs in the bundle pass the suppression check.
 
-**FES matters — robustly, everywhere it's tested as a direct predictor.** Significant and same-signed in Stage 2b's OLS main effect (coefficient ≈ −0.0006 to −0.0009, p<0.0001, stable across every rerun), Stage 3's driver logit (OR 0.94, p<0.0001), and Stage 5's forward-prediction model (OR 1.07, p<0.0001, walk-forward AUC=0.76) — and as one of the input features to Stage 3's fuzzy c-means clustering, whose resulting "Resource Depleted" cluster reaches AUC=0.744 against the objective ratio. This is the most solid finding in the pipeline.
-
-**The four COR resource dimensions — mostly yes, with one real, consistent exception.** All 13 measurement items load positively and sensibly (Stage 2b). As Stage 5 forward-prediction covariates, `energy_score`, `condition_score`, and `personal_score` all show the theoretically expected "more resource → lower future risk" direction, with `energy_score` (income) dominant. `object_score` (housing/asset stock) is the one dimension that consistently runs the other way — more rooms/cars/property value predicts *more*, not less, future vulnerability — plausibly because larger, older, owned housing costs more to heat (see the tenure reversal in External Validation). This is a genuine, reproducible finding, not noise.
-
-**Whether resources specifically *buffer* the FES shock — not yet established.** This is the `baseline_score × fes_delta` interaction, and it's the one piece of this framework this pipeline cannot currently support in either direction: the interaction is statistically significant in every recent refit, but its **sign flips between identical reruns** (see the FES-moderation result under COR-SEM above). Given `object_score` already breaks the clean "more resources = better" direction, a *combined* second-order BASELINE score built from all four factors without a fixed sign convention is not a reliable single number to interact with FES — the fix is a sign-constrained second-order model, not yet implemented.
-
-**Bottom line:** the project's evidence that anticipated energy stress helps identify vulnerable households is strong and consistent. Its evidence that COR-theoretic baseline resources predict vulnerability is strong for three of four dimensions, with `object_score` a genuine, informative exception. Its evidence for COR theory's specific interactive/buffering claim is inconclusive, not confirmed and not refuted, pending the sign-identification fix above.
+The bundle is a local build product and is **ignored by git** (`.gitignore`). The thesis figures embedded in this README and in `reports/` therefore display only after the bundle has been built. Five figures (3-2, 3-4, 3-5, 4-9, and the financial-difficulty panel of 4-8) and three tables (4-2, A-13, A-14) aggregate the row-level panel inside the build script, so rebuilding them needs the licensed UKHLS data.
 
 ---
 
-## Directory Structure
+## Directory structure
 
 ```
 anticipatory-energy-stress/
-├── main.py                     # orchestrator: --stage forecast|household, --rolling, --skip-cvae, --fast
-├── forecast_pipeline.py        # Stage 1: run() single-year, run_rolling() walk-forward
-├── household_stream.py         # Stage 2-5: UKHLS panel -> COR-SEM -> COR-CVAE -> vulnerability -> maps -> forward prediction
-├── requirements.txt
-├── data/
-│   ├── raw/                    # gas/electricity/carbon/macro CSVs + raw/ukhls/*.dta (gitignored)
-│   ├── processed/              # core_energy_carbon.csv, macro_controls.csv, ...
-│   ├── geo/                    # uk_nuts1_regions.geojson (ONS Open Geography Portal, OGL v3.0)
-│   └── social_science_data/    # UKHLS zip extract source (gitignored)
+├── analysis_plan_rerun.md       # v2 plan, amendments, deviation log
+├── forecast_pipeline.py         # Stage 2 forecasts (--rolling --core-only --tune-per-origin)
+├── main.py, household_stream.py # v1 orchestrators (legacy; not used by v2)
+├── scripts/                     # v2 analysis, one script per stage (see Pipeline)
 ├── src/
-│   ├── data_loader.py, preprocessing.py, tuning.py, model_evaluation.py, plotting_utils.py
-│   ├── fes_calculator.py       # Stage 1 FES construction (single-year + rolling helpers)
-│   ├── models/                 # sarima_model.py, prophet_model.py, lstm_model.py, tft_model.py
-│   ├── ukhls_mapping.py        # wave/COR-item registry (shared source of truth)
-│   ├── ukhls_preprocessing.py  # Stage 2a: panel build + FES Magnitude/Current/Delta
-│   ├── ukhls_dataset_overview.py  # Stage 2a-overview: panel composition/missingness/distributions
-│   ├── ukhls_cor_sem.py        # Stage 2b: COR-SEM
-│   ├── ukhls_cor_cvae.py       # Stage 2c: COR-CVAE
-│   ├── ukhls_vulnerability_classification.py   # Stage 3
-│   ├── ukhls_geo_maps.py       # shared real-boundary choropleth helper (Stage 3/4/5)
-│   ├── ukhls_policy_maps.py    # Stage 4
-│   ├── ukhls_forward_prediction.py   # Stage 5: hrpid-linked wave transitions -> forward prediction
-│   ├── ukhls_external_validation.py  # region/ethnicity/disability/tenure vs JRF UK Poverty 2025
-│   ├── sem_mediation.py        # ols_path (only function reused, by ukhls_cor_sem.py)
-│   ├── config.py, paths.py, logging_utils.py, metrics_utils.py, model_utils.py
-│   └── __pycache__/
-└── outputs/
-    ├── forecasts/, forecasts_rolling/{year}/, tables/, tables/rolling/{year}/
-    ├── fes/                    # fes_rolling_yearly.csv, fes_rolling_monthly.csv, fes_variant_selection.csv, fes_metrics_selected_variant_by_year.csv, model_selection_by_year.csv, forecast_performance_by_year.csv, rolling/{year}/
-    ├── figures/                # fes_rolling_trend, model_selection_polar_*, model_ranking_polar_*, rolling_forecast_performance_{series}
-    ├── ukhls_cleaned/          # ukhls_panel.csv (339,201 rows)
-    ├── ukhls_dataset_overview/, ukhls_cor_sem/, ukhls_cor_cvae/, ukhls_vulnerability/, ukhls_policy_maps/
-    ├── ukhls_forward_prediction/   # Stage 5: transition pairs, validation metrics, forward predictions
-    └── logs/pipeline.log
+│   ├── paths.py                 # OUTPUTS_DIR = outputs_v2, V1_OUTPUTS_DIR = outputs
+│   ├── ukhls_preprocessing.py   # panel build, routing-aware outcome, FES attachment
+│   ├── ukhls_mapping.py         # wave/variable registry, recodes
+│   ├── fes_calculator.py        # FES construction (rolling helpers)
+│   ├── models/                  # sarima_model.py, prophet_model.py, lstm_model.py, tft_model.py
+│   └── ...                      # data_loader, tuning, model_evaluation, plotting_utils, v1 modules
+├── data/                        # raw and processed series; data/raw/ukhls/ is licensed and ignored
+├── outputs_v2/                  # v2 results (aggregate tables tracked; row-level files ignored)
+│   ├── audit/, audit_fuel_codes.csv      # Stage 1
+│   ├── fes/, fes_eval/, figures/, models/, tables/rolling/, forecasts_rolling/, tuning_rolling/   # Stage 2
+│   ├── descriptives/                      # trend and group prevalence
+│   ├── stage3/, resources/, stage4/       # drivers, resources, H1
+│   ├── jrf/, stage5/                      # JRF comparison, NI
+│   ├── stage6/, stage7/                   # prediction, scope
+│   ├── reports/                           # v2 drafts, change summary, appendix note
+│   ├── results_inventory.csv, logs/
+│   └── thesis_assets_v2/                  # local build (ignored)
+├── outputs/                     # v1 outputs, read-only
+└── reports/                     # 01-06 reports (v2)
 ```
 
----
-
-## Required Outputs Reference
-
-### Stage 1 (`outputs/fes/`, `outputs/tables/`, `outputs/forecasts*/`)
-| File | Description |
-|---|---|
-| `fes_monthly_{target_year}.csv` | 12-row monthly z-score breakdown, single-year **dev path only** (not in reported results); target year defaults to `DEFAULT_TARGET_YEAR` (2025), overridable via `--target-year` |
-| `fes_rolling_yearly.csv` | Rolling walk-forward: one row per `(as_of_year, target_year)`, annual mean — **the reported path** |
-| `fes_rolling_monthly.csv` | Same walk-forward run at its native resolution: one row per `(as_of_year, target_year, target_month)` |
-| `fes_variant_selection.csv` | Which of Core/Macro/Selected/Weighted was chosen, and why (mean RMSE) |
-| `fes_metrics_selected_variant_by_year.csv` | The **selected** variant's own RMSE/Pearson r vs. the 3 realised-FES benchmarks, one row per rolling year — replaces the old two-heatmap format |
-| `model_selection_by_year.csv` | Which model won each `(as_of_year, series, mode)` — underlies the model-selection polar charts |
-| `forecast_performance_by_year.csv` | Winning model's RMSE per `(as_of_year, series, mode)` — underlies the performance-by-year figures |
-| `figures/model_selection_polar_{core,macro}.png` | Grouped circular bars: groups=series, bars=rolling years, height=RMSE, colour=winning model |
-| `figures/rolling_forecast_performance_{gas,electricity,carbon}.png` | Winning model's RMSE trend, one figure per series, points coloured by winning model |
-| `figures/model_ranking_polar_{series}_{mode}.png` | Single-year dev path only: grouped circular bars, one group per model, individual metric bars, selected model's group highlighted |
-| `tables/rolling/{year}/model_metrics_comparison.csv` | Per-year per-model/series/mode MAE/RMSE/MAPE + ranking |
-
-### Stage 2a-overview (`outputs/ukhls_dataset_overview/`)
-| File | Description |
-|---|---|
-| `dataset_panel_composition.png` | Sample size by wave + interview-month histogram |
-| `dataset_rows_by_year.png` / `.csv` | Sample size by calendar year, and the same totals split by contributing wave |
-| `dataset_sample_size_by_region.png` | Real UK map of household-wave rows by region |
-| `dataset_missingness.png` / `dataset_missingness_by_variable.csv` | % missing per key variable, all waves pooled |
-| `dataset_key_distributions.png` | Histograms: fuel-to-income ratio, financial strain, age, income, fuel spend, FES Delta |
-
-### Stage 2 (`outputs/ukhls_cleaned/`, `outputs/ukhls_cor_sem/`, `outputs/ukhls_cor_cvae/`)
-| File | Description |
-|---|---|
-| `ukhls_cleaned/ukhls_panel.csv` | Full panel + SEM factor scores + CVAE latents (339,201 rows) |
-| `ukhls_cor_sem/tables/cor_sem_measurement_loadings.csv` | CFA loadings per item |
-| `ukhls_cor_sem/tables/cor_sem_fit_indices.csv`, `structural_fit_indices_baseline.csv` | CFI/TLI/RMSEA/SRMR |
-| `ukhls_cor_sem/tables/fes_moderation_path.csv` | BASELINE × FES Delta interaction regression |
-| `ukhls_cor_cvae/tables/cvae_latent_scores.csv`, `cvae_sem_alignment.csv` | Latent z + alignment with SEM |
-| `ukhls_cor_cvae/tables/cvae_counterfactual_fes_shift.csv` | Per-household current-vs-forecast simulation |
-| `ukhls_cor_sem/figures/cor_sem_loadings_polar.png` | Polar view of measurement loadings, slices = COR factors |
-| `ukhls_cor_cvae/figures/cvae_alignment_polar.png` | Polar view of latent-dim ↔ SEM-factor alignment, slices = z1-z4 |
-
-### Stage 3 (`outputs/ukhls_vulnerability/`)
-| File | Description |
-|---|---|
-| `stage3_vulnerability_scores.csv` | Fuzzy memberships + one-class anomaly score, per household |
-| `stage3_validation_against_objective_ratio.csv` | Correlation/AUC vs. `fuel_to_income_ratio` |
-| `driver_analysis_logistic_regression.csv` | Odds ratios for every control + `fes_delta`, pooled nationally |
-| `driver_analysis_by_region.csv` + `driver_analysis_by_region.png` | Same driver analysis re-fit per UK region |
-| `policy_vulnerability_by_wave.csv`, `by_region.csv`, `region_year_heatmap.csv`, `by_fes_tier.csv` | Spread figures' underlying data |
-| `policy_vulnerability_by_ethnicity.csv` / `.png` | Vulnerability rate by household reference person's ethnicity group |
-| `policy_vulnerability_by_disability.csv` / `.png` | Vulnerability rate by whether the household contains a disabled adult |
-| `policy_vulnerability_by_tenure.csv` / `.png` | Vulnerability rate by housing tenure group |
-| `policy_vulnerability_by_family_composition.csv` / `.png` | Vulnerability rate by 6-category family-type group (new this iteration) |
-| `policy_vulnerability_by_employment.csv` / `.png` | Vulnerability rate by workless/part-time/full-time-or-self-employed (new this iteration) |
-| `rationing_evidence_prepayment.csv`, `rationing_evidence_inoutflows12.csv` | Prepayment-meter / self-reported-usage-cut rate by vulnerability status — tests the ratio target's rationing blind spot |
-| `policy_vulnerability_by_region_map.png` | Real-map companion to the ranked `by_region` bar chart |
-| `policy_map_baseline_resource_by_region.png`, `policy_map_financial_strain_by_region.png` | Real maps of mean SEM baseline-resource score and financial-strain score by region |
-| `policy_temporal_change_map.png` | Diverging real map: vulnerability-prevalence change, waves a-e vs. k-o |
-
-### External Validation (`outputs/ukhls_vulnerability/`)
-| File | Description |
-|---|---|
-| `jrf_poverty_benchmark_{region,ethnicity,disability,tenure,family_type,work_status}.csv` | Hardcoded JRF UK Poverty 2025 reference values (text-stated only, cited by page) — family_type/work_status new this iteration |
-| `external_validation_{dim}_comparison.csv` | Our rate merged with JRF's, both rankings, per dimension (6 dimensions total) |
-| `external_validation_{dim}_bars.png` / `_scatter.png` | Comparison figures, per dimension |
-| `external_validation_wave_trend.png` | Our wave-level trend vs JRF's cost-of-living-crisis account |
-| `ni_oil_heating_evidence_by_region.csv` | % of households using oil heating, by region — the evidence behind excluding NI from the region correlation only |
-| `ni_oil_heating_evidence_within_ni.csv` | Within-NI oil vs non-oil households: fuel spend and vulnerability rate |
-
-### Stage 4 (`outputs/ukhls_policy_maps/`)
-| File | Description |
-|---|---|
-| `map1_resource_stress_hotspot.csv` | Per-region baseline resource × vulnerability prevalence + bivariate tier |
-| `map2_fuzzy_membership.csv` | Per-region mean fuzzy membership + % near 0.5 boundary |
-| `map3_vulnerability_vector_shift.csv` | Per-region current/forecast/shift predicted probability |
-
-### Stage 5 (`outputs/ukhls_forward_prediction/`)
-| File | Description |
-|---|---|
-| `stage5_transition_pairs.csv` | Every hrpid-linked (wave t, wave t+1) household pair, all 14 wave-transitions, with features (wave t) and the true label (wave t+1) |
-| `stage5_validation_metrics.csv` | Walk-forward AUC / Pearson r on the held-out most-recent-known transitions — the number that says whether the final predictions should be trusted |
-| `stage5_validation_roc.png` | ROC curve for the held-out walk-forward validation |
-| `stage5_driver_coefficients.csv` | Odds ratios of the final (all-data) forward model — transparent, same convention as Stage 3's driver analysis |
-| `stage5_forward_predictions.csv` | Per wave-o household: predicted probability of vulnerability at their own next interview year, region, target month |
-| `stage5_forward_prediction_map.png` | Real UK region map of mean predicted forward-vulnerability probability |
-| `stage5_forward_prediction_by_month.csv` / `.png` | Mean predicted probability by target month — which month to prioritise |
+The file-by-file description of every output is in [`reports/01_outputs_catalog.md`](reports/01_outputs_catalog.md).
 
 ---
 
-## Methodological Limitations
+## Limitations
 
-- **FIML CFI/TLI under semopy 2.3.11** are unreliable (verified against a complete-case MLW comparison) — read loadings as primary evidence for the SEM's measurement quality, not CFI/TLI.
-- **The second-order BASELINE factor's sign is not identified**, and this reaches further than CFI/TLI: the `baseline_score × fes_delta` interaction is significant but sign-flips across reruns (see [Does FES, and COR Theory, Actually Hold Up?](#does-fes-and-cor-theory-actually-hold-up-a-cross-stage-verdict) above) — do not cite a direction for this interaction until the second-order model has an explicit sign constraint.
-- **Pooled 15-wave CFA** assumes measurement invariance 2009–2024, untested.
-- **FES Delta's two components use different z-scoring baselines** (rolling-year train window for Magnitude vs. full-history monthly mean/std for Current, now both at month resolution) and Magnitude sums 4 z-terms while Current sums 3 (no realised analogue of forecast uncertainty) — Delta is a documented, honest approximation of shock size, not an exact matched-scale subtraction.
-- **FES Magnitude's monthly resolution matches interview month to the SAME calendar month one year ahead** (e.g. a March interview reads the forecast's March-next-year value), not literally "as of this exact day" — the walk-forward refit itself only happens at annual (December) cutoffs, so this refines *which* of the 12 already-forecast months gets attached rather than adding a new, more frequent refit.
-- **FES is a single national scalar** — no regional variation exists to map, which is why Stage 4's Map 1 substitutes regional vulnerability-outcome prevalence for a literal "FES axis."
-- **Real-boundary maps require one external dependency** (`data/geo/uk_nuts1_regions.geojson`, fetched once from the ONS Open Geography Portal, `geopandas` added to `requirements.txt`) — no longer self-contained the way the earlier hex-cartogram was, in exchange for exact geographic shape fidelity.
-- **CVAE item preparation median-imputes** remaining missing values (the SEM instead uses FIML natively) — a real simplification, not swept under the rug.
-- **`sf1_good`'s coverage collapses** from ~99% (waves a–e) to 0.3–11% (waves f–o) — kept in the model after an empirical test showed removing it makes CFI/TLI worse, but this is a real, documented data-quality asymmetry across waves.
-- **Rolling walk-forward's earliest feasible years** have thin training windows (as little as ~24 months) — forecast quality for those years is inherently weaker than for later years with a full decade+ of history.
-- **Stage 5's household linkage covers only ~72-85% of households per wave transition** (`hrpid_t == hrpid_{t+1}` direct match, verified against the raw wave a/b files) — normal UKHLS attrition and household-reference-person turnover, not a bug, but the model is trained/validated/applied on the linked subset only, and attrition itself may correlate with vulnerability (not corrected for here).
-- **Stage 5's features inherit Stage 2b's pooled-CFA limitation**: the COR-SEM/COR-CVAE scores used as "time t" features are fit on the whole 2009–2024 panel, so they carry a mild amount of whole-panel information into every wave's features — a second-order effect on the features, not a leak of the actual t+1 label, but worth restating here since Stage 5's central claim ("genuinely forward") is narrower than Stage 2b/3's.
-- **Stage 5 tracks the household reference person, not a fixed dwelling** — if the reference person moves to a different household between waves, `hrpid` still links them; this is "same person," not "same address."
-- **Ethnicity is attributed via the household reference person only**, not every household member — a household with a mixed-ethnicity composition is represented by one person's group. **Disability is observed only for responding adults** (indresp), so the disability breakdown compares against JRF's "disabled adults only" row specifically, not its broader family-composition categories that include children.
-- **The external validation is by construction not apples-to-apples** — fuel-to-income vulnerability (ours) and relative income poverty AHC (JRF's) are different constructs with different drivers; divergence at a given stratum (e.g. Northern Ireland on region, Black Caribbean/Bangladeshi on ethnicity, owned-outright/private-renting on tenure) is reported as informative, not treated as evidence either measure is wrong. Two of the four dimensions (disability n=2, ethnicity n=6) have few enough categories that the correlation coefficient itself is a weak summary — the per-category bar charts matter more than the headline ρ/r for those.
-- **Ethnicity/disability were deliberately not added as SEM/CVAE latent variables or driver-analysis covariates** — see [Stage 3](#ethnicity-disability-and-tenure-breakdowns) above for why.
+- **Associations, not causal effects.** FES varies by interview year and month only; with year fixed effects the FES Delta coefficient comes from within-year variation across interview months.
+- **Forecast skill is weak.** No v2 forecast beats the naive benchmark significantly; prediction intervals are too narrow (coverage 28–48%).
+- **Resources are formative indices.** The CFA failed the pre-registered criteria (CFI 0.78, a Heywood case, low loadings) and its complete-case sample is 99% owner-occupiers, so the composites describe resource levels rather than measure latent constructs. α (0.32–0.60) is descriptive only.
+- **Complete-case outcome.** Missing fuel spend among in-scope households rises from 7–8% (waves b–e) to 20% (wave o), and is higher in telephone interviews (Figure 3-3). S1 (non-response as £0) is reported as a lower bound throughout.
+- **The 10% threshold uses unequivalised income.** Equivalising income alone would flag many more large households (45.8% of 5+ person households change status, all into vulnerability).
+- **JRF comparisons differ in unit and construct.** Family type (children) and work status (working-age adults) are directional only. Ethnicity CIs are too wide for conclusions.
+- **Prediction** is evaluated on two held-out transitions during the cost-of-living crisis; all models under-predict risk there (calibration-in-the-large 0.39–0.45).
+- **Post-hoc items are labelled.** P3 (P0 + P1) was added after Stage 6 results were seen and is exploratory.
 
 ---
 
-## Migration Note (from the ENABLE Architecture)
+## Data and licence
 
-An earlier version of this project used a single UK cross-section (ENABLE.EU, 2017 only) split into three parallel "COR estimation routes" (a formative composite, a reflective SEM, and a VAE) compared against each other, feeding a CatBoost classifier + SHAP explainability stage. That entire architecture — `src/enable_preprocessing.py`, `src/cor_sem.py`, `src/cor_vae.py`, `src/construct_validation.py`, `src/construct_mapping.py`, `src/unsupervised_latent.py`, `src/route_comparison.py`, `src/route_utils.py`, `src/ml_classification.py`, `src/shap_explainability.py`, `ml_pipeline.py` (root), `src/ts_shap.py`, and `src/fes_scenarios.py` — has been **removed from the repository entirely** (not merely disconnected) now that the UKHLS panel supersedes it on every dimension that motivated the original three-route comparison. All of it remains recoverable from git history if ever needed for comparison.
-
-`src/sem_mediation.py` is the one partial exception: it was trimmed rather than deleted, since one function (`ols_path`, a generic OLS path-estimation helper) is still reused by `src.ukhls_cor_sem`'s FES-moderation test — the rest of that module (the Route-1-specific `run()`, `bootstrap_mediation()`, path-diagram/mediation figures) was ENABLE-specific dead code and has been removed.
-
----
-
-## Dependencies
-
-See `requirements.txt`. Notable: `semopy` (COR-SEM CFA), `tensorflow` (COR-CVAE; the forecast stream itself uses PyTorch — `torch`, `pytorch-forecasting`, `lightning`), `scikit-fuzzy` (Stage 3 fuzzy c-means), `geopandas` (Stage 3/4 real UK region choropleths, `src/ukhls_geo_maps.py`), `pmdarima`/`prophet`/`statsmodels` (Stage 1 statistical models), `openpyxl` (reading `data/raw/cpih08_188.xlsx`).
-
-`pytorch-forecasting>=1.0` depends on the `lightning` package (its `TemporalFusionTransformer` subclasses `lightning.pytorch.LightningModule`), not the older standalone `pytorch-lightning` package — verified against `pytorch-forecasting` 1.8.0 / `lightning` 2.6.5.
-
----
-
-## Citation / Project Context
-
-Research project on anticipatory energy-carbon stress forecasting and household fuel vulnerability, UK Data Service Study 6614 (Understanding Society) under standard End User Licence terms — raw UKHLS data is not redistributed with this repository (see `.gitignore`); obtain your own extract via the UK Data Service.
+Understanding Society (UKHLS), UK Data Service SN 6614, End User Licence: raw and row-level data are not redistributed. JRF *UK Poverty 2025* (January 2025): values are taken from the report text and tables with page references (`outputs_v2/jrf/jrf_metadata.csv`). Price series: ONS (Open Government Licence v3.0) and market futures data. Region boundaries: ONS Open Geography Portal (OGL v3.0). Full provenance is in [`reports/05_data_description.md`](reports/05_data_description.md).

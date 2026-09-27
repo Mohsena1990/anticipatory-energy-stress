@@ -1,0 +1,19 @@
+version,series,benchmark,n_months,DM_stat,p_value,verdict
+v1_core,carbon,naive,192,0.19600044374153125,0.8448181905883712,not significantly different
+v1_core,carbon,snaive,192,-1.9387099085200903,0.05401041218089181,not significantly different
+v1_core,electricity,naive,192,-0.126838432582737,0.8992017043091148,not significantly different
+v1_core,electricity,snaive,192,-1.2864618183318766,0.19983907773318943,not significantly different
+v1_core,gas,naive,192,1.3692766760139818,0.17252071585243775,not significantly different
+v1_core,gas,snaive,192,-0.3721251252869923,0.7102122344718806,not significantly different
+v1_macro,carbon,naive,192,0.838131594730841,0.40300441305323575,not significantly different
+v1_macro,carbon,snaive,192,-0.5966582161227804,0.5514421395877417,not significantly different
+v1_macro,electricity,naive,192,-0.7434292259040252,0.4581353443554693,not significantly different
+v1_macro,electricity,snaive,192,-1.483188472164656,0.13967253372755367,not significantly different
+v1_macro,gas,naive,192,1.2791690189617368,0.20238939017130222,not significantly different
+v1_macro,gas,snaive,192,0.8002853402798737,0.4245397621145153,not significantly different
+v2_core,carbon,naive,192,-0.1191967061317977,0.905244790992456,not significantly different
+v2_core,carbon,snaive,192,-3.185205754265239,0.0016895465986752805,better than benchmark
+v2_core,electricity,naive,192,-0.635080542302866,0.5261359491798476,not significantly different
+v2_core,electricity,snaive,192,-1.4692235763439756,0.1434173048169313,not significantly different
+v2_core,gas,naive,192,-0.8927332505202102,0.3731234172703235,not significantly different
+v2_core,gas,snaive,192,-1.5210713367157005,0.12989569210243462,not significantly different

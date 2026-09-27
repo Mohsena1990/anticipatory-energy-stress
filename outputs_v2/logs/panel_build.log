@@ -1,0 +1,362 @@
+2026-09-26 13:58:19 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 13:58:19 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 13:58:20 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 13:58:21 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 13:58:21 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 13:58:22 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 13:58:23 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 13:58:24 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 13:58:25 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 13:58:26 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 13:58:27 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 13:58:28 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 13:58:30 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 13:58:30 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 13:58:32 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 13:58:32 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 13:58:33 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 13:58:34 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 13:58:35 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 13:58:36 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 13:58:37 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 13:58:37 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 13:58:38 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 13:58:39 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 13:58:40 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 13:58:41 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 13:58:42 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 13:58:42 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 13:58:44 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 13:58:46 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 13:58:47 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 13:58:49 | INFO     | energy_stress.ukhls_preprocessing | Price context: 339201/339201 rows matched at month resolution, 0 additional rows fell back to their interview year's annual mean
+2026-09-26 13:58:49 | WARNING  | energy_stress.ukhls_preprocessing | No rolling monthly FES (/home/mohsen/project/anticipatory-energy-stress/outputs_v2/fes/fes_rolling_monthly.csv) -- FES columns left NaN. Run forecast_pipeline.py --rolling --core-only --tune-per-origin.
+2026-09-26 13:59:10 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 109 columns)
+2026-09-26 14:01:25 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 14:01:25 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 14:01:26 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 14:01:27 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 14:01:27 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 14:01:28 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 14:01:29 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 14:01:30 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 14:01:31 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 14:01:32 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 14:01:32 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 14:01:34 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 14:01:35 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 14:01:35 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 14:01:36 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 14:01:37 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 14:01:38 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 14:01:38 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 14:01:39 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 14:01:40 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 14:01:41 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 14:01:42 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 14:01:43 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 14:01:44 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 14:01:45 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 14:01:45 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 14:01:46 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 14:01:47 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 14:01:49 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 14:01:51 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 14:01:52 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 14:01:53 | INFO     | energy_stress.ukhls_preprocessing | Price context: 339201/339201 rows matched at month resolution, 0 additional rows fell back to their interview year's annual mean
+2026-09-26 14:01:53 | WARNING  | energy_stress.ukhls_preprocessing | No rolling monthly FES (/home/mohsen/project/anticipatory-energy-stress/outputs_v2/fes/fes_rolling_monthly.csv) -- FES columns left NaN. Run forecast_pipeline.py --rolling --core-only --tune-per-origin.
+2026-09-26 14:02:15 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 109 columns)
+2026-09-26 14:09:51 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 14:09:51 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 14:09:52 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 14:09:52 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 14:09:53 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 14:09:53 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 14:09:55 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 14:09:56 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 14:09:56 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 14:09:57 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 14:09:58 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 14:09:59 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 14:10:00 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 14:10:00 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 14:10:01 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 14:10:02 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 14:10:03 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 14:10:03 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 14:10:04 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 14:10:05 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 14:10:05 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 14:10:06 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 14:10:07 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 14:10:07 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 14:10:08 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 14:10:08 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 14:10:09 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 14:10:10 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 14:10:11 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 14:10:12 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 14:10:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 14:10:14 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 14:10:14 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 14:10:14 | INFO     | energy_stress.ukhls_preprocessing | Price context: 336733/339201 rows matched at month resolution, 2468 additional rows fell back to their interview year's annual mean
+2026-09-26 14:10:14 | WARNING  | energy_stress.ukhls_preprocessing | No rolling monthly FES (/home/mohsen/project/anticipatory-energy-stress/outputs_v2/fes/fes_rolling_monthly.csv) -- FES columns left NaN. Run forecast_pipeline.py --rolling --core-only --tune-per-origin.
+2026-09-26 14:10:35 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 109 columns)
+2026-09-26 14:23:19 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 14:23:19 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 14:23:20 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 14:23:21 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 14:23:21 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 14:23:22 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 14:23:23 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 14:23:24 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 14:23:24 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 14:23:25 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 14:23:26 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 14:23:26 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 14:23:27 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 14:23:28 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 14:23:29 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 14:23:30 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 14:23:31 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 14:23:31 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 14:23:32 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 14:23:33 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 14:23:34 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 14:23:34 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 14:23:35 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 14:23:36 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 14:23:37 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 14:23:37 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 14:23:38 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 14:23:39 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 14:23:40 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 14:23:42 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 14:23:43 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 14:23:44 | INFO     | energy_stress.ukhls_preprocessing | Price context: 336733/339201 rows matched at month resolution, 2468 additional rows fell back to their interview year's annual mean
+2026-09-26 14:23:44 | WARNING  | energy_stress.ukhls_preprocessing | No rolling monthly FES (/home/mohsen/project/anticipatory-energy-stress/outputs_v2/fes/fes_rolling_monthly.csv) -- FES columns left NaN. Run forecast_pipeline.py --rolling --core-only --tune-per-origin.
+2026-09-26 14:24:06 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 113 columns)
+2026-09-26 18:43:19 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 18:43:19 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 18:43:20 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 18:43:20 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 18:43:21 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 18:43:22 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 18:43:24 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 18:43:26 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 18:43:28 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 18:43:29 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 18:43:30 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 18:43:32 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 18:43:33 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 18:43:34 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 18:43:36 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 18:43:37 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 18:43:38 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 18:43:38 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 18:43:40 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 18:43:41 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 18:43:42 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 18:43:42 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 18:43:43 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 18:43:45 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 18:43:45 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 18:43:46 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 18:43:47 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 18:43:48 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 18:43:49 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 18:43:52 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 18:43:53 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 18:43:54 | INFO     | energy_stress.ukhls_preprocessing | Price context: 336733/339201 rows matched at month resolution, 2468 additional rows fell back to their interview year's annual mean
+2026-09-26 18:43:55 | INFO     | energy_stress.ukhls_preprocessing | FES (core, Dec Y-1 vintage): target years 2010-2025; 320825/339201 rows with fes_delta
+2026-09-26 18:43:55 | INFO     | energy_stress.ukhls_preprocessing | FES missing: interview_year=2009.0  rows=15908
+2026-09-26 18:43:55 | INFO     | energy_stress.ukhls_preprocessing | FES missing: interview_year=2014.0  rows=2468
+2026-09-26 18:44:20 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 113 columns)
+2026-09-26 18:46:05 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 18:46:05 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 11 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 18:46:06 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 18:46:06 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 18:46:07 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 18:46:07 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 18:46:09 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 18:46:10 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 18:46:10 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 18:46:11 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 18:46:12 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 18:46:12 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 18:46:13 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 18:46:14 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 18:46:15 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 18:46:15 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 18:46:16 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 18:46:17 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 18:46:18 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 18:46:19 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 18:46:19 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 18:46:20 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 18:46:21 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 18:46:22 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 18:46:23 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 18:46:23 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 18:46:24 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 18:46:25 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 18:46:26 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 18:46:28 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 18:46:30 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 18:46:37 | INFO     | energy_stress.ukhls_preprocessing | Price context: 339201/339201 rows matched at month resolution, 0 additional rows fell back to their interview year's annual mean
+2026-09-26 18:46:38 | INFO     | energy_stress.ukhls_preprocessing | FES (core, Dec Y-1 vintage): target years 2010-2025; 324055/339201 rows with fes_delta
+2026-09-26 18:46:38 | INFO     | energy_stress.ukhls_preprocessing | FES missing: interview_year=2009.0  rows=15146
+2026-09-26 18:47:04 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 118 columns)
+2026-09-26 20:40:28 | INFO     | energy_stress.ukhls_preprocessing | Building UKHLS household-wave panel (waves: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+2026-09-26 20:40:28 | DEBUG    | energy_stress.ukhls_preprocessing | wave a hhresp: 12 requested vars absent (['a_carval', 'a_duelpay', 'a_elecpay', 'a_htpmp', 'a_inoutflows1'])
+2026-09-26 20:40:29 | INFO     | energy_stress.ukhls_preprocessing | wave a: 50994 respondents -> 30035 households (individual aggregation)
+2026-09-26 20:40:29 | DEBUG    | energy_stress.ukhls_preprocessing | wave b hhresp: 10 requested vars absent (['b_duelpay', 'b_elecpay', 'b_htpmp', 'b_inoutflows1', 'b_inoutflows10'])
+2026-09-26 20:40:30 | INFO     | energy_stress.ukhls_preprocessing | wave b: 54568 respondents -> 30453 households (individual aggregation)
+2026-09-26 20:40:31 | DEBUG    | energy_stress.ukhls_preprocessing | wave c hhresp: 8 requested vars absent (['c_htpmp', 'c_inoutflows1', 'c_inoutflows10', 'c_inoutflows12', 'c_inoutflows2'])
+2026-09-26 20:40:33 | INFO     | energy_stress.ukhls_preprocessing | wave c: 49692 respondents -> 27704 households (individual aggregation)
+2026-09-26 20:40:35 | DEBUG    | energy_stress.ukhls_preprocessing | wave d hhresp: 8 requested vars absent (['d_htpmp', 'd_inoutflows1', 'd_inoutflows10', 'd_inoutflows12', 'd_inoutflows2'])
+2026-09-26 20:40:36 | INFO     | energy_stress.ukhls_preprocessing | wave d: 47074 respondents -> 25774 households (individual aggregation)
+2026-09-26 20:40:37 | DEBUG    | energy_stress.ukhls_preprocessing | wave e hhresp: 8 requested vars absent (['e_htpmp', 'e_inoutflows1', 'e_inoutflows10', 'e_inoutflows12', 'e_inoutflows2'])
+2026-09-26 20:40:38 | INFO     | energy_stress.ukhls_preprocessing | wave e: 44837 respondents -> 24288 households (individual aggregation)
+2026-09-26 20:40:40 | DEBUG    | energy_stress.ukhls_preprocessing | wave f hhresp: 7 requested vars absent (['f_htpmp', 'f_inoutflows1', 'f_inoutflows10', 'f_inoutflows12', 'f_inoutflows2'])
+2026-09-26 20:40:42 | INFO     | energy_stress.ukhls_preprocessing | wave f: 45192 respondents -> 24811 households (individual aggregation)
+2026-09-26 20:40:44 | DEBUG    | energy_stress.ukhls_preprocessing | wave g hhresp: 7 requested vars absent (['g_htpmp', 'g_inoutflows1', 'g_inoutflows10', 'g_inoutflows12', 'g_inoutflows2'])
+2026-09-26 20:40:45 | INFO     | energy_stress.ukhls_preprocessing | wave g: 42170 respondents -> 23159 households (individual aggregation)
+2026-09-26 20:40:47 | DEBUG    | energy_stress.ukhls_preprocessing | wave h hhresp: 7 requested vars absent (['h_htpmp', 'h_inoutflows1', 'h_inoutflows10', 'h_inoutflows12', 'h_inoutflows2'])
+2026-09-26 20:40:48 | INFO     | energy_stress.ukhls_preprocessing | wave h: 39294 respondents -> 21999 households (individual aggregation)
+2026-09-26 20:40:49 | DEBUG    | energy_stress.ukhls_preprocessing | wave i hhresp: 7 requested vars absent (['i_htpmp', 'i_inoutflows1', 'i_inoutflows10', 'i_inoutflows12', 'i_inoutflows2'])
+2026-09-26 20:40:50 | INFO     | energy_stress.ukhls_preprocessing | wave i: 36058 respondents -> 20511 households (individual aggregation)
+2026-09-26 20:40:52 | DEBUG    | energy_stress.ukhls_preprocessing | wave j hhresp: 7 requested vars absent (['j_htpmp', 'j_inoutflows1', 'j_inoutflows10', 'j_inoutflows12', 'j_inoutflows2'])
+2026-09-26 20:40:53 | INFO     | energy_stress.ukhls_preprocessing | wave j: 34319 respondents -> 19657 households (individual aggregation)
+2026-09-26 20:40:56 | DEBUG    | energy_stress.ukhls_preprocessing | wave k hhresp: 7 requested vars absent (['k_htpmp', 'k_inoutflows1', 'k_inoutflows10', 'k_inoutflows12', 'k_inoutflows2'])
+2026-09-26 20:40:58 | INFO     | energy_stress.ukhls_preprocessing | wave k: 32008 respondents -> 18508 households (individual aggregation)
+2026-09-26 20:40:59 | DEBUG    | energy_stress.ukhls_preprocessing | wave l hhresp: 7 requested vars absent (['l_htpmp', 'l_inoutflows1', 'l_inoutflows10', 'l_inoutflows12', 'l_inoutflows2'])
+2026-09-26 20:41:00 | INFO     | energy_stress.ukhls_preprocessing | wave l: 29271 respondents -> 17302 households (individual aggregation)
+2026-09-26 20:41:02 | DEBUG    | energy_stress.ukhls_preprocessing | wave m hhresp: 2 requested vars absent (['m_htpmp', 'm_inoutflows12'])
+2026-09-26 20:41:03 | INFO     | energy_stress.ukhls_preprocessing | wave m: 27998 respondents -> 16566 households (individual aggregation)
+2026-09-26 20:41:04 | DEBUG    | energy_stress.ukhls_preprocessing | wave n hhresp: 2 requested vars absent (['n_htpmp', 'n_inoutflows12'])
+2026-09-26 20:41:06 | INFO     | energy_stress.ukhls_preprocessing | wave n: 35471 respondents -> 21920 households (individual aggregation)
+2026-09-26 20:41:10 | INFO     | energy_stress.ukhls_preprocessing | wave o: 32849 respondents -> 19719 households (individual aggregation)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | Full panel: 339201 household-wave rows across 15 waves
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | urban_dv fill: {'observed': 338690, 'previous': 347, 'missing': 125, 'next': 39} | NI wave k: {'observed': 824, 'previous': 291, 'missing': 22, 'next': 17}
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio: 113 rows capped at 1.0
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: in_scope                                  286902
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: item_nonresponse                           39064
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_gas_only                  4278
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: elec_not_reported_oil_or_other_only         4003
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_below_1200                           2433
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: fuelhave_module_nonresponse                 1326
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: no_fuel_reported                            1182
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_outcome_exclusion: income_missing                                13
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio    : 286902/339201 valid (84.6%)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s1 : 325190/339201 valid (95.9%)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_s2 : 294310/339201 valid (86.8%)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_v1 : 255324/339201 valid (75.3%)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | high_fuel_vulnerable (ratio>=10%): 25685/286902 (9.0%)
+2026-09-26 20:41:13 | INFO     | energy_stress.ukhls_preprocessing | fuel_to_income_ratio_equivalised: 286706/339201 valid (84.5%)
+2026-09-26 20:41:14 | INFO     | energy_stress.ukhls_preprocessing | financial_strain_score: 336282 valid | _v1: 338950 | _lag1: 260782
+2026-09-26 20:41:14 | INFO     | energy_stress.ukhls_preprocessing | Core price series covers 2006-2026 (monthly resolution)
+2026-09-26 20:41:14 | INFO     | energy_stress.ukhls_preprocessing | Price context: 339201/339201 rows matched at month resolution, 0 additional rows fell back to their interview year's annual mean
+2026-09-26 20:41:15 | INFO     | energy_stress.ukhls_preprocessing | FES (core, Dec Y-1 vintage): target years 2010-2025; 324055/339201 rows with fes_delta
+2026-09-26 20:41:15 | INFO     | energy_stress.ukhls_preprocessing | FES missing: interview_year=2009.0  rows=15146
+2026-09-26 20:41:45 | INFO     | energy_stress.ukhls_preprocessing | Saved UKHLS panel: ukhls_panel.csv (339201 rows, 127 columns)

@@ -1,25 +1,22 @@
-# Data Description: Sources, Coverage, and Distributions
+# Data Description: Sources, Coverage, and Distributions (rerun v2)
 
-**Project:** Anticipatory Fuel Stress Watch (AFSW) — Forecasting Anticipatory Energy–Carbon Stress and Household Fuel Vulnerability in the UK
-**Scope:** every raw and processed *input* file used by the pipeline (as distinct from `reports/01_outputs_catalog.md`, which covers generated *outputs*), with exact coverage, structure, and descriptive statistics. All numbers below were read directly from the files, not approximated.
+**Project:** Anticipatory Fuel Stress Watch (AFSW) — forecasting anticipatory energy–carbon stress and household fuel vulnerability in the UK.
+**Scope:** every raw and processed *input* to the v2 analysis: coverage, structure, descriptive statistics, and how the UKHLS household panel is turned into the analytical sample. Includes all Chapter 3 thesis tables and data figures (Tables 3-2 to 3-7, A-13, A-14; Figures 3-2 to 3-6, A-2). Generated *outputs* are catalogued in [`01_outputs_catalog.md`](01_outputs_catalog.md), methods in [`06_methodology.md`](06_methodology.md).
+**Status:** branch `rerun-v2`, analysis frozen 2026-09-26. Thesis figures are in `outputs_v2/thesis_assets_v2/figures/`, a local build (`python scripts/build_thesis_assets.py`) that is not tracked in git.
 
 ---
 
 ## 1. Overview
 
-The project draws on four categories of input data:
+The project draws on five kinds of input:
 
-1. **Raw macro-economic and energy-market time series** (`data/raw/`, 9 files) — UK gas/electricity/carbon prices, inflation, GDP, electricity demand, temperature, and exchange-rate series, spanning as far back as 1975 and as recent as 2026.
-2. **Processed/feature-engineered time series** (`data/processed/`, 4 files) — the raw series above, cleaned, merged onto a common monthly index, and expanded with lag/rolling/decomposition features for the forecasting models.
-3. **UKHLS household panel survey data** (`data/raw/ukhls/`, 30 Stata files) — 15 waves (a–o) of household (`hhresp`) and individual (`indresp`) questionnaire responses, 2009–2024.
-4. **Geographic boundary data** (`data/geo/`, 1 GeoJSON file) — real UK NUTS1 regional boundaries for the policy-geography maps.
-
-A fifth input, the Joseph Rowntree Foundation's *UK Poverty 2025* report, is not a file in this repository (it is an external PDF publication) but is documented here since specific values from it are hardcoded, with page/table citations, into `src/ukhls_external_validation.py`.
-
-Sections 3.1 and 3.2 below also include generated distribution figures and full summary-statistics tables (mean/std/quantiles/skew/kurtosis) for the **core** (gas/electricity/carbon) and **macro** (exogenous regressor) variables — produced by `src/data_description_overview.py` (documented in `reports/06_methodology.md` Section 9) and saved to `outputs/data_description/{figures,tables}/`.
+1. **Raw energy-market and macro-economic time series** (`data/raw/`, 9 files): UK gas, electricity and carbon prices, inflation, GDP, electricity demand, temperature and exchange rates, from as early as 1975 to 2026.
+2. **Processed time series** (`data/processed/`, 4 files): the raw series cleaned onto a common monthly index. v2 forecasts use **only the core file** (`core_energy_carbon.csv`: gas, electricity and carbon growth). The macro controls are described for completeness; they fed v1's macro-mode models, which v2 dropped (plan Stage 2).
+3. **UKHLS household panel** (`data/raw/ukhls/`, 30 Stata files): Understanding Society waves a–o, household (`hhresp`) and individual (`indresp`) files. Licensed (UK Data Service SN 6614) and not in the repository.
+4. **Region boundaries** (`data/geo/`, 1 GeoJSON file): NUTS1 regions for the maps in Figures 4-5 and 4-7.
+5. **JRF *UK Poverty 2025*** (`UK Poverty 2025.pdf` in the repository root): the external income-poverty benchmark. Values are taken from the text and tables and recorded with page references in `outputs_v2/jrf/jrf_metadata.csv`.
 
 ---
-
 ## 2. Raw Macro-Economic and Energy-Market Data (`data/raw/`)
 
 ### 2.1 `Carbon Emissions Futures Historical Data UK.csv`
@@ -84,7 +81,7 @@ Sections 3.1 and 3.2 below also include generated distribution figures and full 
 
 **Coverage (UK subset only, `Entity="United Kingdom"`, `Code="GBR"`):** 1,036 rows, **1940-01-15 to 2026-04-15**, monthly (observation day is consistently the 15th of each month).
 
-**Distribution (UK temperature anomaly, °C relative to a historical baseline):** mean −0.44°C, std 1.32, min −6.99, median −0.39, max 3.65; zero missing values in the UK slice. This series feeds the project's "temperature volatility" macro control, used as an exogenous regressor for the macro-mode forecasting models on the theory that unusually cold/warm periods drive heating/cooling demand and hence price stress.
+**Distribution (UK temperature anomaly, °C relative to a historical baseline):** mean −0.44°C, std 1.32, min −6.99, median −0.39, max 3.65; zero missing values in the UK slice. In v1 this series fed the temperature-volatility control used by the macro-mode forecasts; v2 forecasts are core-only and do not use it.
 
 ### 2.9 `series-190626.csv` (ONS GBP/EUR exchange rate, series THAP, dataset MRET)
 
@@ -100,7 +97,7 @@ Sections 3.1 and 3.2 below also include generated distribution figures and full 
 
 ### 3.1 `core_energy_carbon.csv` — the primary gas/electricity/carbon growth-rate file
 
-This is the single most important input file for Stage 1, feeding every forecasting model directly.
+This is the only input to the v2 forecasts (Stage 2, core mode): every model is fit to these three growth series.
 
 **Structure:** 239 rows × 5 columns — `date, gas_growth, electricity_index, electricity_growth, carbon_growth`.
 
@@ -115,15 +112,29 @@ This is the single most important input file for Stage 1, feeding every forecast
 | electricity_growth (%) | 7.80 | 15.49 | −21.07 | −0.30 | 5.70 | 9.65 | 66.71 | 1.84 | 4.72 |
 | carbon_growth (%) | 5.98 | 149.33 | −670.93 | −31.69 | 3.78 | 35.81 | 734.73 | 0.27 | 8.66 |
 
-`carbon_growth`'s standard deviation (149.33) is roughly 25× its mean (5.98), and its range (−670.93 to +734.73) is by far the widest of the three series — a direct consequence of computing percentage growth off a very low base price in the carbon market's early (pre-2013) years, when small absolute price movements translate into enormous percentage swings. This is the same volatility documented from the demand side in `outputs/figures/forecast_vs_actual_carbon.png` (`reports/01_outputs_catalog.md`), and is the reason carbon's forecasting models require proportionally much wider prediction intervals than gas or electricity.
+`carbon_growth`'s standard deviation (149.33) is roughly 25× its mean (5.98), and its range (−670.93 to +734.73) is by far the widest of the three series — a direct consequence of computing percentage growth off a very low base price in the carbon market's early (pre-2013) years, when small absolute price movements translate into enormous percentage swings. It is also why carbon's forecasts carry the widest prediction intervals of the three series (mean 95% PI width 45.8 percentage points in v2; `outputs_v2/fes_eval/uncertainty_pi.csv`).
 
 The skew/excess-kurtosis columns quantify this more precisely: `carbon_growth`'s own skew (0.27) is actually the mildest of the four — its extreme range is driven by symmetric fat tails (excess kurtosis 8.66, the highest of the four) rather than one-sided outliers — whereas `gas_growth` (skew 2.40) and `electricity_growth` (skew 1.84) are both markedly right-skewed, consistent with the "large increases more extreme/frequent than large decreases" pattern already noted for gas's raw RPI series in Section 2.3. `electricity_index` is the one column here that is a price *level*, not a growth rate, and its near-zero excess kurtosis (0.07) reflects a genuinely multi-modal rather than fat-tailed shape — visible as three separate clusters in the figure below (a pre-2021 ~60–100 regime, a 2022-crisis-era jump to ~125–145, and a distinct ~190–240 cluster for the most recent months).
 
-**Figure — core variable distributions:**
 
-![Core variable distributions: gas growth, electricity index, electricity growth, carbon growth](../outputs/data_description/figures/core_variable_distributions.png)
+The values above are population moments with quantiles, from the tracked descriptive table `outputs/data_description/tables/core_variable_summary_stats.csv`. The thesis version (Table 3-6) uses sample-corrected skew and kurtosis, which is why its values are slightly larger:
 
-*Monthly histograms for all four `core_energy_carbon.csv` columns, 2006-05 to 2026-03 (239 months), with mean (dotted) and median (dashed) marked. Generated by `src/data_description_overview.py::run_core`, saved to `outputs/data_description/figures/core_variable_distributions.{png,pdf}`; full summary statistics (including per-variable missingness, confirmed zero here) are in `outputs/data_description/tables/core_variable_summary_stats.csv`.*
+| Series | n | Missing | Mean | SD | Median | Skew | Excess kurtosis |
+|---|---|---|---|---|---|---|---|
+| gas_growth | 239 | 0 | 9.39 | 29.76 | 1.40 | 2.42 | 7.01 |
+| electricity_index | 239 | 0 | 119.01 | 47.80 | 100.20 | 1.10 | 0.09 |
+| electricity_growth | 239 | 0 | 7.80 | 15.49 | 5.70 | 1.85 | 4.85 |
+| carbon_growth | 239 | 0 | 5.98 | 149.33 | 3.78 | 0.28 | 8.87 |
+
+*Table 3-6. Core forecasting series, May 2006–March 2026 (`outputs_v2/thesis_assets_v2/tables/T3-6_forecasting_variables.csv`).*
+
+![Figure 3-6. Core forecasting series](../outputs_v2/thesis_assets_v2/figures/fig3-6_core_forecast_vars.png)
+
+*Figure 3-6. Core forecasting series, May 2006–March 2026: the three growth series forecast in Stage 2.*
+
+![Core variable distributions](../outputs/data_description/figures/core_variable_distributions.png)
+
+*Monthly histograms for the four `core_energy_carbon.csv` columns, with mean (dotted) and median (dashed) marked (`src/data_description_overview.py::run_core`; `outputs/data_description/figures/core_variable_distributions.{png,pdf}`). This descriptive module predates v2, but it describes the inputs, which v2 did not change.*
 
 ### 3.2 `macro_controls.csv`
 
@@ -168,11 +179,14 @@ The skew/excess-kurtosis columns quantify this more precisely: `carbon_growth`'s
 
 Two shape patterns stand out: `gdp_growth`'s excess kurtosis (82.99, by far the largest in the table) and strongly negative skew (−6.02) are both driven by a single extreme observation — the 2020 COVID-lockdown GDP collapse (min −19.2%) sitting far from an otherwise tightly clustered series (p25/median/p75 all within [−0.1, 0.5]); and the `_yoy_growth` columns for wind/solar generation and capacity are all right-skewed with large excess kurtosis (up to 88.86 for `embedded_solar_generation_mean_yoy_growth`), reflecting that year-on-year growth off a small base is mechanically volatile in the same way `carbon_growth` is in Section 3.1 — early in the panel, embedded solar/wind capacity was small enough that modest absolute MW increases produce enormous percentage swings.
 
-**Figure — macro variable distributions (representative subset):**
 
-![Macro variable distributions: inflation, GDP growth, gas futures price, electricity demand, wind/solar generation, exchange rate, weather volatility, holiday share](../outputs/data_description/figures/macro_variable_distributions.png)
+![Figure A-2. Macro covariates](../outputs_v2/thesis_assets_v2/figures/figA_macro_covariates.png)
 
-*Monthly histograms for 9 representative `macro_controls.csv` columns (the full 27-variable table above covers every base column), 2005-01 to 2026-03, mean (dotted) and median (dashed) marked. Generated by `src/data_description_overview.py::run_macro`, saved to `outputs/data_description/figures/macro_variable_distributions.{png,pdf}`; the complete table (all 27 columns, including the ones not plotted) is in `outputs/data_description/tables/macro_variable_summary_stats.csv`.*
+*Figure A-2. Macro covariates (descriptive only; not used by the v2 core-only forecasts).*
+
+![Macro variable distributions](../outputs/data_description/figures/macro_variable_distributions.png)
+
+*Monthly histograms for 9 representative `macro_controls.csv` columns, 2005-01 to 2026-03 (`src/data_description_overview.py::run_macro`; `outputs/data_description/figures/macro_variable_distributions.{png,pdf}`; all columns in `outputs/data_description/tables/macro_variable_summary_stats.csv`).*
 
 **A data-handling note, corrected against the current data file:** the electricity-demand/generation-derived columns (`electricity_demand_mean`, `electricity_demand_peak`, `electricity_tsd_mean`, `england_wales_demand_mean`, the `embedded_wind_*`/`embedded_solar_*` columns, `pump_storage_pumping_mean`, `interconnector_net_flow_mean`, `holiday_share`, and their `_yoy_growth` derivatives) are genuinely **NaN, not 0**, for the 48 rows (2005-01 to 2008-12) before `historic_demand_2009_2024.csv`'s 2009 coverage begins — confirmed directly against `data/processed/macro_controls.csv` for this update (an earlier draft of this report stated these were zero-filled; that is no longer accurate for the current data file and has been corrected here). The two solar columns are the one exception with a genuine, non-missing **0**: `embedded_solar_generation_mean`/`embedded_solar_capacity_mean` are legitimately 0.0 for 15 rows in the early-2010s, reflecting that grid-connected embedded solar capacity in Great Britain was genuinely near-zero before roughly 2011, not a fill artefact.
 
@@ -187,6 +201,7 @@ Two shape patterns stand out: `gdp_growth`'s excess kurtosis (82.99, by far the 
 **Structure:** the same 255 rows and 2005-01-01–2026-03-01 date range as `macro_controls.csv`, expanded from 48 to **158 columns**.
 
 **Added features:** calendar encodings (`month`, `sin_month`/`cos_month`, `time_index`); for every `_lag1` macro control already present, a further set of second-order lag/rolling features (`_lag1_lag1`, `_lag1_lag3`, `_lag1_rm3`, `_lag1_rstd3`, `_lag1_rm6`, `_lag1_rstd6`); rolling statistics on the `post_2016_electricity_regime` dummy itself; and one cross-reference column, `electricity_growth_lag12`, linking back to the energy-carbon series' own 12-month-lagged value. Again, purely additive feature engineering relative to `macro_controls.csv` — identical rows and dates, no value alterations.
+
 
 ---
 
@@ -206,7 +221,7 @@ Two shape patterns stand out: `gdp_growth`'s excess kurtosis (82.99, by far the 
 
 **Total across all 15 waves: 339,201 household-wave rows** — this independently confirms (via a completely separate data-reading approach: raw Stata header metadata, not the pipeline's own processed panel) the same 339,201 figure already reported throughout this project's outputs and README, a useful cross-check that the two counting methods agree exactly.
 
-Two patterns are worth noting: (1) row counts decline fairly steadily from wave a's 30,169 down to a trough of 16,156 at wave m, before rising again at wave n (21,385) — consistent with cumulative panel attrition followed by a sample refreshment/boost around wave n; and (2) the number of variables collected per wave grows substantially over the panel's life (227 at wave a to 600 at wave n), reflecting additional questionnaire modules introduced over the study's 15-year span — meaning later waves are structurally richer in available covariates than earlier ones, a consideration for any analysis (like the SEM) that pools across all 15 waves and can only use variables available in every wave it includes.
+Two patterns are worth noting: (1) row counts decline fairly steadily from wave a's 30,169 down to a trough of 16,156 at wave m, before rising again at wave n (21,385) — consistent with cumulative panel attrition followed by a sample refreshment/boost around wave n; and (2) the number of variables collected per wave grows substantially over the panel's life (227 at wave a to 600 at wave n), reflecting additional questionnaire modules introduced over the study's 15-year span — meaning later waves are structurally richer in available covariates than earlier ones, a consideration for any analysis (like the pooled CFA) that pools across all 15 waves and can only use variables available in every wave it includes.
 
 ### 4.2 Individual-level files (`{wave}_indresp.dta`)
 
@@ -222,11 +237,398 @@ Two patterns are worth noting: (1) row counts decline fairly steadily from wave 
 
 Individual-level files are far wider than household-level files (up to 3,974 variables at wave n, vs. a maximum of 600 for hhresp), reflecting the much larger individual questionnaire instrument, and are correspondingly larger on disk (up to 176MB for a single wave's `indresp.dta`). This project's own preprocessing reads only a deliberately small, named subset of these thousands of available individual-level variables per wave (documented in full in `src/ukhls_mapping.py`'s variable registry) — the vast majority of each `indresp` file's content is not used by this analysis, which is a normal and expected consequence of UKHLS's breadth as a general-purpose household panel rather than a survey purpose-built for this project's specific research questions.
 
-**Variables added this iteration:** `HH_FAMILY_VARS`/`HH_EQUIVALISATION_VARS` (household file — `hhtype_dv`, `nkids_dv`, and related fields feeding the family-composition group and OECD-modified equivalisation scale) and `IND_EMPLOYMENT_VARS` (individual file — `jbft_dv`, `jbsemp`, plus `jbhrs`/`jbterm1`, feeding the work-status construct; `jbstat` itself is a pre-existing variable, part of the separate `IND_CONDITION_VARS` list already used for the employment-security COR indicator, not one of this iteration's additions), plus `fuelduel`/`duelpay`/`elecpay` (household file — the prepayment-meter/rationing proxy). All these additions are read from variables already present in the raw wave files documented above; no new raw data files were required.
 
-### 4.3 Implications for the merged analysis panel
+### 4.3 From raw files to the v2 panel
 
-The 339,201-row merged panel used throughout Stages 2–5 of this project (`outputs/ukhls_cleaned/ukhls_panel.csv`) is built from the 339,201 `hhresp` rows above, left-joined with individual-level items aggregated up from the corresponding wave's `indresp` file (mean-aggregated for ordinal/continuous items, specially handled for categorical items — see `reports/06_methodology.md` Section 3.1–3.3). Because household row counts (30,169–16,156 depending on wave) are always smaller than individual row counts (50,994–27,998), the aggregation step is a genuine many-to-one reduction (multiple individual respondents per household), not a one-to-one merge.
+The panel has one row per `hhresp` household-wave (339,201 rows, 127 columns; `src/ukhls_preprocessing.py`). Individual items from `indresp` are aggregated to the household: ordinal and continuous items by the mean across responding adults, employment flags by the maximum ("does any adult work"), and disability as "any observed adult is disabled". Ethnicity is that of the household reference person. The panel is row-level, licensed data. It is written to `outputs_v2/ukhls_cleaned/ukhls_panel.csv` and never committed.
+
+v2 corrected the following input errors (plan §9; [`v1_to_v2_change_summary.md`](../outputs_v2/reports/v1_to_v2_change_summary.md)):
+
+| Item | v1 | v2 |
+|---|---|---|
+| Interview timing | `month` = the *sample* (address issue) month | Actual household interview date `intdatey`/`intdatem`. Only 24–75% of households per wave are interviewed in their sample month, and 3.5–10% in a different calendar year. 7 rows lack a date (sample month used); 300 interviews fall in 2025 |
+| Missing codes | −10/−11/−20/−21 kept as values (e.g. wave f `ncars` and `carval` = −10 for 2,468 households) | Recoded to missing, with −1/−2/−7/−8/−9 |
+| Self-rated health (`sf1_good`) | Interviewer `sf1`, < 11% observed after wave e | Self-completion `scsf1` where valid, else `sf1`; 95–100% observed per wave |
+| Disability | `healthlink` (adult health-record-linkage consent, wave a only) | Long-standing illness (`health` = 1) and any substantial difficulty (`disdif1`–`12`); observed for 97–99.8% of households per wave |
+| Survey weights | None | Household cross-sectional weight per wave: `hhdenus_xw` (a), `hhdenub_xw` (b–e), `hhdenui_xw` (f–m), `hhdeng2_xw` (n–o). Zero-weight rows are outside that wave's population and are dropped from weighted estimates only |
+| Oil use | `xpoily` > 0 | `fuelhave3` = 1 |
+| Prepayment flag | Missed electricity-only households | Electricity-only households routed to `elecpay` (coverage 223,494 → 264,542 rows) |
+| Rural location | Not used | `urban_dv` (2 = rural); missing values filled from the adjacent wave of the same reference person only when there is no evidence of a move |
+
+### 4.4 The outcome: routing-aware fuel spend
+
+Fuel spend is asked through a routed sequence. v1 read `fuelduel` = −8 (not asked, because the household does not have both gas and electricity) as missing and dropped the household. That removed almost every off-gas-grid household, including 13,463 of 15,968 Northern Ireland oil users. v1 also set item non-response on the separate amounts to £0. Table 3-4 gives the routing and the v2 treatment.
+
+| Variable | Asked if | Content | v2 treatment |
+|---|---|---|---|
+| fuelhave1–4 | all households | fuels used (electricity, gas, oil, other) | defines which amounts are required |
+| fuelduel | electricity AND gas used | 1 one bill / 2 separate | −8 = not dual-fuel (not missing); DK/refused → separate amounts asked |
+| xpduely | fuelduel = 1 | annual combined gas+electricity £ | −1/−2/−9 = item non-response → spend missing |
+| xpgasy, xpelecy | fuelduel = 2 or DK/refused, or single-fuel household | annual £ | −8 = fuel not used (structural 0); −1/−2/−9 → missing |
+| xpoily | oil used (fuelhave3 = 1) | annual £ | −8 = not used (0); non-response → missing |
+| xpsfly | other fuel used (fuelhave4 = 1) | annual £ | −8 = not used (0); non-response → missing |
+
+*Table 3-4. Fuel-expenditure routing and code treatment. Every code is listed in `outputs_v2/audit_fuel_codes.csv` (171 rows).*
+
+**Spend (amendment A1).** For electricity and gas households: `xpduely` if `fuelduel` = 1, otherwise `xpgasy` + `xpelecy`. For electricity-only households: `xpelecy`. Plus `xpoily` if oil is used and `xpsfly` if another fuel is used. Item non-response on any required amount makes spend missing (complete-case). Households that do not report electricity are excluded from the primary sample (S2 adds them back). **Ratio:** spend ÷ (12 × `fihhmnnet1_dv`). The ratio is missing if annual income is below £1,200 and capped at 1.0 (2,106 capped rows kept). `high_fuel_vulnerable` = ratio ≥ 0.10.
+
+| Step | Description | Change / total | Remaining |
+|---|---|---|---|
+| 0 | All UKHLS household-wave rows (waves a-o) | 339,201 |  |
+| 1 | Fuel-use module nonresponse (fuelhave* < 0) | -1,326 | 337,875 |
+| 2 | No fuel reported (fuelhave96 / none mentioned) | -1,182 | 336,693 |
+| 3 | Electricity not reported: gas only [S2 adds back] | -4,278 | 332,415 |
+| 4 | Electricity not reported: oil/other only [S2 adds back] | -4,003 | 328,412 |
+| 5a | Item nonresponse, first missing amount = xpduely [S1 adds back as 0] | -16,684 | 311,728 |
+| 5b | Item nonresponse, first missing amount = xpgasy [S1 adds back as 0] | -15,619 | 296,109 |
+| 5c | Item nonresponse, first missing amount = xpelecy [S1 adds back as 0] | -6,284 | 289,825 |
+| 5d | Item nonresponse, first missing amount = xpoily [S1 adds back as 0] | -256 | 289,569 |
+| 5e | Item nonresponse, first missing amount = xpsfly [S1 adds back as 0] | -221 | 289,348 |
+| 6 | Household net income missing (sentinel code) | -13 | 289,335 |
+| 7 | Annual net income < £1,200 guard (never logged in v1) | -2,433 | 286,902 |
+| = | Primary analytical n (fuel_to_income_ratio non-missing) | 286,902 |  |
+| info | of which ratio capped at 1.0 (kept, not excluded) | 2,106 |  |
+| info | v1 analytical n for comparison | 255,324 |  |
+| info | S1 (lower-bound) analytical n | 325,190 |  |
+| info | S2 (+elec-not-reported) analytical n | 294,310 |  |
+| v1.0 | All rows | 339,201 |  |
+| v1.1 | fuelduel = -8 inapplicable (not dual-fuel) -> dropped | -61,392 |  |
+| v1.2 | fuelduel DK/refused/missing -> dropped | -3,691 |  |
+| v1.3 | fuelduel = 1 and xpduely nonresponse -> dropped | -16,684 |  |
+| v1.4 | = rows with v1 spend | 257,434 |  |
+| v1.5 | income missing | -10 |  |
+| v1.6 | income < £1,200 guard (not logged in v1) | -2,100 |  |
+| v1.7 | = v1 analytical n | 255,324 |  |
+
+*Table 3-3. Sample flow from 339,201 household-waves to the primary analytical n of 286,902, with the S1, S2 and v1 flows.*
+
+| Wave | Fieldwork | Household-waves | Analytical n, primary | Analytical n, S1 lower bound | Analytical n, v1 rule |
+|---|---|---|---|---|---|
+| a | 2009–2011 | 30,169 | 25,649 | 28,881 | 23,440 |
+| b | 2010–2012 | 30,484 | 26,936 | 29,307 | 23,609 |
+| c | 2011–2013 | 27,751 | 24,765 | 26,945 | 21,694 |
+| d | 2012–2014 | 25,817 | 23,260 | 25,180 | 20,382 |
+| e | 2013–2015 | 24,325 | 21,970 | 23,653 | 19,244 |
+| f | 2014–2016 | 24,454 | 20,625 | 23,458 | 18,732 |
+| g | 2015–2017 | 23,033 | 19,814 | 22,205 | 17,847 |
+| h | 2016–2018 | 21,746 | 18,818 | 20,938 | 16,776 |
+| i | 2017–2019 | 20,048 | 17,004 | 19,298 | 15,149 |
+| j | 2018–2020 | 19,252 | 16,171 | 18,473 | 14,282 |
+| k | 2019–2021 | 18,139 | 14,884 | 17,268 | 13,167 |
+| l | 2020–2022 | 16,856 | 13,431 | 15,912 | 11,900 |
+| m | 2021–2023 | 16,156 | 12,478 | 15,152 | 11,168 |
+| n | 2022–2024 | 21,385 | 16,411 | 20,072 | 14,752 |
+| o | 2023–2025 | 19,586 | 14,686 | 18,448 | 13,182 |
+| total |  | 339,201 | 286,902 | 325,190 | 255,324 |
+
+*Table 3-2. Household-waves and analytical n by wave. Each wave's fieldwork spans two to three calendar years.*
+
+| Gap | Explanation | n | Detail |
+|---|---|---|---|
+| status_sum_off_by_one | Stage 1 status counts omitted the A2 rows (v1 kept, A1 kept, spend differs): fuelduel=2 with gas not reported, so v1 adds xpgasy while A1 counts electricity only. No row-level detail is written out. | <10 |  |
+| v1_spend_rows_minus_v1_analytical_n | Rows with a v1 spend (same + zero-filled + A2) minus v1 analytical n: removed by the income step inside compute_fuel_to_income. | 2110 | income missing=10; income<£1,200=2100 |
+| a1_spend_rows_minus_a1_analytical_n | Same gap for the A1 primary outcome. | 2446 | income missing=13; income<£1,200=2433 |
+
+*Gap explanations (`outputs_v2/audit/gap_explanations.csv`): the income step removes 2,446 rows with spend under the v2 rule (2,110 under v1).*
+
+| Wave | NI households | NI oil households | Oil households dropped by v1 `fuelduel` rule | …of which in v2 primary sample | Oil households kept by v1 |
+|---|---|---|---|---|---|
+| a | 1,292 | 1,010 | 834 | 678 | 176 |
+| b | 2,227 | 1,776 | 1,436 | 1,234 | 340 |
+| c | 2,054 | 1,637 | 1,322 | 1,139 | 315 |
+| d | 1,831 | 1,435 | 1,162 | 1,025 | 273 |
+| e | 1,666 | 1,268 | 1,013 | 895 | 255 |
+| f | 1,510 | 1,159 | 988 | 591 | 169 |
+| g | 1,434 | 1,070 | 939 | 556 | 131 |
+| h | 1,382 | 1,005 | 871 | 578 | 134 |
+| i | 1,316 | 955 | 824 | 644 | 131 |
+| j | 1,245 | 899 | 782 | 609 | 117 |
+| k | 1,154 | 814 | 709 | 537 | 105 |
+| l | 1,043 | 723 | 629 | 441 | 94 |
+| m | 1,041 | 708 | 624 | 415 | 84 |
+| n | 1,179 | 767 | 679 | 449 | 88 |
+| o | 1,112 | 742 | 651 | 428 | 91 |
+| all | 21,486 | 15,968 | 13,463 | 10,219 | 2,503 |
+
+*Northern Ireland oil households dropped by the v1 `fuelduel` rule, by wave (`outputs_v2/audit/ni_oil_lost_by_wave.csv`).*
+
+| Level | Group | v1 n | v1 % | Primary n | Primary % | S1 n | S1 % | S2 n | S2 % |
+|---|---|---|---|---|---|---|---|---|---|
+| all | UK | 255,324 | 7.9 | 286,902 | 9.0 | 325,190 | 8.0 | 294,310 | 8.9 |
+| region | East Midlands | 19,474 | 8.0 | 21,109 | 9.0 | 23,725 | 8.1 | 21,312 | 9.0 |
+| region | East of England | 21,253 | 6.5 | 24,400 | 7.1 | 27,736 | 6.3 | 24,741 | 7.0 |
+| region | London | 32,783 | 6.9 | 33,478 | 7.2 | 39,797 | 6.1 | 33,724 | 7.1 |
+| region | Missing region | 97 | 12.4 | 120 | 15.8 | 153 | 12.4 | 122 | 15.6 |
+| region | North East | 10,642 | 8.5 | 11,086 | 8.8 | 12,359 | 8.0 | 11,190 | 8.8 |
+| region | North West | 28,712 | 8.9 | 29,474 | 9.3 | 33,441 | 8.3 | 29,766 | 9.3 |
+| region | Northern Ireland | 6,172 | 15.6 | 16,646 | 18.2 | 17,550 | 17.4 | 20,143 | 15.9 |
+| region | Scotland | 22,340 | 8.4 | 25,951 | 9.7 | 29,040 | 8.7 | 26,891 | 9.6 |
+| region | South East | 31,465 | 6.0 | 34,004 | 6.3 | 39,241 | 5.5 | 34,394 | 6.3 |
+| region | South West | 19,699 | 6.1 | 23,663 | 7.1 | 26,545 | 6.4 | 24,040 | 7.0 |
+| region | Wales | 17,366 | 9.1 | 19,278 | 10.1 | 21,685 | 9.1 | 19,894 | 9.9 |
+| region | West Midlands | 22,230 | 9.8 | 23,786 | 10.3 | 26,822 | 9.2 | 24,008 | 10.3 |
+| region | Yorkshire and the Humber | 23,091 | 8.4 | 23,907 | 8.9 | 27,096 | 7.9 | 24,085 | 8.8 |
+| wave | a | 23,440 | 11.6 | 25,649 | 12.8 | 28,881 | 11.5 | 26,199 | 12.7 |
+| wave | b | 23,609 | 8.7 | 26,936 | 10.0 | 29,307 | 9.2 | 27,431 | 9.9 |
+| wave | c | 21,694 | 8.4 | 24,765 | 9.7 | 26,945 | 9.0 | 25,199 | 9.6 |
+| wave | d | 20,382 | 8.6 | 23,260 | 9.9 | 25,180 | 9.2 | 23,600 | 9.9 |
+| wave | e | 19,244 | 9.0 | 21,970 | 10.0 | 23,653 | 9.3 | 22,282 | 10.0 |
+| wave | f | 18,732 | 7.5 | 20,625 | 8.5 | 23,458 | 7.6 | 21,270 | 8.4 |
+| wave | g | 17,847 | 6.4 | 19,814 | 7.1 | 22,205 | 6.4 | 20,363 | 7.0 |
+| wave | h | 16,776 | 5.9 | 18,818 | 6.4 | 20,938 | 5.8 | 19,325 | 6.3 |
+| wave | i | 15,149 | 5.4 | 17,004 | 6.1 | 19,298 | 5.4 | 17,399 | 6.0 |
+| wave | j | 14,282 | 5.8 | 16,171 | 6.6 | 18,473 | 5.8 | 16,586 | 6.5 |
+| wave | k | 13,167 | 5.3 | 14,884 | 6.2 | 17,268 | 5.4 | 15,353 | 6.2 |
+| wave | l | 11,900 | 5.1 | 13,431 | 5.9 | 15,912 | 5.1 | 13,958 | 5.8 |
+| wave | m | 11,168 | 6.3 | 12,478 | 7.2 | 15,152 | 5.9 | 13,036 | 7.0 |
+| wave | n | 14,752 | 10.8 | 16,411 | 12.0 | 20,072 | 9.9 | 17,044 | 11.8 |
+| wave | o | 13,182 | 10.6 | 14,686 | 11.9 | 18,448 | 9.5 | 15,265 | 11.7 |
+
+*Indicative unweighted prevalence under each outcome definition (`outputs_v2/audit/indicative_prevalence.csv`). The weighted trend used in the thesis is in [`02_findings_report.md`](02_findings_report.md) §4.1.*
+
+| Group | n | n (waves c–o) | Renting (%) | Owner (%) | Gas in rent (% of asked) | Elec. in rent (% of asked) |
+|---|---|---|---|---|---|---|
+| gas_only | 4,278 | 3,595 | 28.8 | 70.3 | 1.3 |  |
+| oil_or_other_only | 4,003 | 3,526 | 20.1 | 79.3 |  |  |
+| primary_in_scope (reference) | 289,348 | 236,196 | 30.0 | 69.4 | 0.4 | 0.5 |
+
+*Households that do not report electricity (`outputs_v2/audit/elec_not_reported_rent_check.csv`). Both groups are mostly owner-occupiers, so their reported spend is probably incomplete rather than included in rent. They are excluded from the primary sample and added back in S2.*
+
+### 4.5 Missing fuel spend
+
+Spend is missing for 39,064 of the 328,412 in-scope household-waves (11.9%). The share rises over the panel (7–8% in waves b–e, 20.4% in wave o) and is much higher in telephone interviews.
+
+![Figure 3-3. Missing spend by mode and wave](../outputs_v2/thesis_assets_v2/figures/fig3-3_missing_spend_wave_mode.png)
+
+*Figure 3-3. Fuel-spend item non-response by interview mode and wave (households reporting electricity).*
+
+<details><summary><b>Missing spend by interview mode and wave</b> (<code>outputs_v2/audit/missing_by_mode_wave.csv</code>)</summary>
+
+| Wave | Mode | Observed | Missing | n | % missing | % of wave |
+|---|---|---|---|---|---|---|
+| a | mode not recorded | 26,037 | 3,335 | 29,372 | 11.4 | 100.0 |
+| b | mode not recorded | 27,115 | 2,409 | 29,524 | 8.2 | 100.0 |
+| c | CAPI (face-to-face) | 24,588 | 2,097 | 26,685 | 7.9 | 98.4 |
+| c | CATI (telephone) | 299 | 122 | 421 | 29.0 | 1.6 |
+| c | mode missing/other | 0 | <10 | <10 | <10 | <10 |
+| d | CAPI (face-to-face) | 23,019 | 1,801 | 24,820 | 7.3 | 98.0 |
+| d | CATI (telephone) | 358 | 140 | 498 | 28.1 | 2.0 |
+| d | mode missing/other | <10 | <10 | 17 | <10 | 0.1 |
+| e | CAPI (face-to-face) | 21,796 | 1,576 | 23,372 | 6.7 | 98.2 |
+| e | CATI (telephone) | 287 | 116 | 403 | 28.8 | 1.7 |
+| e | mode missing/other | 18 | 12 | 30 | 40.0 | 0.1 |
+| f | CAPI (face-to-face) | 20,245 | 2,799 | 23,044 | 12.1 | 97.5 |
+| f | CATI (telephone) | 448 | 94 | 542 | 17.3 | 2.3 |
+| f | mode missing/other | 42 | <10 | 48 | <10 | 0.2 |
+| g | CAPI (face-to-face) | 18,771 | 2,160 | 20,931 | 10.3 | 93.7 |
+| g | CATI (telephone) | 257 | 59 | 316 | 18.7 | 1.4 |
+| g | CAWI (web) | 878 | 223 | 1,101 | 20.3 | 4.9 |
+| h | CAPI (face-to-face) | 13,181 | 1,376 | 14,557 | 9.5 | 69.0 |
+| h | CATI (telephone) | 178 | 37 | 215 | 17.2 | 1.0 |
+| h | CAWI (web) | 5,574 | 760 | 6,334 | 12.0 | 30.0 |
+| i | CAPI (face-to-face) | 8,396 | 1,122 | 9,518 | 11.8 | 48.9 |
+| i | CATI (telephone) | 55 | 31 | 86 | 36.0 | 0.4 |
+| i | CAWI (web) | 8,688 | 1,181 | 9,869 | 12.0 | 50.7 |
+| j | CAPI (face-to-face) | 7,024 | 907 | 7,931 | 11.4 | 42.6 |
+| j | CATI (telephone) | 54 | 21 | 75 | 28.0 | 0.4 |
+| j | CAWI (web) | 9,220 | 1,409 | 10,629 | 13.3 | 57.0 |
+| k | CAPI (face-to-face) | 3,869 | 493 | 4,362 | 11.3 | 25.0 |
+| k | CATI (telephone) | 1,244 | 300 | 1,544 | 19.4 | 8.8 |
+| k | CAWI (web) | 9,925 | 1,646 | 11,571 | 14.2 | 66.2 |
+| l | CAPI (face-to-face) | 405 | 58 | 463 | 12.5 | 2.9 |
+| l | CATI (telephone) | 2,454 | 513 | 2,967 | 17.3 | 18.4 |
+| l | CAWI (web) | 10,713 | 1,956 | 12,669 | 15.4 | 78.7 |
+| m | CAPI (face-to-face) | 484 | 132 | 616 | 21.4 | 4.0 |
+| m | CATI (telephone) | 1,388 | 322 | 1,710 | 18.8 | 11.1 |
+| m | CAWI (web) | 10,771 | 2,279 | 13,050 | 17.5 | 84.9 |
+| n | CAPI (face-to-face) | 2,610 | 628 | 3,238 | 19.4 | 15.9 |
+| n | CATI (telephone) | 606 | 179 | 785 | 22.8 | 3.8 |
+| n | CAWI (web) | 13,467 | 2,929 | 16,396 | 17.9 | 80.3 |
+| o | CAPI (face-to-face) | 1,688 | 322 | 2,010 | 16.0 | 10.8 |
+| o | CATI (telephone) | 300 | 111 | 411 | 27.0 | 2.2 |
+| o | CAWI (web) | 12,888 | 3,387 | 16,275 | 20.8 | 87.1 |
+
+</details>
+
+<details><summary><b>Missing vs observed spend by region, tenure, income quintile and wave</b> (<code>outputs_v2/audit/missing_vs_observed_spend.csv</code>)</summary>
+
+| Dimension | Group | Missing | Observed | % missing in group |
+|---|---|---|---|---|
+| region | East Midlands | 2,684 | 21,273 | 11.2 |
+| region | East of England | 3,377 | 24,606 | 12.1 |
+| region | London | 6,492 | 33,976 | 16.0 |
+| region | Missing region | 33 | 137 | 19.4 |
+| region | North East | 1,290 | 11,166 | 10.4 |
+| region | North West | 4,064 | 29,715 | 12.0 |
+| region | Northern Ireland | 919 | 16,762 | 5.2 |
+| region | Scotland | 3,142 | 26,139 | 10.7 |
+| region | South East | 5,329 | 34,285 | 13.5 |
+| region | South West | 2,927 | 23,816 | 10.9 |
+| region | Wales | 2,449 | 19,401 | 11.2 |
+| region | West Midlands | 3,108 | 23,975 | 11.5 |
+| region | Yorkshire and the Humber | 3,250 | 24,097 | 11.9 |
+| tenure | Housing assoc rented | 2,416 | 21,589 | 10.1 |
+| tenure | Local authority rent | 3,678 | 29,476 | 11.1 |
+| tenure | Missing tenure | 568 | 980 | 36.7 |
+| tenure | Other | 318 | 736 | 30.2 |
+| tenure | Owned outright | 12,506 | 101,930 | 10.9 |
+| tenure | Owned with mortgage | 13,140 | 98,767 | 11.7 |
+| tenure | Rented from employer | 523 | 2,647 | 16.5 |
+| tenure | Rented private furnished | 2,458 | 8,709 | 22.0 |
+| tenure | Rented private unfurnished | 3,457 | 24,514 | 12.4 |
+| income_band | Q1 | 8,980 | 56,681 | 13.7 |
+| income_band | Q2 | 6,874 | 58,781 | 10.5 |
+| income_band | Q3 | 6,881 | 58,771 | 10.5 |
+| income_band | Q4 | 7,525 | 58,130 | 11.5 |
+| income_band | Q5 | 8,795 | 56,864 | 13.4 |
+| income_band | income missing | <10 | 121 | <10 |
+| wave | a | 3,335 | 26,037 | 11.4 |
+| wave | b | 2,409 | 27,115 | 8.2 |
+| wave | c | 2,226 | 24,887 | 8.2 |
+| wave | d | 1,950 | 23,385 | 7.7 |
+| wave | e | 1,704 | 22,101 | 7.2 |
+| wave | f | 2,899 | 20,735 | 12.3 |
+| wave | g | 2,442 | 19,906 | 10.9 |
+| wave | h | 2,173 | 18,933 | 10.3 |
+| wave | i | 2,334 | 17,139 | 12.0 |
+| wave | j | 2,337 | 16,298 | 12.5 |
+| wave | k | 2,439 | 15,038 | 14.0 |
+| wave | l | 2,527 | 13,572 | 15.7 |
+| wave | m | 2,733 | 12,643 | 17.8 |
+| wave | n | 3,736 | 16,683 | 18.3 |
+| wave | o | 3,820 | 14,876 | 20.4 |
+| all | all | 39,064 | 289,348 | 11.9 |
+
+</details>
+
+Missingness is highest in London (16.0%) and among private renters in furnished lets (22.0%), lowest in Northern Ireland (5.2%), and U-shaped in income (13.7% in the lowest quintile, 13.4% in the highest). S1, which counts non-response as £0, is therefore reported as a lower bound throughout.
+
+### 4.6 Interview timing and regions
+
+![Figure 3-2. Interview timing](../outputs_v2/thesis_assets_v2/figures/fig3-2_interview_timing.png)
+
+*Figure 3-2. Interview timing from actual household interview dates (cells < 10 masked).*
+
+| Wave | 2009 | 2010 | 2011 | 2012 | 2013 | 2014 | 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| a | 15,146 | 14,029 | 994 | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| b | — | 17,742 | 12,205 | 537 | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| c | — | — | 16,336 | 10,820 | 591 | — | — | — | — | — | — | — | — | — | — | — | — |
+| d | — | — | — | 15,044 | 10,013 | 760 | — | — | — | — | — | — | — | — | — | — | — |
+| e | — | — | — | — | 13,936 | 9,698 | 691 | — | — | — | — | — | — | — | — | — | — |
+| f | — | — | — | — | — | 12,672 | 10,549 | 1,233 | — | — | — | — | — | — | — | — | — |
+| g | — | — | — | — | — | — | 12,145 | 9,963 | 925 | — | — | — | — | — | — | — | — |
+| h | — | — | — | — | — | — | — | 11,813 | 8,902 | 1,031 | — | — | — | — | — | — | — |
+| i | — | — | — | — | — | — | — | — | 10,960 | 8,243 | 845 | — | — | — | — | — | — |
+| j | — | — | — | — | — | — | — | — | — | 10,619 | 8,092 | 541 | — | — | — | — | — |
+| k | — | — | — | — | — | — | — | — | — | — | 10,141 | 7,660 | 338 | — | — | — | — |
+| l | — | — | — | — | — | — | — | — | — | — | — | 9,887 | 6,704 | 265 | — | — | — |
+| m | — | — | — | — | — | — | — | — | — | — | — | — | 9,549 | 6,299 | 308 | — | — |
+| n | — | — | — | — | — | — | — | — | — | — | — | — | — | 11,043 | 9,698 | 644 | — |
+| o | — | — | — | — | — | — | — | — | — | — | — | — | — | — | 10,758 | 8,528 | 300 |
+
+*Table A-13. Household-waves by wave × interview year (cells < 10 omitted).*
+
+![Figure 3-5. Regional counts](../outputs_v2/thesis_assets_v2/figures/fig3-5_regional_counts.png)
+
+*Figure 3-5. UKHLS household-waves by region.*
+
+| Region | Household-waves |
+|---|---|
+| East Midlands | 24,339 |
+| East of England | 28,545 |
+| London | 41,318 |
+| North East | 12,643 |
+| North West | 34,392 |
+| Northern Ireland | 21,486 |
+| Scotland | 30,538 |
+| South East | 40,315 |
+| South West | 27,323 |
+| Wales | 22,768 |
+| West Midlands | 27,592 |
+| Yorkshire and the Humber | 27,761 |
+
+*Table A-14. Household-waves by region. Northern Ireland is over-represented relative to its population share (21,486 household-waves). Weighted estimates correct for this.*
+
+### 4.7 Measures
+
+| Construct | Items | Coding | Construction | Cronbach α (descriptive) |
+|---|---|---|---|---|
+| Outcome | high_fuel_vulnerable | annual fuel spend / (12 × monthly net income) ≥ 0.10 | routing-aware spend, complete-case; income < £1,200 excluded; ratio capped at 1 |  |
+| Strain | finnow | current financial situation, 1 comfortable … 5 very difficult | household mean of adults | 0.27 (3-item composite; not used as a scale) |
+| Strain | scghq1_dv | GHQ-12 Likert 0–36 (higher = more distress) | household mean |  |
+| Strain | finfut_risk | financial expectations: 0 better / 0.5 same / 1 worse | household mean; always with age |  |
+| Resources: OBJECT | hsrooms, hsbeds, ncars, carval, hsval | log(1+x) for £ items; z-scored | mean of z (≥ 50% observed), re-standardised | 0.60 |
+| Resources: CONDITION | tenure_security, jbstat_security, bill_security | 0–1 security codings | as above | 0.34 |
+| Resources: PERSONAL | sf1_good (self-rated health), health_good (no long-standing illness), qfhigh_band | higher = better | as above | 0.58 |
+| Resources: ENERGY | fihhmnnet1_dv, fiyrinvinc_dv | log(1+x) | as above | 0.32 |
+| Disability | health + disdif1–12 | long-standing illness and ≥ 1 substantial difficulty | household: any observed adult |  |
+| Oil use | fuelhave3 | 1 = uses heating oil |  |  |
+| Rural | urban_dv | 2 = rural | missing filled from adjacent wave if no move |  |
+| FES | fes_magnitude_growth3, fes_delta_growth3 | sum of 3 growth z-scores (past-only moments); Delta = forecast − realised (m−1) | Dec Y−1 vintage; interviews 2010+ |  |
+
+*Table 3-5. Measures: items, coding, construction and Cronbach's α. α is descriptive for the formative resource indices.*
+
+The strain items are not one scale. Current financial difficulty (`finnow`) and financial expectations (`finfut_risk`) are almost uncorrelated, and `finfut_risk` tracks age:
+
+| Metric | Value | n |
+|---|---|---|
+| cronbach_alpha_primary_items | 0.271 | 312,395 |
+| r(finnow,finfut_risk) | 0.021 | 312,395 |
+| r(finnow,scghq1_dv) | 0.348 | 312,395 |
+| r(finfut_risk,scghq1_dv) | 0.102 | 312,395 |
+| coverage_financial_strain_score | 0.991 | 336,282 |
+| coverage_financial_strain_score_v1 | 0.999 | 338,950 |
+| coverage_financial_strain_score_lag1 | 0.769 | 260,782 |
+| r(primary, v1) | 0.955 | 336,282 |
+| r(primary, lag1) | 0.566 | 259,408 |
+
+*Strain structure (`outputs_v2/descriptives/strain_structure.csv`).*
+
+| Type | Item | finnow | finfut_risk | scghq1_dv | xphsdba | dvage |
+|---|---|---|---|---|---|---|
+| pearson | finnow | 1.0 | 0.0233 | 0.3489 | 0.3084 | -0.2133 |
+| pearson | finfut_risk | 0.0233 | 1.0 | 0.1026 | -0.0368 | 0.3095 |
+| pearson | scghq1_dv | 0.3489 | 0.1026 | 1.0 | 0.1664 | -0.0804 |
+| pearson | xphsdba | 0.3084 | -0.0368 | 0.1664 | 1.0 | -0.1448 |
+| pearson | dvage | -0.2133 | 0.3095 | -0.0804 | -0.1448 | 1.0 |
+| spearman | finnow | 1.0 | 0.0077 | 0.3129 | 0.2719 | -0.2184 |
+| spearman | finfut_risk | 0.0077 | 1.0 | 0.0868 | -0.0423 | 0.3285 |
+| spearman | scghq1_dv | 0.3129 | 0.0868 | 1.0 | 0.1406 | -0.0981 |
+| spearman | xphsdba | 0.2719 | -0.0423 | 0.1406 | 1.0 | -0.155 |
+| spearman | dvage | -0.2184 | 0.3285 | -0.0981 | -0.155 | 1.0 |
+
+*Household-level correlations of the strain items, bill arrears (`xphsdba`) and age (`outputs_v2/descriptives/strain_item_correlations.csv`).*
+
+### 4.8 The outcome and FES as attached to households
+
+![Figure 3-4. Distributions of the outcome and FES](../outputs_v2/thesis_assets_v2/figures/fig3-4_distributions_outcome_fes.png)
+
+*Figure 3-4. Distribution of the fuel-to-income ratio (primary) and of FES as attached to households, interviews 2010 onwards for FES (bins < 10 dropped).*
+
+FES is attached from the December Y−1 forecast origin. The first origin with at least 24 months of training history is December 2009, so the 15,146 household-waves interviewed in 2009 have no FES and are excluded from FES models only. 324,055 rows carry FES, and 274,128 have both the outcome and FES.
+
+| Interview year | Households | With FES | With outcome and FES | Mean magnitude | Mean current | Mean Delta |
+|---|---|---|---|---|---|---|
+| 2009 | 15,146 | 0 | 0 |  |  |  |
+| 2010 | 31,775 | 31,775 | 27,594 | -2.22 | -2.43 | 0.21 |
+| 2011 | 29,535 | 29,535 | 26,339 | -3.06 | -0.54 | -2.52 |
+| 2012 | 26,401 | 26,401 | 23,704 | -0.48 | -0.46 | -0.03 |
+| 2013 | 24,540 | 24,540 | 22,178 | -2.82 | -0.60 | -2.23 |
+| 2014 | 23,130 | 23,130 | 20,267 | -0.66 | -0.39 | -0.27 |
+| 2015 | 23,385 | 23,385 | 19,855 | -1.40 | -1.63 | 0.23 |
+| 2016 | 23,009 | 23,009 | 19,704 | -0.79 | -1.86 | 1.07 |
+| 2017 | 20,787 | 20,787 | 17,849 | -1.80 | -0.60 | -1.20 |
+| 2018 | 19,893 | 19,893 | 16,830 | 0.15 | 0.49 | -0.35 |
+| 2019 | 19,078 | 19,078 | 15,829 | -0.08 | 0.01 | -0.09 |
+| 2020 | 18,088 | 18,088 | 14,693 | -0.67 | -1.74 | 1.07 |
+| 2021 | 16,591 | 16,591 | 12,933 | -0.78 | -0.48 | -0.30 |
+| 2022 | 17,607 | 17,607 | 13,533 | 2.25 | 9.38 | -7.13 |
+| 2023 | 20,764 | 20,764 | 15,705 | 1.10 | 3.05 | -1.95 |
+| 2024 | 9,172 | 9,172 | 6,892 | -1.21 | -3.17 | 1.97 |
+| 2025 | 300 | 300 | 223 | -1.72 | -1.48 | -0.24 |
+
+*FES coverage and means by interview year (`outputs_v2/fes_eval/fes_coverage_by_interview_year.csv`). Mean Delta is most negative in 2022 (−7.1): realised stress far exceeded the forecast.*
 
 ---
 
@@ -253,36 +655,52 @@ The 339,201-row merged panel used throughout Stages 2–5 of this project (`outp
 
 8 of the 12 regions are `MultiPolygon` geometries (reflecting offshore islands or exclaves — e.g. Scotland's islands, South West England's islands), while 4 (Yorkshire and the Humber, East Midlands, West Midlands, London) are simple, contiguous `Polygon` geometries. Each feature additionally carries ONS-style metadata: `OBJECTID`, `nuts118cd`, `nuts118nm`, a British National Grid centroid (`bng_e`/`bng_n`), a WGS84 centroid (`long`/`lat`), computed shape area/length, and a `GlobalID` GUID — sourced from the ONS Open Geography Portal's public ArcGIS FeatureServer under the Open Government Licence v3.0.
 
+
 ---
 
-## 6. External Benchmark Data (Joseph Rowntree Foundation, *UK Poverty 2025*)
+## 6. External Benchmark: Joseph Rowntree Foundation, *UK Poverty 2025*
 
-Not a file within this repository's `data/` directory — an external, independently-published PDF report, cited here for completeness since specific values from it are hardcoded (with page/table references preserved as code comments) into `src/ukhls_external_validation.py`, rather than re-derived or estimated.
+**Source.** JRF, *UK Poverty 2025* (January 2025), based on DWP Households Below Average Income. The measure is relative poverty after housing costs (AHC): equivalised household income below 60% of the median. The PDF is in the repository root (`UK Poverty 2025.pdf`). Every value was checked against it, and the page or table is recorded in `outputs_v2/jrf/jrf_metadata.csv`.
 
-**Source:** Joseph Rowntree Foundation, *UK Poverty 2025*, published January 2025, using Department for Work and Pensions Households Below Average Income (HBAI) data. The measure used throughout is relative income poverty, after housing costs (AHC) — equivalised household income below 60% of the UK median — mostly averaged over the 2021/22–2022/23 period.
+**Values used** (stated in the text or tables; values shown only in charts are not read off):
 
-**Values extracted (all stated explicitly in the source report's text or tables, never estimated from a chart):**
+| Dimension | Categories and JRF rate (%) | Source |
+|---|---|---|
+| Region | North East 21, North West 25, Yorkshire and the Humber 23, East Midlands 20, West Midlands 27, East of England 18, London 24, South East 19, South West 19, Wales 21, Scotland 21, Northern Ireland 17 | Table 6, p.51 |
+| Ethnicity (household head) | White 19, Pakistani 49, Bangladeshi 56, Black African 40, Black Caribbean 30, Any other Asian background 34 | p.9 and p.42 |
+| Tenure | Owned outright 14, Buying with mortgage 10, Social renting 44, Private renting 35 | Table 10, p.95 |
+| Disability | Disabled adults only 29, No one disabled 19 | Table 8, p.67 |
+| Family type (children) | Lone parent 44, Couple with children 25 | Table 5, p.36 |
+| Work status (working-age adults) | Not in work 54, In work 15 (v1 used 43 and 12, which are not in the report) | p.77 |
 
-- `JRF_POVERTY_RATE_BY_REGION` — 12 UK nations/regions (Table 6, p.51), e.g. North East 21%, London 24%, West Midlands 27% (highest), Northern Ireland 17% (lowest).
-- `JRF_POVERTY_RATE_BY_ETHNICITY` — 6 ethnicity groups with an explicitly stated rate (p.9/42), e.g. White 19%, Bangladeshi 56% (highest), Pakistani 49%. Categories JRF shows only in a chart without a stated number (e.g. Indian, Chinese, Mixed ethnic groups) are deliberately excluded rather than estimated.
-- `JRF_POVERTY_RATE_BY_DISABILITY` — 2 categories (Table 8, p.67): No disabled adult 19%, Contains disabled adult 29%.
-- `JRF_POVERTY_RATE_BY_TENURE` — 4 tenure categories (Table 10, p.95): Owned outright 14%, Buying with mortgage 10%, Social renting 44% (highest), Private renting 35%.
-- `JRF_POVERTY_RATE_BY_FAMILY_TYPE` — 2 categories (Table 5, p.36, **new this iteration**): Lone parent 44%, Couple with children 25%. These are JRF's stated *child* poverty rates by family type, not household/adult rates like the other benchmarks above — noted explicitly since it's a different unit.
-- `JRF_POVERTY_RATE_BY_WORK_STATUS` — 2 categories (p.76, **new this iteration**): In work 12%, Not in work 43%.
+**Time matching.** UKHLS rates are computed for households interviewed within the matching financial-year window, from actual interview dates:
 
-Several category-mapping decisions are documented explicitly in the source code and should be noted by anyone extending this benchmark: JRF's "East" region label is mapped to this project's "East of England"; this project's "Private renting" tenure category folds in employer-provided rented accommodation (`tenure_dv` code 5), for which JRF has no separate category.
+| Dimension | Window | JRF population | JRF measure | JRF period | JRF source | UKHLS window | UKHLS unit | UKHLS definition | Waves | Categories | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| region | primary | People (all ages) | Relative poverty, AHC | '2021–2023': HBAI '3-year' average of FY 2021/22 and 2022/23 only (DWP excludes 2020/21) | Table 6, p.51; exclusion of 2020/21: note p.43, Annex p.162 | interviews 2021-04 to 2023-03 | Household (gor_dv) | Region of household | k,l,m,n,o | 12 | JRF 'East' = East of England. Sensitivity window adds Apr 2020-Mar 2021. |
+| region | sensitivity | People (all ages) | Relative poverty, AHC | '2021–2023': HBAI '3-year' average of FY 2021/22 and 2022/23 only (DWP excludes 2020/21) | Table 6, p.51; exclusion of 2020/21: note p.43, Annex p.162 | interviews 2020-04 to 2023-03 | Household (gor_dv) | Region of household | j,k,l,m,n,o | 12 | JRF 'East' = East of England. Sensitivity window adds Apr 2020-Mar 2021. |
+| ethnicity | primary | People in households, by ethnicity of household head | Relative poverty, AHC | FY 2021/22 and 2022/23 (text says 2020/21-2022/23; note p.43: 2020/21 excluded) | p.9 and p.42 (text); Figure 13 and note, p.43; Annex p.162 | interviews 2021-04 to 2023-03 | Household (ethnicity of household reference person) | ethnicity_group of HRP | k,l,m,n,o | 6 | Only categories with a rate stated in JRF text are compared. |
+| ethnicity | sensitivity | People in households, by ethnicity of household head | Relative poverty, AHC | FY 2021/22 and 2022/23 (text says 2020/21-2022/23; note p.43: 2020/21 excluded) | p.9 and p.42 (text); Figure 13 and note, p.43; Annex p.162 | interviews 2020-04 to 2023-03 | Household (ethnicity of household reference person) | ethnicity_group of HRP | j,k,l,m,n,o | 6 | Only categories with a rate stated in JRF text are compared. |
+| tenure | primary | People | Relative poverty, AHC | FY 2022/23 | Table 10, p.95 | interviews 2022-04 to 2023-03 | Household (tenure_dv) | Social = LA + housing association; private incl. rented from employer; 'Other' tenure excluded | l,m,n,o | 4 |  |
+| disability | primary | People, by disability mix of family | Relative poverty, AHC | FY 2022/23 | Table 8, p.67 | interviews 2022-04 to 2023-03 | Household with >=1 adult disability status observed | Disabled = health==1 and any disdif1-12; household contains a disabled adult if any observed adult is disabled | l,m,n,o | 2 | JRF 'Disabled adults only' (29) vs 'No one is disabled' (19). UKHLS does not observe child disability, so JRF's child rows (28, 36) are not compared. Directional (n=2). |
+| family_type | primary | CHILDREN, by family type | Child relative poverty, AHC | FY 2022/23 | Table 5, p.36 | interviews 2022-04 to 2023-03 | Household with dependent children | family_composition_group lone parent (any size) vs couple (any size); other multi-adult excluded | l,m,n,o | 2 | Unit mismatch: JRF rate is per child, UKHLS rate per household. Directional (n=2). |
+| work_status | primary | WORKING-AGE ADULTS, by household work status | Relative poverty, AHC | FY 2022/23 (latest year in report) | p.77 (text) | interviews 2022-04 to 2023-03 | Household with >=1 respondent aged 16-64 | Workless = no responding adult in paid/self-employment | l,m,n,o | 2 | Corrected from v1 (12/43). Unit mismatch: JRF per working-age adult, UKHLS per household. Directional (n=2). |
+
+*Table 3-7. JRF benchmark metadata and matching windows. Region and ethnicity use April 2021–March 2023, because DWP excludes 2020/21 from its three-year averages (JRF note p.43; Annex p.162). April 2020–March 2023 is a sensitivity. Tenure, disability, family type and work status use FY 2022/23.*
 
 ---
 
 ## 7. Summary: Data Provenance and Licensing
 
-| Source | Provider | Licence | Coverage in this project |
+| Source | Provider | Licence | Coverage used |
 |---|---|---|---|
-| Carbon/gas futures prices | Third-party financial data provider | (as obtained; not redistributed) | 2004/2005–2026 |
-| Gas/electricity/GDP/exchange-rate indices | Office for National Statistics (ONS) | Open Government Licence v3.0 | 1975/1988/1997–2026 |
-| CPIH housing/energy aggregate | ONS | Open Government Licence v3.0 | 1988–2019 only |
+| Carbon and gas futures prices | Market data provider | As obtained; not redistributed | 2004/2005–2026 |
+| Gas and electricity price indices, GDP, exchange rate | Office for National Statistics | Open Government Licence v3.0 | 1975/1988/1997–2026 |
+| CPIH housing and energy aggregate | ONS | Open Government Licence v3.0 | 1988–2019 only |
 | Half-hourly electricity demand | National Grid ESO | Public dataset | 2009–2024 |
-| Temperature anomalies | Multi-country climate dataset (Our World in Data-style) | Public dataset | 1940–2026 (UK subset used) |
-| UKHLS household panel | Understanding Society, UK Data Service Study 6614 | Standard End User Licence — raw data not redistributed with this repository | 2009–2024 (waves a–o) |
-| UK NUTS1 boundaries | ONS Open Geography Portal | Open Government Licence v3.0 | Current UK regional boundaries |
-| External poverty benchmark | Joseph Rowntree Foundation, *UK Poverty 2025* | Published report; specific stated values used with citation | 2020/21–2022/23 (varies by table) |
+| Temperature anomalies | Multi-country climate dataset (Our World in Data style) | Public dataset | 1940–2026 (UK subset) |
+| UKHLS household panel | Understanding Society, UK Data Service SN 6614 | End User Licence; raw and row-level data not redistributed | Waves a–o; interviews 2009–2025 |
+| UK NUTS1 boundaries | ONS Open Geography Portal | Open Government Licence v3.0 | 12 regions |
+| External poverty benchmark | JRF, *UK Poverty 2025* | Published report; stated values used with citation | FY 2021/22–2022/23 (varies by table) |
+
+Only the core series enter the v2 forecasts. Only aggregate UKHLS outputs that pass the suppression check (`scripts/suppress_small_cells.py --check`) are tracked in git.

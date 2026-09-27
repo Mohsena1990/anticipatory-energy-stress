@@ -49,7 +49,9 @@ WAVE_FIELDWORK_START_YEAR: dict[str, int] = {
 # Missing-value convention
 # =============================================================================
 
-MISSING_CODES: list[int] = [-9, -8, -7, -2, -1]
+# -10/-11: not available for / only available for IEMB; -20/-21: same for
+# BHPS (added in v2: wave f ncars/carval carried -10 as a value in v1).
+MISSING_CODES: list[int] = [-21, -20, -11, -10, -9, -8, -7, -2, -1]
 
 # =============================================================================
 # Household-level (hhresp) variables — present in every wave a–o unless noted
@@ -67,9 +69,14 @@ HH_IDENTIFIER = "hidp"
 # src.ukhls_forward_prediction to build wave-to-wave transition pairs.
 HH_LINK_VARS: list[str] = ["hrpid"]
 
-HH_TIMING_VARS: list[str] = ["month", "quarter"]
+# month/quarter = SAMPLE month/quarter (when the address was issued), NOT
+# the interview date. intdatey/intdatem = actual household interview date
+# (used for interview_year/interview_month from v2).
+HH_TIMING_VARS: list[str] = ["month", "quarter", "intdatey", "intdatem"]
 
-HH_GEOGRAPHY_VARS: list[str] = ["gor_dv"]
+# urban_dv: 1 urban / 2 rural. origadd: interview at original issued
+# address (1 yes / 2 no; waves b-o). psu/strata: sample design.
+HH_GEOGRAPHY_VARS: list[str] = ["gor_dv", "urban_dv", "origadd", "psu", "strata"]
 
 # Fuel expenditure — combined bill (fuelduel==1) OR separate gas+electricity
 # (fuelduel==2), plus oil/other fuel for off-grid heating households.
@@ -82,7 +89,19 @@ HH_FUEL_EXPENDITURE_VARS: list[str] = [
     "xpsfly",     # other/solid fuel annual spend
     "duelpay",    # combined-bill payment method (4=prepayment meter)
     "elecpay",    # electricity payment method (4=prepayment meter)
+    # Fuels used (1=mentioned). These define the questionnaire routing:
+    # fuelduel is asked only if elec AND gas are used, so fuelduel=-8 means
+    # "not dual-fuel", not missing (analysis_plan_rerun.md amendment A1).
+    "fuelhave1",  # electricity
+    "fuelhave2",  # gas
+    "fuelhave3",  # oil
+    "fuelhave4",  # other fuel, incl. solid fuel
 ]
+
+# Fuel amounts whose item nonresponse (-1 DK, -2 refused, -9 missing) must be
+# told apart from -8 inapplicable before the generic missing-code recode.
+FUEL_NONRESPONSE_CODES: list[int] = [-1, -2, -9]
+FUEL_AMOUNT_VARS: list[str] = ["fuelduel", "xpduely", "xpgasy", "xpelecy", "xpoily", "xpsfly"]
 
 HH_INCOME_VARS: list[str] = [
     "fihhmngrs_dv",   # gross household income, month before interview
@@ -140,7 +159,7 @@ HH_OBJECT_VARS: list[str] = ["hsrooms", "ncars", "carval", "hsval"]
 IND_CONDITION_VARS: list[str] = ["jbstat"]
 
 # Personal resources (individual-level): human capital / health.
-IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "qfhigh_dv"]
+IND_PERSONAL_VARS: list[str] = ["dvage", "health", "sf1", "scsf1", "qfhigh_dv"]
 
 # Employment status/hours (individual-level, aggregated to household via
 # "does ANY adult have property X" -- see
@@ -172,7 +191,9 @@ JBSTAT_EMPLOYED_CODES: set[int] = {1, 2}
 # conditions. Kept as a separate list (not folded into IND_PERSONAL_VARS)
 # because it's excluded from the SEM's PERSONAL factor -- this is a new
 # descriptive breakdown dimension, not a COR-SEM indicator.
-IND_DISABILITY_VARS: list[str] = ["healthlink"]
+# disdif1-12: type of impairment/difficulty (1=mentioned). NOT healthlink,
+# which is the adult health-record-linkage consent (a v1 error).
+IND_DISABILITY_VARS: list[str] = [f"disdif{i}" for i in range(1, 13)] + ["disdif96"]
 
 # Energy resources (individual-level, additional to income already in
 # HH_INCOME_VARS and inoutflows already in HH_COPING_VARS_RECENT_ONLY).
