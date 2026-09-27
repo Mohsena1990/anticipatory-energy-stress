@@ -1,140 +1,170 @@
 # Policy Brief: Anticipating and Targeting Household Fuel Vulnerability in the UK
 
-**Prepared from:** Anticipatory Fuel Stress Watch (AFSW) — a household-panel forecasting and vulnerability-identification project covering 339,201 UK household-wave observations, 2009–2024 (Understanding Society / UKHLS), cross-validated against the Joseph Rowntree Foundation's *UK Poverty 2025* report.
-
-**Audience:** UK and devolved-nation policymakers responsible for fuel poverty, cost-of-living, and energy-affordability policy (DESNZ, devolved administrations, Ofgem, local authorities, and third-sector delivery partners).
-
----
-
-## Executive Summary
-
-Fuel vulnerability in the UK is not simply income poverty in another guise, and it does not track the national energy-price cycle the way policy debate often assumes. This project's evidence, built from a real 15-wave household panel and independently cross-checked against the Joseph Rowntree Foundation's national poverty statistics, supports five action-relevant conclusions:
-
-1. **Household financial resilience — not the energy market itself — is the dominant driver of who becomes fuel-vulnerable.** Interventions aimed at general financial strain and employment security will do more for fuel vulnerability than interventions aimed only at wholesale energy prices.
-2. **Northern Ireland requires fuel-specific policy attention that a UK-average, income-based lens will not surface.** It has the highest fuel vulnerability of any UK nation or region, driven overwhelmingly by heating-oil dependence outside the mains gas network and outside Ofgem's price cap — despite having the *lowest* income-poverty rate of the twelve nations/regions compared. This finding is not a single-source anomaly: it is independently corroborated by four separate analyses in this project (regional prevalence, a resource/vulnerability hotspot classification, the shape of the underlying risk distribution, and forward-looking predictions), which substantially raises confidence that it reflects a real, addressable problem rather than a statistical artifact.
-3. **A subset of asset-rich, income-adequate households — chiefly outright homeowners — carry material fuel vulnerability invisible to standard income-poverty targeting.** Support mechanisms keyed only to income or benefit status will systematically miss this group.
-4. **A validated forward-looking model can flag likely next-year fuel vulnerability before it happens**, with genuine (not just retrospective) predictive accuracy, a small concentrated highest-risk group worth direct targeting, and modest but real seasonal and regional variation useful for timing interventions.
-5. **Some population groups show a real, currently unexplained mismatch between fuel-specific and income-based hardship measures — most notably by ethnicity — and this gap itself is a policy-relevant finding**, indicating that either measure used alone risks missing genuinely different groups of vulnerable households.
-
-We set out the evidence for each conclusion below, followed by five specific, prioritized recommendations, an implementation-readiness assessment, and the caveats that should accompany any policy use of this evidence.
+**Prepared from:** Anticipatory Fuel Stress Watch (AFSW), rerun v2 (analysis frozen 26 September 2026). The evidence covers 339,201 household interviews from Understanding Society (UKHLS), fieldwork 2009–2025, compared with the Joseph Rowntree Foundation's *UK Poverty 2025*.
+**Audience:** UK and devolved-government officials working on fuel poverty, cost of living and energy affordability (DESNZ, devolved administrations, Ofgem, local authorities, delivery partners).
+**Definition used throughout:** a household is *fuel vulnerable* if it spends at least 10% of its net income on fuel, the standard UK threshold.
+**This brief replaces the earlier version.** A re-analysis corrected errors in how fuel spending was measured and how price forecasts were timed. Several earlier conclusions changed; Section 8 lists them.
 
 ---
 
-## 1. The Problem, in the Numbers
+## Summary
 
-Fuel vulnerability — defined here on the UK's own standard threshold (household fuel spend ≥10% of net income) — fell steadily from 11.6% of households in 2009 to a low of 5.1% in 2020, then rose sharply to 10.8% in 2022 and 10.6% in 2023 as the cost-of-living crisis took hold. This project's own measure, built independently of any national statistics agency, reproduces the same timing and shape that JRF's own faster hardship-tracking survey shows for that period — a form of external corroboration that strengthens confidence in both organisations' pictures of the crisis. Specifically, JRF's own account is that its slow-moving official relative-poverty statistic looked "broadly flat" across exactly this period, while its faster, survey-based cost-of-living tracker showed real hardship peaking in late 2022 — and this project's measure, built from a completely different data source and methodology, shows the same peak at the same time. When two independently-constructed measures agree on timing even though they disagree on their slow-moving headline statistic, that is a stronger form of evidence than either measure confirming itself.
-
-That headline national trend, however, conceals substantial and policy-relevant variation by geography, housing tenure, ethnicity, and disability status — variation this project was specifically extended this year to surface and validate, and which existing income-based poverty statistics, taken alone, would not reveal.
-
----
-
-## 2. Finding One: Financial Resilience Drives Vulnerability More Than the Energy Market Does
-
-A transparent statistical model of what predicts household fuel vulnerability finds one factor dominating all others: a composite measure of financial and psychological strain (covering subjective financial pressure and psychological distress) is associated with nearly seven times the odds of fuel vulnerability, dwarfing every other factor tested. Employment security is the strongest protective factor — households with more secure employment status have roughly one-sixth the odds of fuel vulnerability of otherwise-similar households with insecure employment.
-
-By contrast, the *forecasted* national energy-price shock — the signal this project spent most of its forecasting effort producing — **is a statistically significant, independent predictor, but a far smaller one**: on an updated and corrected run of the analysis, it moves the odds of vulnerability by roughly 6%, against financial strain's near-seven-fold effect — a more than 100-fold difference in practical importance even though both are real. (An earlier version of this analysis, since corrected, reported this signal as not significant at all; the corrected finding is that it matters, just far less than household financial circumstances do — the practical policy conclusion below is unchanged either way.) This is corroborated across every part of this project that tests the forecast signal directly: the household-level driver regression, the resource-model's main effect, and the forward-looking model in Finding Four all agree the signal is real and consistently signed. The one specific claim this evidence does *not* yet support is the more targeted hypothesis that a household's *existing* financial resources determine how much an energy-price shock affects it — that "resources cushion the shock" test currently gives an inconsistent answer between repeated runs of the same model (see Section 8), and should not be relied on for policy design until resolved, separately from the finding above that the shock itself matters.
-
-This is an important finding for policy design: **household-level financial resilience support (income maximisation, debt and arrears advice, employment support) is likely to do more to reduce fuel vulnerability than energy-market interventions alone**, given the size of the gap between the two effects, even though energy-market interventions remain essential both for the acute cost of the shock itself and because the forecast signal's own smaller-but-real effect means anticipatory energy-price support retains independent value. It also implies a specific and testable prediction: if a policy intervention improves employment security or reduces financial strain for a targeted population, this evidence base predicts a much larger reduction in fuel vulnerability than an equivalent-cost intervention that only reduces energy bills directly (holding the underlying financial strain unchanged) — a hypothesis future evaluation of any such programme could test directly.
-
-**Two new breakdowns added this update sharpen exactly who "employment security" and "financial resilience" mean in practice.** By household employment status, fuel vulnerability runs from 14.5% in workless households down to 9.3% in part-time-only households and just 3.2% in full-time/self-employed households — a roughly 4.5-fold spread, the single largest gradient of any household characteristic examined in this project. By family composition, lone-parent households are consistently far more vulnerable than couple households regardless of family size (15.1% for lone parents with 1–2 children, 13.2% with 3+ children, versus 3.7–5.3% for couples) — the gap is driven by single-earner status, not household size. Both patterns independently reproduce the *shape*, not just the presence, of the equivalent findings in JRF's own national poverty statistics (Section 6), reinforcing confidence that these are genuine, generalisable population patterns rather than artefacts of this project's own data or methodology.
-
-*Policy implication:* fuel poverty strategy should treat financial-resilience and employment-support services as a primary lever, not a secondary one, alongside energy-specific measures like price caps and efficiency retrofits. Three further, more granular findings sharpen this recommendation: the effect of financial strain on fuel vulnerability is roughly four to five times larger in Northern Ireland and South East England than in London, suggesting that financial-resilience interventions may deliver disproportionately larger returns in those two specific areas; larger, older homes independently raise fuel-vulnerability risk even after accounting for financial strain, suggesting that housing-stock-focused measures (retrofit, insulation) remain a necessary complement to financial-resilience measures rather than a substitute for them; and the sharp employment-status and lone-parent gradients above suggest that, within a financial-resilience strategy, employment support and single-earner household outreach specifically are likely to be the highest-leverage sub-components, not merely one option among several equally-weighted levers.
+1. **Fuel vulnerability doubled during the energy-price crisis.** About 1 in 8 households (12.5%) were fuel vulnerable in the 2022–24 survey wave, double the 6.5% of the 2020–22 wave.
+2. **Household finances matter far more than price forecasts.** Households in current financial difficulty, without secure employment, headed by a lone parent, or with three or more children are at much higher risk. Forecasts of energy prices add almost nothing to identifying who is at risk.
+3. **Northern Ireland needs its own response.** It has the highest fuel vulnerability of any UK region (14.4% in 2021–23) but the lowest income poverty. Heating oil, which three in four NI households use, accounts for about two-thirds of its excess risk.
+4. **Income poverty is not a good proxy for fuel vulnerability.** Outright homeowners are more fuel vulnerable than private renters, the reverse of income poverty, and regional rankings on the two measures do not agree.
+5. **The best early-warning signal is a household's current fuel burden.** Knowing what share of income a household spends on fuel today predicts next-wave fuel vulnerability better than a richer household profile, and better than any price forecast.
 
 ---
 
-## 3. Finding Two: Northern Ireland Needs Fuel-Specific, Not Income-Based, Targeting
+## 1. The problem in numbers
 
-This project's clearest and most robust geographic finding is Northern Ireland's position as the most fuel-vulnerable part of the UK — more than five percentage points above the next-highest region — while sitting at the *opposite* end of JRF's independently-published income-poverty ranking, where it is the *least* poor of all twelve UK nations and regions compared.
+![National trend by wave](../outputs_v2/thesis_assets_v2/figures/fig4-3_trend_wave_s1band.png)
 
-This was investigated directly rather than treated as a data anomaly, and the resulting evidence is unusually well-corroborated for a single regional finding — it shows up independently in four separate parts of this analysis, each measuring something different:
+*Share of households spending at least 10% of income on fuel, by survey wave (weighted). The shaded band shows a conservative lower bound that counts unreported fuel bills as zero.*
 
-- **Prevalence**: Northern Ireland's fuel vulnerability rate (15.6%) is the highest of any UK nation or region, by a wide margin.
-- **Resource-vulnerability classification**: a bivariate mapping of household resource levels against vulnerability outcomes places Northern Ireland in the same policy tier as Wales and West Midlands — regions combining a comparatively strong household-resource position with exceptionally high vulnerability. This is a genuinely counter-intuitive pairing (Northern Ireland's resource position is nominally the strongest of any UK region, yet it carries by far the highest vulnerability rate), and it reinforces the same conclusion as the other three findings below: Northern Ireland's problem is not that its households have fewer resources overall, but that a given level of resources converts into fuel vulnerability much less efficiently there — consistent with the heating-oil mechanism described next.
-- **Risk-distribution shape**: unlike every other UK region, where households spread fairly evenly across a "borderline, could go either way" risk band, Northern Ireland's households split much more sharply into clearly-vulnerable and clearly-not-vulnerable groups, with far fewer households in between.
-- **Forward prediction**: a model trained purely on historical data, without being told anything about Northern Ireland specifically, independently predicts Northern Ireland will continue to have the highest fuel-vulnerability risk of any UK region next year.
+- **Trend.** Fuel vulnerability fell from 12.0% of households (2009–11 wave) to 6.5% (2020–22 wave) and returned to 12.5% in the 2022–24 wave. By year of interview, the peak is 2023, at 14.7%.
+- **Lower bound.** Even counting every unreported bill as zero, the 2022–24 wave is at 10.2%.
+- **2022/23 financial year.** Households with a disabled adult were at 14.3% (vs 9.5%), lone-parent families at 20.8% (vs 7.8% for couples with children), and working-age households with nobody in work at 22.5% (vs 7.0%).
 
-The underlying explanation is structural and directly verifiable: 71% of Northern Ireland households heat with oil, compared with under 10% in every region of Great Britain — a legacy of the mains gas network's limited historical reach in Northern Ireland. Within Northern Ireland itself, oil-heating households pay 62% more annually for fuel and are fuel-vulnerable at nearly double the rate of non-oil households in the same communities — a controlled, within-region comparison that isolates heating-fuel type from every other characteristic of the region. Heating oil is bought in large lump-sum payments, is more price-volatile than metered gas or electricity, and — critically for policy — **sits entirely outside Ofgem's energy price cap**, which applies only to gas and electricity.
+![Social groups](../outputs_v2/thesis_assets_v2/figures/fig4-9_social_groups_panel_ci.png)
 
-It is also worth noting that Northern Ireland shows the largest improvement of any UK region over the fifteen-year study period (a fall of just over ten percentage points comparing its earliest and most recent years), suggesting that whatever combination of past policy interventions, market changes, or economic conditions has already been at work there is having a real, measurable effect — even though the region continues to carry the highest absolute risk. Any new intervention should be designed to build on this existing trajectory of improvement rather than assuming the problem is static or worsening.
+*Fuel vulnerability by social group, pooled over all waves, with 95% confidence intervals.*
 
-*Policy implication:* Northern Ireland's fuel poverty response needs mechanisms specific to the heating-oil market — bulk-buying support schemes, oil-price monitoring and consumer protection, and eligibility rules for energy-support payments that do not implicitly assume mains-gas heating — rather than an assumption that UK-wide income-support measures will resolve the same problem there that they do elsewhere.
-
----
-
-## 4. Finding Three: Asset-Rich Outright Owners Are an Under-Recognised Vulnerable Group
-
-Housing tenure shows the strongest agreement of any dimension tested between this project's fuel-specific measure and JRF's income-based poverty measure — with one clear and instructive exception. Outright homeowners rank as *more* fuel-vulnerable than private renters on this project's measure (nearly one in ten outright-owning households, compared with roughly one in twelve private renters), the reverse of their position on income-poverty rankings, where outright ownership is associated with the lowest poverty rate of any tenure group and private renting one of the highest.
-
-The most plausible explanation is that outright ownership skews toward older households, often on fixed or pension incomes, disproportionately living in older, harder-to-heat housing that they own outright but cannot easily afford to retrofit or heat efficiently. These households are asset-rich (owning their home outright) but can be simultaneously income-constrained and fuel-cost-exposed — a combination that most income- or asset-based eligibility tests for support schemes are not designed to catch. Social renters remain the single most fuel-vulnerable tenure group overall, and mortgage-holders (typically younger, in newer or more recently-regulated housing stock) show by far the lowest fuel vulnerability of any tenure category — a pattern consistent with, and reinforcing, the age/housing-stock-age explanation for the outright-ownership finding.
-
-*Policy implication:* energy-efficiency retrofit and fuel-support eligibility criteria that rely on income or benefit receipt alone will systematically under-target this group. Age- and tenure-based outreach (independent of income) — for example proactively engaging older outright-owner households about retrofit grants and Warm Home Discount-style support — is a concrete, low-cost way to close this gap. Because this group is, by definition, not captured by income-based means-testing, outreach will likely need to use alternative administrative signals (e.g. council tax band and tenure records, or age combined with property-age data already held by local authorities) rather than benefit-receipt records.
+| Group (pooled 2009–2025) | Fuel vulnerable |
+|---|---|
+| Workless household | 15.0% |
+| Lone parent, 1–2 children | 15.1% |
+| Owned outright | 11.1% |
+| Social renting | 11.1% |
+| Contains a disabled adult | 10.5% |
+| Private renting | 8.9% |
+| Buying with a mortgage | 4.2% |
+| Full-time or self-employed household | 3.5% |
 
 ---
 
-## 5. Finding Four: Fuel Vulnerability Can Be Anticipated, Not Just Measured
+## 2. Finding one: household finances matter far more than the energy-price outlook
 
-Beyond describing who is vulnerable today, this project built and validated a model that predicts, a year in advance and using only information available at the time, which households are moving toward fuel vulnerability. Tested strictly on data the model never saw during its own training — the only honest test of a genuinely forward-looking claim — the model correctly discriminates future vulnerable households from non-vulnerable ones with good reliability (a discrimination score of 0.76 on a scale where 0.5 is no better than chance and 1.0 is perfect). This validation was conducted on the two most recent, most policy-relevant years available (corresponding to the tail end of the cost-of-living crisis), which is a stronger and more relevant test than validating on an arbitrary or older subset of the data would have been.
+![Driver model](../outputs_v2/thesis_assets_v2/figures/fig4-11_driver_forest.png)
 
-Applying this model to the most recent wave of households produces a realistic, actionable risk profile: most households carry low predicted risk (a typical household's predicted risk is under one in twenty), but a small group — around one in eighty households — carries a predicted risk above 50%, a natural priority list for proactive contact ahead of the following winter. Predicted risk also shows modest seasonal structure (highest for households whose next assessment falls in October, April, or November, lowest in September, a difference of roughly one-eighth in relative terms) and largely reproduces the same geographic pattern already described — Northern Ireland highest, South West England lowest — a useful early-warning consistency check rather than a surprising reversal. Notably, the model's forward-looking geographic spread is considerably narrower than the historical spread, which is a mathematically expected feature of this kind of forecasting model rather than a sign that regional differences are disappearing — it reflects the model's appropriate caution about applying a single, shared national economic outlook uniformly, and should not be read as implying Northern Ireland's problem is diminishing on this basis alone (recall Section 3's finding that Northern Ireland's problem is structural, not primarily driven by the shared national forecast).
+*What is associated with fuel vulnerability, holding other factors equal (odds ratios; the price-stress signal in orange).*
 
-*Policy implication:* this class of model is mature enough to inform proactive, pre-emptive outreach (e.g. by energy suppliers, local authorities, or the Household Support Fund's administering bodies) rather than only reactive support once a household is already in arrears or hardship — provided it is deployed with the caveats in Section 8 clearly understood by whoever operationalises it.
+In a model that holds the year of interview and other household characteristics constant:
 
----
+- **Current financial difficulty** is the strongest financial factor. Each step on the five-point scale, from "living comfortably" to "finding it very difficult", raises the odds of fuel vulnerability by about 65%.
+- **Secure employment** is the strongest protective factor. Households with secure employment status have about one-sixth the odds of otherwise similar households without it.
+- **Lone parents** (about 1.5 times the odds) and **families with three or more children** (about 2 times) are at higher risk, even after financial difficulty and employment are accounted for.
+- **The gap between forecast and actual energy prices** has a real but small association. When prices rise more than forecast, fuel vulnerability rises slightly: about a 7% change in odds per standard deviation of the gap, compared with about 60% per standard deviation for financial difficulty.
 
-## 6. Finding Five: Fuel-Specific and Income-Based Hardship Measures Diverge for Specific Groups, and the Divergence Itself Is Informative
-
-This project's comparison against JRF now spans six dimensions rather than four — family type and work status were added this update, and both show full rank agreement with JRF's own framework (lone-parent families and workless households rank as more vulnerable on both this project's fuel measure and JRF's income measure), reinforcing confidence in the underlying measure generally. Set against that broader agreement, one further, less well-understood divergence stands out: by ethnicity, the group JRF identifies as facing the highest income poverty in the UK (Bangladeshi households, at 56%) does not appear as the most fuel-vulnerable group on this project's measure, while the group that does rank highest on fuel vulnerability (Black Caribbean households) ranks near the bottom (5th of 6) on JRF's income measure. Unlike the Northern Ireland finding, this project has not yet identified the specific mechanism behind this divergence — plausible candidates include differences in housing-stock type or age, household composition, or heating-fuel mix by ethnicity, paralleling the kind of explanation that successfully resolved the Northern Ireland puzzle, but none of these has been tested directly here.
-
-This is presented as a finding in its own right, not a weakness of the analysis: it demonstrates that fuel-specific and income-based measures of hardship are not interchangeable, and that relying on either one alone in isolation risks systematically under-serving whichever specific communities that measure happens to under-detect.
-
-*Policy implication:* this specific divergence should be flagged for dedicated further research — ideally jointly commissioned by DESNZ and JRF, or an equivalent body with access to more granular ethnicity, housing, and heating-fuel data than this analysis draws on — rather than acted on directly, since the underlying cause is not yet established. In the meantime, it reinforces the broader Recommendation 5 below: no single hardship measure, including this project's own, should be treated as sufficient on its own for allocating support across different population groups.
+**Implication.** Income maximisation, debt and arrears advice, and employment support reach the households most at risk. Energy-price measures remain essential for everyone's bills, but they are not a way of finding the households that need help most.
 
 ---
 
-## 7. Recommendations
+## 3. Finding two: Northern Ireland's fuel vulnerability is a heating-oil problem
 
-**1. Rebalance fuel poverty strategy toward financial resilience, not only energy-market measures.** Given that household financial strain outweighs the national energy-price environment as a driver of vulnerability — a result confirmed independently three separate ways in this analysis — integrate income-maximisation, debt advice, and employment-support referral pathways directly into fuel poverty schemes, not as a separate track. Prioritise this integration first in Northern Ireland and South East England, where the evidence indicates financial strain has an unusually large effect on fuel vulnerability specifically.
+![Northern Ireland and heating oil](../outputs_v2/thesis_assets_v2/figures/fig4-15_ni_oil.png)
 
-**2. Design a Northern Ireland-specific heating-oil affordability mechanism.** Extend price-cap-equivalent consumer protections, bulk-purchase support schemes, and oil-market price transparency requirements to heating oil, recognising that Northern Ireland's fuel poverty problem is structurally different from Great Britain's — corroborated across four independent analytical approaches in this project — and will not be solved by GB-designed, gas/electricity-focused interventions. Any such mechanism should be designed to reinforce, not disrupt, the substantial improvement Northern Ireland has already achieved over the past fifteen years.
+*Northern Ireland: fuel vulnerability by heating fuel, and NI's gap relative to South East England before and after accounting for oil use.*
 
-**3. Add age- and tenure-based (not just income-based) outreach criteria to retrofit and fuel-support schemes**, specifically to reach outright-owning households — often older, asset-rich, income-constrained, and living in harder-to-heat older housing stock — who are under-served by income- or benefit-status eligibility tests alone. Use administrative data already held by local authorities (property tenure and age records) rather than relying on benefit-receipt records, since this group is by definition likely to be missed by the latter.
+- **Highest region.** NI had the highest fuel vulnerability of the 12 UK regions in April 2021–March 2023: 14.4% (95% CI 12.1–17.0%), against 11.4% in Wales, the next highest, and 6.7% in London. It ranked first in 95% of statistical re-samples.
+- **Not income poverty.** NI has the lowest income-poverty rate of the UK nations (17%).
+- **Oil use.** About 73% of NI households heat with oil, compared with 0.3–10.6% in other regions.
+  - Within NI, 18.2% of oil-heated households are fuel vulnerable, against 8.6% of other households.
+  - Once oil use is accounted for, NI's extra risk relative to South East England falls from 6.8 to 2.4 percentage points. About two-thirds of the gap goes with oil heating.
+  - The oil effect is no stronger in NI than elsewhere. Oil-heated households anywhere in the UK face higher risk.
+- **Improving, but still highest.** NI's rate fell by 8.9 percentage points between the early (2009–15) and late (2019–25) waves, the largest fall of any region.
 
-**4. Pilot proactive, model-informed outreach ahead of winter**, using validated forward-prediction models of the kind demonstrated here to identify and contact the small, high-concentration-risk household group before they reach crisis, rather than relying solely on households self-identifying or reaching arrears first. Any such pilot should be run and evaluated jointly with the energy suppliers or local authorities holding the underlying household data, with independent oversight of fairness and data-protection safeguards (see Section 8), and should be evaluated against its own live outcomes before wider rollout.
-
-**5. Treat divergences between fuel-specific and income-based poverty measures as informative, and monitor both.** Ethnicity, in particular, shows a genuine and currently unexplained divergence between this project's fuel-specific measure and JRF's income-based one (with different ethnic groups appearing as highest-risk on each measure) — this warrants dedicated research attention (e.g. into housing-stock type, heating-fuel mix, and household composition by ethnicity) rather than assuming either measure alone gives a complete picture of hardship for any given community. Until that research is complete, allocation decisions for any new scheme should not rely on a single hardship measure alone where ethnicity-based targeting is being considered.
-
----
-
-## 8. Implementation Readiness
-
-To help prioritise which recommendations can move fastest, we assess each against three practical criteria: whether the evidence base is strong enough to act on now, whether it requires new data or legal/regulatory changes, and roughly how large the expected impact is per unit of implementation effort.
-
-| Recommendation | Evidence strength | New data/regulation needed? | Relative effort-to-impact |
-|---|---|---|---|
-| 1. Rebalance toward financial resilience | Strong (confirmed 3 independent ways) | No — integrates existing services | High impact, moderate effort |
-| 2. NI heating-oil mechanism | Strong (confirmed 4 independent ways) | Yes — oil market currently unregulated like gas/electricity | High impact, higher effort (regulatory) |
-| 3. Age/tenure outreach for outright owners | Moderate (one clear pattern, mechanism inferred not directly tested) | Partial — requires linking existing local-authority records | Moderate impact, low effort |
-| 4. Proactive model-informed outreach pilot | Strong on model validity; untested as a live intervention | Yes — data-sharing agreements with suppliers/local authorities | Potentially high impact, requires careful piloting |
-| 5. Dual-measure monitoring, ethnicity research | Preliminary (divergence confirmed, mechanism not) | Yes — commissioned research, more granular data | Low near-term impact, sets up future high-value work |
-
-Recommendations 1 and 3 are the most immediately actionable, since they use existing administrative capability and do not require new legal authority. Recommendation 2 has the strongest and most thoroughly corroborated evidence base but the highest implementation barrier, since heating oil is not currently subject to the same regulatory framework as electricity and gas. Recommendation 4 is technically ready but should proceed as a carefully governed pilot rather than a full rollout, precisely because it is the first time this kind of predictive model would inform real-world outreach decisions. Recommendation 5 is lower-cost but time-sensitive: the longer this divergence goes uninvestigated, the longer any ethnicity-related allocation decisions are made on an incomplete evidence base.
+**Implication.** Measures designed around gas and electricity (the price cap, most bill support) do not reach heating oil. Support for oil-heated homes, such as help with bulk purchase, lump-sum payment smoothing and energy-efficiency and heating-system upgrades, targets the mechanism directly. It would also help oil-heated rural households in Great Britain.
 
 ---
 
-## 9. Caveats for Policy Use
+## 4. Finding three: income poverty and fuel vulnerability pick out different households
 
-This evidence base is robust on its central findings but carries specific limitations that should inform, though not disqualify, its policy use:
+![Regions vs JRF](../outputs_v2/thesis_assets_v2/figures/fig4-13_jrf_regions.png)
 
-- **Ethnicity is recorded for the household's main respondent only**, and **disability status is recorded only for adults who responded to the survey**, not every household member — both are reasonable simplifications for a household panel survey but mean the ethnicity and disability breakdowns should be read as indicative patterns, not precise sub-group counts.
-- **The energy-price forecasting component of this project has known model-selection limitations, one of which has now been fixed.** The mechanism used to choose the "best" forecasting approach for each fuel type now defaults to a genuinely blind, pre-outcome evaluation rather than the benefit-of-hindsight evaluation an earlier iteration used — but the underlying gap between "what a blind forecaster could have known in advance" and "what actually happened" is still real and worth flagging: across a 16-year retrospective check, the model this project's own honest selection process would have picked is still, on average, less accurate against real outcomes than picking with hindsight would have been. Separately, one of the four forecasting techniques used (a classical statistical model) showed clearly unstable behaviour in several scenarios, occasionally producing implausible price-swing forecasts. Neither issue affects the household-level vulnerability findings, which do not depend on the forecast being accurate.
-- **Some structural-equation-model fit statistics used in the household resource analysis fall outside their normal valid range**, a known technical limitation of the fitting software under this dataset's specific mix of variable types; the underlying measurement relationships (which variables predict what, and in which direction) remain sound for three of this analysis's four resource dimensions, and are the basis for the findings in this brief, but any further academic or technical publication of this work should address this explicitly rather than omit it. Related to this: the test of whether a household's baseline financial resources specifically *cushion* it against a price shock (as opposed to each mattering independently) currently gives an **inconsistent answer between repeated runs of the same model** — re-running the analysis on materially the same data twice produced opposite conclusions about the direction of this specific effect. This is a narrower and more specific caveat than a simple "no cushioning effect found": both the forecast shock itself and household resources are each independently, reliably associated with vulnerability (Finding One), but the *combined, interactive* claim — that resource-rich households are specifically protected from shocks in a way resource-poor households are not — is not yet a claim this evidence base can support, in either direction, and should not be cited until the underlying model instability is resolved. One resource dimension in particular (asset/housing stock — larger, likely older, owned homes) also behaves the opposite of the other three: it *raises* rather than lowers vulnerability risk, plausibly reflecting higher heating costs, and is the likely mechanism behind Finding Three's outright-owner result below.
-- **The fuel-vulnerability threshold used throughout this brief does not adjust for household size (it is not "equivalised"), by deliberate design** — it mirrors the UK government's own official 10%-of-income fuel-poverty definition, which is itself unequivalised, rather than JRF's size-adjusted income measure. A direct check of this choice's consequences found that for the largest households (5 or more people), the vulnerable/not-vulnerable classification would change for over 4 in 10 households if income were instead size-adjusted — a substantial, size-graded effect (10.5% of 2-person households flip, rising steadily to 42.5% of 5+-person households). Any scheme specifically targeting large households on the basis of this project's vulnerability flag should be aware the underlying classification is comparatively less stable for exactly that group.
-- **The forward-prediction model was validated on two years of held-out data (2022–2023 transitions)** — a real, meaningful test, and one that specifically covers the tail end of the cost-of-living crisis (a demanding, policy-relevant test period rather than an easy one) — but a proactive-outreach pilot (Recommendation 4) should still be evaluated on its own live outcomes before wider rollout, in the same way any predictive-targeting tool would be.
-- **The ethnicity divergence described in Section 6 has not been mechanistically explained** in this analysis, unlike the Northern Ireland finding — it should be treated as a research priority, not yet as a basis for specific ethnicity-targeted intervention design.
-- All findings in this brief are based on Understanding Society (UKHLS) data under standard End User Licence terms; this is a nationally-representative research panel, not a real-time administrative dataset, so absolute current-year figures should be treated as informative estimates rather than official statistics.
+*Regional fuel vulnerability against JRF income poverty, matched to the same period.*
+
+We compared fuel vulnerability with JRF's income-poverty rates for the same groups and the same time period.
+
+| Comparison | Agreement |
+|---|---|
+| Housing tenure | Strong (rank correlation 0.80), with one exception: **outright owners** rank second of four on fuel vulnerability (13.8%) but third on income poverty. They are above private renters (11.4%), whose income poverty is far higher (35% vs 14%) |
+| Disability, family type, work status | Same direction as income poverty |
+| Region | **No agreement** (rank correlation −0.10; 0.18 without Northern Ireland) |
+| Ethnicity | Inconclusive: sample sizes are too small for reliable comparison |
+
+**Implication.** Eligibility based only on income or benefit receipt will miss fuel-vulnerable households that are not income-poor, above all outright owners, who are often older and live in larger, harder-to-heat homes. Outreach should also use housing and heating information (tenure, property size, heating fuel).
 
 ---
 
-## 10. Sources
+## 5. Finding four: a household's current fuel burden is the best early warning
 
-All findings above are drawn from the accompanying technical outputs of this project (`outputs/`, catalogued in full in `reports/01_outputs_catalog.md`, synthesized in `reports/02_findings_report.md`) and from the Joseph Rowntree Foundation's *UK Poverty 2025* report (January 2025), used under its own published statistics with page and table references retained in the project's source code for full traceability (`src/ukhls_external_validation.py`).
+![Prediction ROC](../outputs_v2/thesis_assets_v2/figures/fig4-16_roc_p0_p3.png)
+
+*How well each approach identifies households that will be fuel vulnerable at their next interview, tested on the two most recent survey waves (higher curve = better).*
+
+We asked whether fuel vulnerability at a household's *next* interview can be predicted from information available now. Each approach was tested on the two most recent survey waves, which were not used to build it.
+
+| Approach | Share of next-wave cases found among the 10% of households flagged as highest risk |
+|---|---|
+| Current fuel burden only | 38.6% |
+| Household profile (finances, family, employment, housing, health) | 30.9% |
+| Household profile + energy-price forecast | 30.7% |
+
+- **Current burden is best.** It finds the most future cases.
+- **The price forecast adds nothing** to identifying which households are at risk.
+- **All approaches under-estimated risk during the crisis waves.** They would need recalibrating before use.
+
+**Implication.** The share of income a household already spends on fuel, which suppliers and some administrative systems can observe, is a better basis for pre-emptive outreach than complex risk scores or price forecasts. Price forecasts can inform *when* to prepare, not *whom* to contact. The energy-price forecasts in this study also missed the scale of the 2022 shock.
+
+---
+
+## 6. Recommendations
+
+1. **Put financial-resilience support inside fuel-poverty schemes.** Income maximisation, debt advice and employment support should be part of fuel-poverty delivery, prioritising households in financial difficulty, workless households, lone parents and large families.
+2. **Design an oil-heating mechanism for Northern Ireland** (and for off-gas-grid Great Britain). Help with bulk buying, spreading costs and heating upgrades addresses the main driver of NI's excess vulnerability.
+3. **Look beyond income for eligibility.** Add tenure, property size and heating-fuel criteria so that outright owners in hard-to-heat homes are reached.
+4. **Base early warning on current fuel burden.** Where data-sharing allows, flag households whose fuel spending is already a high share of income, and evaluate any such outreach on live outcomes before scaling up.
+5. **Monitor fuel vulnerability and income poverty separately.** They diverge by region and tenure. Improve data on ethnicity and fuel costs before using either measure for group-based targeting.
+6. **Watch for rationing.** Prepayment-meter use is higher among fuel-vulnerable households (24.4% vs 13.6%). Households that cut consumption can fall below the 10% line, so low measured spending is not always low hardship.
+
+| Recommendation | Strength of evidence | New data or regulation needed? |
+|---|---|---|
+| 1. Financial-resilience support | Strong (consistent across all model variants) | No |
+| 2. Oil-heating mechanism | Strong for NI's ranking and the oil association; causal effect not tested | Yes (heating oil is outside the price cap) |
+| 3. Eligibility beyond income | Moderate (tenure pattern clear; mechanism inferred) | Partly (local-authority housing records) |
+| 4. Early warning on current burden | Moderate (tested on two recent waves; under-estimates crisis risk) | Yes (data-sharing agreements) |
+| 5. Separate monitoring | Strong for divergence; ethnicity inconclusive | Better ethnicity and fuel-cost data |
+| 6. Rationing awareness | Moderate (prepayment is a proxy) | No |
+
+---
+
+## 7. Caveats
+
+- **Associations, not effects.** None of these results shows what would happen if a factor were changed.
+- **Survey data.** UKHLS is a national research panel, not real-time administrative data. Figures are estimates with confidence intervals, not official statistics.
+- **Missing bills.** About 12% of households did not report their fuel spending, rising to 20% in the latest wave. The conservative lower bound shows the same pattern.
+- **Household size.** The 10% threshold uses income not adjusted for household size, like the official definition. Adjusting income alone would flag many more large households (46% of households with 5 or more people would change status), so results for large households depend on this choice.
+- **Different measures.** The JRF comparison matches periods but compares different measures (fuel spending vs income poverty) and sometimes different units (children, working-age adults).
+- **Prediction testing.** The prediction results come from two survey waves during the cost-of-living crisis. Performance in calmer periods may differ.
+
+---
+
+## 8. What changed from the earlier brief
+
+| Earlier brief | Now |
+|---|---|
+| "Financial strain" had nearly seven times the odds | That composite was not a coherent measure. Current financial difficulty is the dominant strain factor (odds +65% per step) |
+| The price-forecast signal predicts next-year vulnerability | It adds nothing to prediction |
+| A forward model with AUC 0.76 supports proactive outreach | The household model reaches 0.74, but current fuel burden alone does better (0.78) |
+| Regions agree with income poverty once NI is excluded | They do not agree, with or without NI |
+| Ethnicity shows a real divergence | Inconclusive: samples too small |
+| "Resources cushion shocks" gave unstable answers | Tested properly: no cushioning effect; a large one is ruled out |
+| NI's divergence is explained by oil | Oil accounts for about two-thirds of NI's excess risk; a smaller gap remains |
+
+---
+
+## 9. Sources
+
+All figures come from the project's v2 outputs (`outputs_v2/`, catalogued in [`01_outputs_catalog.md`](01_outputs_catalog.md), with full results in [`02_findings_report.md`](02_findings_report.md)), and from the Joseph Rowntree Foundation's *UK Poverty 2025* (January 2025). Every number in this brief is traceable to `outputs_v2/results_inventory.csv`.

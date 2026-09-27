@@ -1,269 +1,215 @@
-# Journal Submission Materials
+# Journal Submission Materials (rerun v2)
 
 **Working title:** *Who Becomes Fuel Vulnerable, and When? Forecast-Conditioned Household Risk Modelling in the UK*
-**Target scope:** Energy Policy (Elsevier) / comparable energy-social-science outlets
-**Source material:** `reports/01_outputs_catalog.md` (file-by-file evidence), `reports/02_findings_report.md` (synthesized findings), `reports/03_policy_brief.md` (policy translation)
-
-This document assembles the front-matter components a journal submission needs beyond the narrative reports already written: an abstract, research questions, formal hypotheses (stated in advance of results, including the ones this project's own evidence rejects), a contributions statement, an achievements summary, and Elsevier-style highlights.
+**Target scope:** *Energy Policy* (Elsevier) or comparable energy–social-science journals.
+**Source material:** [`02_findings_report.md`](02_findings_report.md) (results, all tables and figures), [`06_methodology.md`](06_methodology.md) (methods), [`03_policy_brief.md`](03_policy_brief.md) (policy translation), `outputs_v2/results_inventory.csv` (every number, with source and commit).
+**Status:** branch `rerun-v2`, analysis frozen 2026-09-26. This document replaces the v1 version, whose abstract, hypothesis results and highlights are superseded (see §8). The wording of the H2–H4 verdicts is proposed and awaits the author's confirmation.
 
 ---
 
 ## 0. Abstract
 
-*(304 words — within Energy Policy's typical unstructured-abstract range; adjust to the specific issue's word limit before submission.)*
+*(≈260 words.)*
 
-UK fuel poverty policy is typically informed by realised, income-based hardship measures, leaving open whether anticipated energy-price stress adds independent predictive value at the household level. This study integrates a forecast-conditioned, month-resolution energy-price stress index into the UK Household Longitudinal Study panel (339,201 household-wave observations, 2009–2024), combining a structural equation model and a conditional variational autoencoder to estimate household resource stock under Hobfoll's Conservation of Resources theory, an interpretable logistic driver model, and a walk-forward-validated forward-prediction model. Financial and psychological strain is found to be the dominant driver of fuel vulnerability (odds ratio 6.79), but the forecasted energy-price shock itself is also a significant, independent driver (odds ratio 0.94, p<0.0001), consistently so across every stage of the pipeline that tests it; whether baseline resources specifically moderate the shock's effect, as a core Conservation of Resources prediction holds, is not currently resolved — the interaction is statistically significant but its sign is not stable across repeated model refits on the same data, a specific identification limitation of the second-order structural model reported transparently rather than reported as either a confirmed or rejected effect. A model trained only on historical wave-to-wave transitions predicts next-year vulnerability with an area under the curve of 0.760 on genuinely held-out data. External validation against the Joseph Rowntree Foundation's *UK Poverty 2025* report, now spanning six dimensions, shows strong agreement by housing tenure (ρ=0.80), family type and work status (ρ=1.00 each, though n=2), and by region once Northern Ireland is separated out (ρ=0.73 versus 0.33 overall); Northern Ireland's divergence is traced to heating-oil dependence outside UK price-cap regulation. These findings indicate that fuel vulnerability is a distinct construct from income poverty, driven primarily by household financial resilience with a secondary but genuine contribution from anticipated price stress, and that it can be anticipated ahead of time using routinely collected panel data.
+UK fuel-poverty policy relies on realised, income-based measures, leaving open whether anticipated energy-price stress helps identify vulnerable households. We attach a forecast of energy-price stress (FES), built from rolling walk-forward forecasts of gas, electricity and carbon price growth with no look-ahead, to 339,201 household-waves of the UK Household Longitudinal Study (interviews 2009–2025). The outcome is a routing-aware measure of fuel spend at or above 10% of net income. Weighted prevalence fell from 12.0% (2009–11 wave) to 6.5% (2020–22) and rose to 12.5% in the 2022–24 wave. The forecasts did not significantly beat a no-change benchmark. In logit models with year fixed effects and PSU-clustered errors (n = 221,877), current financial difficulty (OR 1.65 per point) and employment security (OR 0.17) dominated; forecast-minus-realised stress had a small, robust association (OR 0.93 per SD). A pre-registered test found no evidence that household resources buffer price stress (interaction p = 0.16), and any buffering larger than 17% of the stress slope is ruled out. A time-matched comparison with Joseph Rowntree Foundation income-poverty rates agreed by tenure (ρ = 0.80) but not by region (ρ = −0.10). Northern Ireland had the highest fuel vulnerability (14.4%) but the lowest income poverty, and heating-oil use accounted for about two-thirds of its excess risk. On held-out transitions between the three most recent waves, household predictors forecast next-wave vulnerability with AUC 0.739, below current fuel burden alone (0.780), and FES added nothing. Fuel vulnerability is distinct from income poverty and is driven chiefly by household finances and heating fuel. For early warning, a household's current fuel burden is the most useful signal.
 
 ---
 
-## 1. Research Questions
+## 1. Research questions
 
-Each research question below maps to one pipeline stage's core methodological contribution, is motivated against a specific gap in the existing literature, and is decomposed into the sub-questions the analysis actually answers (with the answering evidence file named for traceability).
+The research questions are those of the submitted draft (plan principle: keep the RQs, recompute the evidence).
 
-### RQ1 — Forecast integration (Stage 1 → Stage 2)
+### RQ1 — Forecast integration
 
-**Can a genuinely forecasted, month-resolution macro energy-price stress signal be integrated into a household-level panel in a way that varies meaningfully by household — not as a single constant applied uniformly — and does this integration allow household-level analyses to use *anticipated*, not just *realised*, price stress as a predictor?**
+**Can a forecast of energy-price stress be attached to households without look-ahead, so that it varies by household interview month, and how good are the forecasts against simple benchmarks?**
 
-*Motivation.* The energy-vulnerability and fuel-poverty literatures overwhelmingly measure exposure to price stress retrospectively — using realised bills, realised price indices, or realised income shares — because household panel surveys are not natively linked to forward-looking macroeconomic forecasts. This leaves a structural gap: existing work can describe who *was* vulnerable once a shock had already occurred, but not who was *exposed to an anticipated* shock before it materialised, which is the more policy-relevant question for pre-emptive intervention design (see RQ5). Most household-level "energy stress" indices in prior work are also single national scalars — identical for every household in a given year — which cannot support genuinely household-varying analysis of forecast exposure.
+*Evidence.* Rolling core forecasts re-tuned at every origin; December Y−1 vintage matched to interview month; accuracy against naive and seasonal-naive forecasts with Diebold–Mariano tests; prediction-interval coverage (Tables 4-1, A-1, A-5, A-6; Figures 4-1, 4-2, A-1).
+*Answer.* Yes, it can be attached without look-ahead (324,055 household-waves, interviews 2010–2025). But the forecasts are weak: none significantly beats the no-change forecast, and the intervals cover only 28–48% of outcomes.
 
-*Sub-questions.* (a) Can four heterogeneous time-series forecasting approaches (a classical statistical model, a Bayesian-additive model, a recurrent neural network, and an attention-based transformer) be benchmarked transparently enough to expose, rather than hide, their individual failure modes? (b) Does model selection based on realised (ex-post) forecast accuracy agree with selection based on genuine walk-forward backtesting, or does it introduce a hindsight bias that would not be available to a real-time forecaster? (c) Once a forecast index is constructed, can it be attached to individual households at a resolution finer than "one national number per year" — specifically, matched to each household's own interview month and one-year-ahead target month — so that the resulting signal (`fes_delta`) genuinely varies across the panel rather than being a constant?
+### RQ2 — Resource moderation
 
-*Evidence.* `outputs/tables/model_metrics_comparison.csv` (model benchmarking and the backtest-vs-realised divergence); `outputs/fes/fes_monthly_2025.csv`, `fes_prior_actual_2024.csv` (month-resolution index construction); `outputs/ukhls_dataset_overview/figures/dataset_key_distributions.png` (the resulting household-varying `fes_delta` distribution).
+**Within a Conservation of Resources (COR) framework, do household resources moderate the effect of forecast–realised price stress on the fuel burden?**
 
-### RQ2 — Resource moderation (Stage 2b/2c)
+*Evidence.* A pre-registered CFA (failed its criteria) → formative resource indices; OLS with R × FES Delta; Delta slopes at resource percentiles; buffering bound (Tables 4-5, A-9, A-10; Figure 4-12).
+*Answer.* No. The interaction is null, and a substantial buffering effect is ruled out (H1).
 
-**Within a Conservation of Resources (COR) framework, does a household's baseline resource stock moderate the effect of an anticipated energy-price shock on its fuel-to-income ratio — i.e., do resource-poor households absorb a forecasted shock worse than resource-rich households — or do resources and price shocks instead operate as independent, additive effects?**
+### RQ3 — Drivers of vulnerability
 
-*Motivation.* Hobfoll's Conservation of Resources theory is one of the most widely cited frameworks in the occupational-stress and, increasingly, the household-financial-hardship literature, and its central claim is explicitly interactive: resource loss under stress is theorized to spiral faster for those who start with fewer resources (the "loss spiral" mechanism), not merely to add to an independent baseline disadvantage. Despite this, direct empirical tests of the *interaction* term — as opposed to simply showing resources and stress are each independently correlated with outcomes — are comparatively rare in the applied energy-poverty literature, which more often assumes moderation implicitly (e.g. via subgroup analysis) than tests it as a specified interaction effect with a formal null.
+**Which household factors are associated with fuel vulnerability, and how does forecast price stress compare with household financial position?**
 
-*Sub-questions.* (a) Can Hobfoll's four resource dimensions (Object, Condition, Personal, Energy) be operationalized from UKHLS panel items into a measurement model with acceptable loadings, given the panel was not purpose-designed around COR theory? (b) Does a second-order Baseline Resource Stock factor emerge cleanly from the four first-order factors, or does the estimation encounter identification problems (e.g. Heywood cases) that need to be reported transparently? (c) When Baseline Resource Stock and the forecast-shock signal (`fes_delta`) are entered into a single regression together with their interaction term, is the interaction statistically distinguishable from zero?
+*Evidence.* Logit with year FE and PSU clustering, 11 pre-specified specifications, per-SD comparison (Tables 4-3, 4-4, 4-9, A-3, A-4; Figure 4-11).
+*Answer.* Current financial difficulty and employment security dominate. FES Delta has a small, robust association (H2, H3).
 
-*Evidence.* `outputs/ukhls_cor_sem/tables/cor_sem_measurement_loadings.csv`, `structural_paths_baseline.csv` (measurement and second-order structure, including the Heywood-case caveat); `outputs/ukhls_cor_sem/tables/fes_moderation_path.csv` (the interaction test itself, H1 below).
+### RQ4 — Geographic and social structure, and income poverty
 
-### RQ3 — Drivers of vulnerability (Stage 3)
+**How is fuel vulnerability distributed by region and social group, and does it match an independent income-poverty benchmark?**
 
-**What are the principal household-level and macro-level drivers of fuel vulnerability, and how does their relative importance compare — specifically, does household financial resilience dominate over the macro energy-price environment, or does the reverse hold?**
+*Evidence.* Weighted prevalence with PSU-bootstrap CIs; time-matched JRF comparison with rank intervals; NI-oil sequence with AMEs (Tables 4-2, 4-6, 4-7, A-12; Figures 4-3 to 4-10, 4-13 to 4-15).
+*Answer.* Partly. Tenure agrees, regions do not, and Northern Ireland's heating-oil exposure is the clearest divergence (H4).
 
-*Motivation.* UK energy policy debate since 2021 has been dominated by macro-level interventions (the energy price guarantee/cap, wholesale market reform), implicitly treating the energy market itself as the primary lever for reducing household fuel hardship. Whether this framing is empirically justified, relative to household-level financial-resilience factors (employment security, debt, psychological financial strain), is a directly testable and highly policy-relevant question that this project's transparent (not black-box) driver model is well positioned to answer, given it can enter both macro (`fes_delta`) and household-level covariates into the same regression and compare their estimated effect sizes directly.
+### RQ5 — Prospective prediction
 
-*Sub-questions.* (a) Using an interpretable model (logistic regression with odds ratios, chosen explicitly over a black-box alternative for this reason) rather than an opaque feature-importance ranking, which covariates are significant predictors of the objective, government-standard fuel-vulnerability threshold? (b) Do any driver-model coefficients carry a sign that is not obviously predictable from theory alone (e.g. housing-size effects), and can these be given a plausible, testable interpretation? (c) Is the driver structure stable across the 12 UK regions, or does the relative importance of a given driver (e.g. financial strain) vary materially by geography?
+**Can next-wave fuel vulnerability be predicted before it is observed, and does the forecast add to household information?**
 
-*Evidence.* `outputs/ukhls_vulnerability/tables/driver_analysis_logistic_regression.csv` (the pooled national model); `driver_analysis_by_region.csv` (regional heterogeneity in driver effect sizes); `policy_vulnerability_by_fes_tier.csv` (a model-free cross-check of the macro-driver finding).
-
-### RQ4 — Geographic and demographic structure (Stage 3/4, external validation)
-
-**How is fuel vulnerability distributed across UK regions, housing tenure, ethnicity, and disability status, and to what extent does this distribution align with, or diverge from, established income-based poverty measures?**
-
-*Motivation.* Fuel poverty and income poverty are frequently treated as near-synonymous in both policy discourse and prior academic work, on the assumption that a household's ability to afford energy is simply a function of its income relative to the national median. This assumption has not, to our knowledge, been tested directly and systematically against an independently-produced, citation-traceable national income-poverty benchmark across multiple demographic dimensions simultaneously (region, ethnicity, disability, and tenure) within a single study — most existing comparisons are either single-dimension (usually just regional) or rely on the same underlying income data for both measures, which cannot detect genuine construct divergence.
-
-*Sub-questions.* (a) Does a fuel-specific vulnerability measure, built independently of any income-poverty statistic, rank UK regions/groups similarly to an income-based poverty measure, and if not, can the divergence be traced to a specific, verifiable structural mechanism rather than left as unexplained noise? (b) Are there population subgroups (by tenure, ethnicity, or disability) that a fuel-specific lens identifies as vulnerable but an income-based lens does not, or vice versa, and what does this imply for how support-scheme eligibility should be designed? (c) Does agreement between the two measures vary systematically by dimension (e.g. strong for tenure, weak for ethnicity), and if so, what does that pattern itself suggest about which structural factors the fuel-specific measure is and is not capturing?
-
-*Evidence.* `outputs/ukhls_vulnerability/tables/policy_vulnerability_by_{region,ethnicity,disability,tenure}.csv`; `jrf_poverty_benchmark_{region,ethnicity,disability,tenure}.csv` and `external_validation_{region,ethnicity,disability,tenure}_comparison.csv` (the four-dimension cross-validation); `ni_oil_heating_evidence_by_region.csv`/`_within_ni.csv` (mechanistic explanation of the largest single divergence).
-
-### RQ5 — Prospective prediction (Stage 5)
-
-**Can household-level fuel vulnerability be predicted a year in advance, using only information available at the time of prediction — without access to the outcome or to future data — and with what discriminative accuracy when validated on genuinely held-out future transitions?**
-
-*Motivation.* The overwhelming majority of household-level fuel/energy-poverty modelling in the literature is contemporaneous or explanatory — it models which currently-observed households are currently vulnerable, using currently-observed covariates, and is validated (if validated at all) via in-sample fit or k-fold cross-validation on the same cross-section. This is a fundamentally different and weaker claim than genuine forward prediction, since standard cross-validation still allows information from the same time period as the outcome to leak into feature construction (e.g. via variables that are themselves derived from panel-wide, whole-period model fits). A model that is walk-forward validated — trained only on transitions from earlier waves, tested only on transitions from strictly later waves the model has never seen in any form — makes a categorically stronger and more policy-useful claim: that it can flag risk *before* it is observable in survey data, which is the necessary condition for any pre-emptive (rather than reactive) policy intervention.
-
-*Sub-questions.* (a) Can UKHLS households be reliably linked across consecutive waves despite the absence of a stable household identifier, and at what linkage rate? (b) Does a transparent (logistic, not black-box) model, trained on historical wave-to-wave transitions and evaluated strictly on the most recent, previously-unseen transitions, discriminate meaningfully better than chance? (c) When the validated model is applied to the single most recent wave for genuinely prospective (not merely held-out-historical) prediction, does the resulting risk distribution have policy-usable structure — e.g. a small, addressable high-risk subgroup, and interpretable seasonal/regional patterns?
-
-*Evidence.* `outputs/ukhls_forward_prediction/tables/stage5_transition_pairs.csv` (the linked wave-transition dataset and linkage-rate documentation); `stage5_validation_metrics.csv`, `stage5_validation_roc.png` (the walk-forward validation itself, H5 below); `stage5_forward_predictions.csv`, `stage5_forward_prediction_by_month.csv`, `stage5_forward_prediction_map.csv` (the genuinely prospective application).
+*Evidence.* Linked transitions; training a→b … l→m, validation m→n and n→o; P0 benchmark, P1 household, P2 + FES on one common sample; AUC, PR-AUC, calibration, top-k (Tables 4-8, A-2, A-7, A-8; Figures 4-16, 4-17).
+*Answer.* Moderately. The household model does not beat current fuel burden, and FES adds nothing (H5).
 
 ---
 
 ## 2. Hypotheses
 
-Hypotheses are stated here as they were specified for testing, with the theoretical basis, statistical test, effect size, and result reported alongside each — including two hypotheses this project's evidence does not support, reported as findings in their own right rather than omitted.
+Each hypothesis is stated as specified. Its test and decision rule were fixed before fitting, except where §9 of the plan logs a change.
 
-### H1 — Resource-based shock moderation (COR loss-spiral hypothesis)
+### H1 — Resource buffering (COR)
 
-**Statement.** Baseline household resource stock moderates the effect of an anticipated energy-price shock (FES Delta) on fuel-to-income ratio, such that low-resource households are differentially more adversely affected than high-resource households.
+**Statement.** Household resources moderate the association between forecast–realised price stress and the fuel burden: better-resourced households are less affected.
+**Test.** OLS of the fuel-to-income ratio on R (OBJECT + CONDITION + PERSONAL, formative), FES Delta (growth-only), R × Delta and year FE; PSU-clustered SEs; n = 269,372. With Delta = forecast − realised and R oriented so that higher = more resources, COR predicts a **positive** interaction.
+**Result — not supported.** Interaction −0.000034 [−0.000081, 0.000014], p = 0.16. The Delta slope is negative at every resource level and no flatter at high R (p10 −0.00045, p90 −0.00063). At the upper confidence limit, buffering is at most 0.018 pp of income per SD of Delta, 17% of the p10 slope. Sensitivities (R with ENERGY; 4-term FES) are also not supported. The logit on the binary outcome is negative on the log-odds scale but smaller at high R on the probability scale; both reflect baseline-risk differences. Resources have a strong main effect (−0.0047 per unit R).
 
-**Theoretical basis.** This is the direct empirical operationalization of Hobfoll's central COR claim that resource loss accelerates disproportionately for those who already have fewer resources (the "loss spiral"), rather than affecting all households by a constant additive amount regardless of starting resource level. If supported, the interaction coefficient should be negative and significant (a shock's marginal effect on fuel-to-income ratio becomes more adverse as baseline resources fall).
+### H2 — FES as an independent predictor
 
-**Test.** OLS regression of `fuel_to_income_ratio` on `baseline_score`, `fes_delta`, and their product term `baseline_x_fes`, n=255,324; repeated across independent refits of the upstream second-order structural model to test result stability, since a single-fit result was found insufficiently robust to report on its own (below).
+**Statement.** Forecast price stress is associated with household fuel vulnerability net of household characteristics.
+**Test.** Primary driver logit (Table 4-3); 10 sensitivities (Table 4-9).
+**Result — supported, small effect (proposed wording).** FES Delta OR 0.972 [0.962, 0.981] per unit, 0.93 per SD. It is robust across every specification (0.968–0.974), including two-way clustering, month FE, lagged strain, the 4-term FES, and the S1 and S2 outcomes. Vulnerability is higher when realised stress exceeds the forecast. The association is identified from within-year variation across interview months. FES does **not** improve next-wave prediction (H5).
 
-**Result — Inconclusive, due to a specific model-identification limitation, not a stable null.** Across three refits of this pipeline on materially the same underlying data, the interaction coefficient has taken values of +0.00004 (t=0.51, p=0.608, an early snapshot), +0.00049 (t=5.64, p<0.0001), and −0.00073 (t=−8.95, p<0.0001) — significant in the two most recent refits, but with **opposite signs between them**. The two main effects are, by contrast, stable: `fes_delta`'s coefficient is consistently negative and significant across every refit (−0.0006 to −0.0009, p≈0); `baseline_score`'s coefficient is always significant but its own sign inherits the same instability as the interaction (see mechanism below). Model R² ranges 0.08–0.14 across refits. **The interaction's instability is traceable to a specific, diagnosable cause, not unexplained noise**: `structural_paths_baseline.csv` shows the second-order model's three freely-estimated first-order loadings (Condition, Personal, Energy onto Baseline) converge to standardized values ≈−1.0 against Object's loading, which is fixed at +1.0 only for scale identification, not estimated. Because a second-order factor's overall sign is arbitrary until fixed by an explicit constraint (flipping every free loading simultaneously produces an identical fit), `baseline_score` itself does not have a stable sign across refits, and any regression using it as a predictor inherits that instability.
+### H3 — Household financial position dominates the price environment
 
-**Interpretation.** This hypothesis cannot currently be reported as either supported or rejected, and reporting it as a stable null (as an earlier analysis of this same design did) would overstate what a single fit can establish. What is established: resources and the anticipated shock each independently, robustly associate with fuel-to-income ratio (H2 below); whether they specifically *interact* in the COR-theoretic loss-spiral sense is a well-posed but currently unanswerable question with this specification, because the model that would answer it is not yet identified with respect to the sign of its central composite score. The methodologically correct next step — not undertaken in this analysis — is to add an explicit sign constraint to the second-order model (e.g. constraining all four first-order loadings non-negative, or anchoring on a theoretically-motivated indicator) and confirm the interaction's sign reproduces across independent refits before reporting a directional result. We regard transparently reporting this instability, rather than selecting and reporting whichever single refit's result happened to run first, as itself a methodological contribution (see Section 3.3).
+**Statement.** Household financial position is more strongly associated with fuel vulnerability than forecast price stress.
+**Test.** Same model; per-SD comparison (Table 4-4).
+**Result — supported, reframed (proposed wording).**
 
-### H2 — Forecast shock as an independent vulnerability predictor
+- Current financial difficulty: OR 1.65 per point [1.61, 1.69], 1.59 per SD.
+- Employment-status security: OR 0.17 [0.15, 0.20], 0.63 per SD.
+- FES Delta: 0.93 per SD.
 
-**Statement.** Forecasted macro energy-price stress (FES Delta) is a significant independent predictor of household-level fuel vulnerability, net of household financial and demographic characteristics.
+The v1 strain composite (OR 6.79) is not a scale (α = 0.27) and is not used. GHQ distress and financial expectations are slightly protective once current difficulty is included.
 
-**Theoretical basis.** If anticipatory exposure to a forecast price shock genuinely elevates near-term household risk (the premise motivating the entire forecast-integration exercise in RQ1), it should show up as a significant, positively-signed coefficient in a multivariate model that also controls for the household's own financial and demographic characteristics — i.e. the shock should matter *over and above* what a household's existing financial strain already tells us.
+### H4 — Agreement with an independent income-poverty benchmark
 
-**Test.** Logistic regression of `high_fuel_vulnerable` on 17 covariates (extended this iteration with `large_family`, `lone_parent`, `workless_household`, and an equivalisation factor) including `fes_delta`, n=103,621; cross-checked against Stage 5's independent, prospective (not contemporaneous) forward-prediction model, in which the analogous signal (`fes_magnitude`) is also entered as a covariate.
+**Statement.** A fuel-specific vulnerability measure broadly agrees in rank with JRF income poverty, with divergence attributable to identifiable structural factors.
+**Test.** Weighted UKHLS rates time-matched to the JRF periods; Spearman and Pearson correlations; bootstrap rank intervals (Tables 4-6, A-12).
+**Result — partially supported (proposed wording).**
 
-**Result — Supported.** `fes_delta`'s odds ratio is 0.94 (p<0.0001) — a small but clearly significant effect, the corrected result from an earlier version of this analysis (OR 1.02, p=0.182), which was affected by a data-construction defect in the FES-Delta attachment step since fixed (a column-rename bug that silently altered which resolution tier of the forecast signal was attached to a subset of rows; see the project's own changelog documentation). The independent, prospective cross-check corroborates the corrected direction: Stage 5's forward-prediction model, evaluated on held-out future wave transitions the model never saw during training, also finds `fes_magnitude` significant (OR 1.07, p<0.0001).
+- Tenure: ρ = 0.80, with outright owners the exception.
+- Disability, family type and work status: same direction.
+- Region: ρ = −0.10 (0.18 excluding NI).
+- Ethnicity: inconclusive (ρ = 0.26, wide CIs).
 
-**Interpretation.** The corrected evidence supports H2, though with an important qualification on effect size: the forecast-based component of energy stress *does* detectably move household-level vulnerability net of financial and demographic controls, and does so consistently in both a contemporaneous (Stage 3) and a genuinely prospective, walk-forward-validated (Stage 5) specification — a materially stronger form of corroboration than either result alone would provide. However, the effect is modest in absolute terms relative to H3's finding below (financial strain's effect is roughly 100× larger in odds-ratio-distance-from-1 terms). The honest combined reading of H1 and H2 is therefore not "the macro signal doesn't matter" (the original, now-corrected conclusion) but: **the macro forecast signal matters, reliably, but as a secondary contributor alongside a dominant household-level financial-circumstance effect** — and whether resource-rich households are specifically *shielded* from that signal (H1) remains a separate, currently unresolved question rather than a settled null.
+Northern Ireland is the clearest structural divergence: highest on fuel vulnerability (14.4%, P(rank 1) = 0.95), lowest on income poverty. Its gap with the South East falls from 6.8 to 2.4 pp once oil use is controlled.
 
-### H3 — Financial resilience dominates the macro price environment
+### H5 — Prospective predictability
 
-**Statement.** Household financial/psychological strain and employment security are stronger predictors of fuel vulnerability than the macro energy-price environment.
+**Statement.** Next-wave fuel vulnerability can be predicted from information available before it is observed, and FES adds to household predictors.
+**Test.** P0 (current burden, benchmark), P1 (household predictors), P2 (P1 + FES for the next interview month) on one common sample; training-only standardisation; validation on m→n and n→o (n = 19,960); 2,000 PSU-bootstrap replicates (Table 4-8).
+**Result — partially supported.**
 
-**Theoretical basis.** This is the natural counterpart to H2: if the macro shock signal is not significant (H2, rejected), the question becomes which factors *are* doing the explanatory work, and whether household-level financial-resilience indicators dominate as COR theory's emphasis on resource stocks (as opposed to single-shock exposure) would predict.
-
-**Test.** Same logistic regression as H2; effect sizes compared directly across all 17 covariates using odds ratios on a common scale.
-
-**Result — Supported.** `financial_strain_score`: OR 6.79 (p≈0) — the largest odds ratio of any covariate in the model by a wide margin. `jbstat_security` (employment security): OR 0.16 (p≈0) — the strongest protective factor. Both effects dwarf `fes_delta`'s own now-significant but small OR 0.94 — financial strain's effect is roughly two orders of magnitude larger in practical terms (distance of the odds ratio from 1) than the forecast signal's.
-
-**Interpretation.** The evidence is unambiguous and consistent with a resource-stock (rather than single-shock) reading of COR theory: what predicts fuel vulnerability is overwhelmingly the household's standing level of financial and employment security, with its exposure to a specific forecast price movement contributing a real but much smaller independent effect (H2). This has direct implications for where policy effort should be concentrated (Section on Contributions/Achievements, and fully developed in `reports/03_policy_brief.md`).
-
-### H4 — External construct validity against an independent income-poverty benchmark
-
-**Statement.** A fuel-specific vulnerability measure will broadly agree in rank order with an independent income-based poverty measure at the regional level, with any divergence attributable to identifiable structural (not random) factors.
-
-**Theoretical basis.** Fuel poverty and income poverty are related but conceptually distinct constructs — a valid fuel-specific measure should correlate with, but need not be identical to, an income-based measure, and any strong divergence should be explicable by a real mechanism (e.g. a structural cost-exposure difference) rather than dismissed as measurement noise, which would instead cast doubt on the fuel-specific measure's validity.
-
-**Test.** Spearman and Pearson correlation between this project's regional fuel-vulnerability rate and the Joseph Rowntree Foundation's independently-published regional relative-poverty rate (AHC), n=12 regions; repeated excluding the identified outlier region with an independently-verified explanatory mechanism.
-
-**Result — Supported, with one well-explained exception.** All 12 regions: Spearman ρ=0.33, Pearson r=−0.10 (weak, and wrong-signed on the linear measure). Excluding Northern Ireland: Spearman ρ=0.73, Pearson r=0.68 (n=11) — a strong, theoretically expected positive relationship. The exception is not left unexplained: within-region analysis shows 71.2% of Northern Ireland households use oil heating (vs. 0.1–9.8% in every Great Britain region), and, in a controlled within-NI comparison, oil-heating NI households show a materially higher fuel-vulnerability rate (20.9%) and annual fuel spend (£2,017) than non-oil NI households in the identical region and wave (12.3%, £1,243) — isolating heating-fuel type, a factor with no mechanical reason to be captured by an income-based measure, as the specific driver of the exception.
-
-**Interpretation.** This is the strongest form of external validation available short of a randomized comparison: not just statistical agreement, but agreement-with-a-traced-exception, where the exception itself is explained by an independently verifiable mechanism rather than attributed to noise. The same logic (agreement overall, explicable exceptions) extends, with different strength, to five further external-validation dimensions tested (tenure: ρ=0.80, the strongest among dimensions with n>2; family type and work status: ρ=1.00 each, added this iteration and made possible only by this study's new household-composition/employment constructs, though both are n=2 tests; disability: directionally consistent, n=2 too small for a correlation coefficient; ethnicity: ρ=0.14, the weakest, and — unlike Northern Ireland — not yet mechanistically explained, an explicit direction for future work).
-
-### H5 — Genuine prospective predictability
-
-**Statement.** A model trained only on historical household-wave transitions, using exclusively pre-outcome information, can predict next-wave fuel vulnerability status with discrimination significantly better than chance when evaluated on genuinely held-out future transitions.
-
-**Theoretical basis.** This tests whether fuel vulnerability has sufficient autocorrelated, predictable structure (via a household's current resource profile and the forecast shock already known at the time) to support pre-emptive, rather than purely reactive, policy targeting — the central practical motivation for the entire forward-prediction architecture (RQ5).
-
-**Test.** Logistic regression trained on the 12 earliest wave-to-wave transitions (waves a→b through l→m, n=177,408 complete cases), evaluated strictly on the 2 most recent, model-unseen transitions (m→n and n→o, n=21,161 complete cases) — a walk-forward design in which no validation-period information of any kind contributes to model fitting.
-
-**Result — Supported.** AUC=0.760 against the true, subsequently-observed next-wave vulnerability outcome — comfortably above the chance benchmark (0.5) and within the range conventionally described as acceptable-to-good discrimination in applied social-science prediction. The weaker companion result (Pearson r=0.270 against the continuous fuel-to-income ratio, rather than the binary threshold) indicates the model is a considerably better classifier of threshold-crossing than a predictor of continuous financial-strain magnitude. Consistent with H2's revised result above, the forecast signal `fes_magnitude` enters this model at a small, plausible, significant odds ratio (1.07) once a data-construction defect present in an earlier version of this analysis was corrected — the earlier draft's implausibly large coefficient (OR≈52) for this same term was itself a symptom of that defect, not a genuine effect.
-
-**Interpretation.** This is, to our knowledge, the first strictly walk-forward-validated (not merely cross-validated-but-contemporaneous) test of household-level fuel-vulnerability predictability in the literature, and the result supports the practical case for proactive, model-informed outreach ahead of a household's next assessment period — developed fully as a policy recommendation in `reports/03_policy_brief.md`, Section 5/7.
+- P1: AUC 0.739 [0.727, 0.751]; PR-AUC 0.280 against a 0.105 baseline.
+- P0 is better: AUC 0.780; ΔAUC P1 − P0 −0.041 [−0.053, −0.029].
+- FES: no improvement (ΔAUC −0.0006).
+- Post-hoc P3 = P0 + P1: 0.781, no gain over P0.
 
 ### Summary table
 
-| # | Hypothesis (short form) | Result | Key statistic | Evidence file |
-|---|---|---|---|---|
-| H1 | Baseline resources moderate the FES-shock effect | **Inconclusive — sign unstable across refits** | interaction significant (p<0.0001) but +0.00049 then −0.00073 across refits | `fes_moderation_path.csv` |
-| H2 | FES Delta independently predicts vulnerability | **Supported** (corrected from an earlier "not supported" finding) | OR=0.94, p<0.0001 | `driver_analysis_logistic_regression.csv`, `stage5_driver_coefficients.csv` |
-| H3 | Financial resilience dominates the macro environment | **Supported** | OR=6.79 (strain) vs. OR=0.94 (FES) | `driver_analysis_logistic_regression.csv` |
-| H4 | Fuel measure externally validates against income poverty | **Supported (1 explained exception)**, now across 6 dimensions | ρ=0.73 excl. NI vs. 0.33 incl.; ρ=1.00 for family type/work status (n=2 each) | `external_validation_region_comparison.csv`, `ni_oil_heating_evidence_within_ni.csv` |
-| H5 | Vulnerability is genuinely predictable ex-ante | **Supported** | AUC=0.760, walk-forward | `stage5_validation_metrics.csv` |
-
-H2 and H3 are both supported, and H4/H5 remain supported as in earlier analysis — but H1 is reported here as **inconclusive**, not rejected, a revision from an earlier draft of this work that reported it as a clean null (p=0.608). Repeated refitting during this iteration's verification work found the interaction term significant in every recent run but with a sign that flips between runs, traced to an unfixed sign-identification gap in the second-order structural model (Section 3.3). We regard reporting this instability transparently — rather than reporting whichever single refit ran first, which could equally have supported a "COR-consistent" or "COR-inconsistent" headline depending on run order — as itself a methodological contribution in a literature where a single model fit is often reported without a replication check of this kind. The combined, corrected picture is: an anticipated macro price shock **is** a real, if secondary, household-level risk factor (H2, reversing the earlier finding), financial strain still dominates it by roughly two orders of magnitude (H3), and whether resource-rich households are specifically *shielded* from the shock (H1) is a well-posed question this specification cannot yet answer in either direction.
+| Hypothesis | Verdict | Status | Key statistics |
+|---|---|---|---|
+| H1 Resource moderation (COR buffering) | Not supported | author-confirmed | R × Delta = -0.000034 (p = 0.16); buffering ≤ 17% of slope |
+| H2 FES independent predictor | Supported (small effect) | PROPOSED — author to confirm | FES Delta OR 0.972 [0.962, 0.981]; robust across sensitivities |
+| H3 Household financial position dominates macro stress | Supported (reframed: current financial difficulty and employment security) | PROPOSED — author to confirm | financial difficulty OR 1.65 per point; employment security OR 0.17; FES OR per SD 0.93 |
+| H4 External validation with JRF | Partially supported | PROPOSED — author to confirm | tenure ρ 0.80; family, work, disability same direction; region ρ -0.10 (excl. NI 0.18); ethnicity inconclusive |
+| H5 Prospective prediction | Partially supported | author-confirmed | P1 AUC 0.739; benchmark P0 0.780; FES: no improvement |
 
 ---
 
 ## 3. Contributions
 
-Each contribution below is framed against a specific, named gap in the existing energy-poverty, COR-theory, and predictive-modelling literatures, with the methodological detail a reviewer would expect to see substantiated.
-
-### 3.1 A forecast-integrated household panel architecture
-
-To our knowledge, this is the first application integrating a genuinely forecasted (not merely historical), month-resolution macro energy-price stress index into a nationally representative household panel (UKHLS) at the level of individual households, rather than treating forecast information as background context shared identically by an entire cross-section. The energy-economics forecasting literature and the household-panel fuel-poverty literature have developed largely in parallel, with the former rarely validated against individual-level outcomes and the latter rarely incorporating genuinely forward-looking price information (as opposed to lagged or contemporaneous realised prices). This work's `fes_delta` construction — matching each household's own interview month against a one-year-ahead forecast for that same calendar month, itself produced by a walk-forward-retrained model using only information available as of that household's interview year — is, methodologically, a deliberate bridge between the two literatures, and is documented at the level of exact join keys and fallback behaviour (see `src/ukhls_preprocessing.py`'s `attach_fes_delta`) rather than described only in the abstract.
-
-### 3.2 A dual-method latent resource extraction with cross-validation
-
-Household resource stock is estimated two independent ways — a classical structural equation model (COR-SEM) and a forecast-conditioned Conditional Variational Autoencoder (COR-CVAE) — with their outputs cross-validated against each other, providing convergent evidence for three of Hobfoll's four COR resource dimensions (Object, r=−0.79; Condition, r=0.80; Personal, r=0.75, each clearly separated from its next-highest correlate) and identifying a specific, quantified limit to convergence for the fourth (Energy, whose intended latent dimension z4 correlates *more* strongly with Object, r=0.75, than with its own intended factor, r=0.69 — an active mis-alignment, not merely a partial one, and one that has been observed to worsen rather than improve across successive refits of this architecture). Deep generative approaches to psychometric/latent-trait estimation are increasingly common in the wider social-science methods literature, but are rarely cross-validated directly, item-for-item, against a classical CFA fit on the same underlying indicators within the same study, and rarer still checked for *stability* of that convergence across independent refits — this dual-method design provides a template for both kinds of check, including honest reporting of where the two methods disagree and where that disagreement itself changes between runs, rather than reporting only the method (or the run) that looks cleanest.
-
-### 3.3 A formal, falsifiable, and replication-checked test of resource-based shock moderation
-
-We specify and test, rather than assume, the COR-theoretic prediction that baseline resources moderate the effect of a price shock — and, distinctively, we do not stop at a single model fit: repeated refitting during this study surfaced a sign instability in the interaction term across otherwise-identical runs (H1, Section 2), traced to an explicit, diagnosable identification gap in the second-order structural model rather than left as unexplained noise. This addresses two separate methodological patterns in the applied COR literature: first, that moderation is frequently *implied* by presenting subgroup comparisons without formally testing whether the difference between subgroups is itself statistically distinguishable from a null interaction; second, and less commonly discussed, that a single model fit's result — whichever sign it happens to land on — is often reported as definitive without any replication check, which this study shows can be actively misleading for an under-identified second-order factor. Reporting the coefficient, standard error, and p-value from *multiple* refits, rather than only the most recent or most favourable single run, gives future researchers both a concrete effect-size benchmark and a concrete replication-instability benchmark for similarly-scaled panel studies using second-order CFA composites as regression predictors.
-
-### 3.4 A validated, genuinely prospective forward-vulnerability model
-
-Unlike contemporaneous vulnerability classification (which explains current status), this work builds and walk-forward-validates a model that predicts next-year vulnerability using only information available at prediction time, achieving AUC=0.760 on transitions the model never saw during training — a methodologically stronger test than in-sample or cross-validated-but-contemporaneous accuracy claims typical in this literature. Much of the existing household-level energy/fuel-vulnerability prediction literature reports accuracy from k-fold cross-validation on a single cross-section or panel-wave, which — because the folds are drawn from the same time period as the outcome being predicted — does not test whether the model would have worked as a genuine early-warning system before that period's outcomes were known. The walk-forward design used here (train exclusively on earlier wave-transitions, test exclusively on strictly later, previously unseen ones) directly answers the practically relevant question ("would this have worked, applied last year, without knowing this year's data?") rather than the weaker question standard cross-validation answers.
-
-### 3.5 Independent, citation-traceable external validation
-
-Rather than relying solely on internal consistency checks, we validate our household-level measure against an independently produced national statistic (the Joseph Rowntree Foundation's *UK Poverty 2025*) across four demographic/geographic dimensions and one temporal dimension, with every benchmark value traceable to a specific page or table in the source report (Table 6 p.51 for region; p.9/42 for ethnicity; Table 8 p.67 for disability; Table 10 p.95 for tenure). External validation of this kind — checking a newly-constructed household-level index against an authoritative, independently-produced national statistic, with full citation traceability rather than a vague "broadly consistent with other estimates" — is comparatively rare in the applied energy-vulnerability-index literature, where new indices are more commonly validated only against the same survey's own internal items or against no external benchmark at all.
-
-### 3.6 Mechanistic explanation, not just detection, of a major measurement divergence
-
-Where our fuel-specific measure and the income-based external benchmark disagree most sharply (Northern Ireland), we do not merely report the divergence — we trace it to a specific, verifiable structural cause (heating-oil dependence, itself outside the UK's energy price-cap regulation) using a controlled within-region comparison that isolates the mechanism from every other regional confound. This elevates the finding from a statistical curiosity (a large, otherwise-unexplained residual in a cross-measure comparison) to a policy-actionable result with a specific regulatory implication (heating oil's exclusion from price-cap protection), and demonstrates a general analytical pattern — investigate rather than exclude an inconvenient outlier — that we recommend as standard practice for future cross-measure poverty validation work.
-
-### 3.7 Extension to previously unexamined demographic dimensions
-
-We extend the vulnerability analysis to ethnicity, disability, and housing tenure — dimensions absent from earlier versions of this work — surfacing a further, currently unexplained divergence (by ethnicity) between fuel-specific and income-based hardship that we explicitly flag as a direction for future research rather than overstating our own explanatory reach. This extension was deliberately implemented as descriptive stratification rather than as new latent-variable inputs to the structural/generative models (Sections 3.2–3.3) or as covariates in the driver regression (Section RQ3) — a design decision grounded in measurement theory (demographic/health covariates are not reflective indicators of an underlying continuous resource construct) and in small-sample statistical caution (several ethnicity categories have national sample sizes under 2,000), which we report explicitly so the scope of this contribution is not overstated relative to what the analysis actually supports.
-
-This iteration adds two further dimensions on a different footing: family composition (a 5-category grouping collapsible to JRF's own lone-parent/couple-with-children framework) and employment status (workless/part-time/full-time-or-self-employed). Unlike ethnicity/disability/tenure above, these two *are* entered directly as covariates in the driver regression (`large_family`, `lone_parent`, `workless_household`) and the forward-prediction model, since — unlike demographic/health status — household composition and employment are theoretically upstream of resource stock within a COR framework, not merely descriptive strata. Both new dimensions also extend the external-validation comparison (Section 3.5) to six dimensions total, the first time family type and work status have been checked against JRF's own published rates in this project.
-
----
+1. **A routing-aware fuel-spend outcome for UKHLS.** Treating the not-asked code of the combined-bill question as missing drops almost all off-gas-grid households (84% of NI oil users) and understates prevalence in every wave. We document the routing, the correct treatment of every code (Tables 3-3 and 3-4) and lower and upper bounds.
+2. **Forecast-conditioned exposure without look-ahead.** Rolling core forecasts are re-tuned at each origin and attached from the vintage published before each interview year, with past-only standardisation. We also show the forecasts do not beat a naive benchmark, and we report that plainly.
+3. **A pre-registered test of COR buffering with a quantified bound.** Rather than a bare non-significant interaction, we report the largest buffering compatible with the data.
+4. **Benchmarked prediction.** Household prediction is compared with a current-burden benchmark on one common sample with leakage control. The benchmark wins, which changes the practical case for complex early-warning models.
+5. **Time-matched external comparison.** Fuel vulnerability is compared with JRF income poverty by time-matched window, with weights and bootstrap rank intervals. The Northern Ireland divergence is decomposed with average marginal effects.
 
 ## 4. Achievements
 
-Organized by pipeline stage, with the specific, citable number for each — the level of granularity a Methods or Results section would need.
-
-### 4.1 Data scale and coverage
-
-- **339,201 household-wave observations** spanning UKHLS waves a–o, interview years 2009–2024 — the full available panel history at time of analysis, not a truncated subsample.
-- **92 analysis-ready variables per household-wave** in the base merged panel (`outputs/ukhls_cleaned/ukhls_panel.csv`, up from an earlier count of 95 that included some now-superseded columns), spanning raw household/individual survey items, COR-SEM-recoded derived variables, ethnicity/disability/family-composition/employment-status constructs, the equivalised-ratio robustness-check target, and the full set of FES-derived signals (magnitude, current, delta, and prior-year-actual baseline) — with the COR-SEM/COR-CVAE latent scores and fuzzy/one-class vulnerability scores merged in as separate downstream tables at Stages 2b/2c/3 rather than back into this base file.
-- Coverage extends across **12 UK nations/regions**, with sample sizes ranging from 12,643 household-waves (North East) to 41,318 (London) — a >3× range reflecting standard population-representative stratification, documented explicitly rather than left implicit.
-
-### 4.2 Forecasting infrastructure (Stage 1)
-
-- **4 forecasting model families** (SARIMA, Prophet, LSTM with Monte Carlo dropout for prediction intervals, and a Temporal Fusion Transformer) × **2 information sets** (univariate/core, exogenous-augmented/macro) × **3 price series** (gas, electricity, carbon) = **24 systematically benchmarked model/mode/series combinations**, retrained and re-evaluated fresh for **16 rolling walk-forward target years** (2010–2025, 384 total model/mode/series/year fits), each evaluated on both walk-forward backtest accuracy and realised-outcome accuracy.
-- **A hindsight-selection defect was identified and corrected**: model selection now defaults to genuine walk-forward validation accuracy (pre-target-year information only), never post-hoc realised accuracy — the walk-forward-selected model wins **52% (50/96)** of series/mode/year cells for LSTM alone across the full 16-year record, with no model winning every year in any single series/mode. The backtest-vs-realised divergence this correction was designed to close is still present as a property of the underlying models (e.g., in a single-target-year diagnostic check, one series/mode cell's walk-forward-favoured model is realised-accuracy's single worst performer, a >3-fold RMSE gap) — a transparency finding, now against an honestly-selected baseline, not always surfaced in applied energy-forecasting publications, which more commonly report only the selected model's own accuracy.
-- Two distinct, independently identified **model failure modes** formally characterized: point-forecast divergence (SARIMA reaching 144% forecast growth against 2.2% actual) and frozen/degenerate uncertainty estimation (Prophet's prediction-interval bounds identical to four decimal places across all 12 months of a forecast year) — both persisting across reruns regardless of which model wins a given cell.
-- A composite Forecasted Energy Stress (FES) index constructed at **month resolution** (12 monthly z-score observations per year, per variant), with **four** internally-compared variants (core, macro, a per-series best-of-core/macro selection, and a newly-added inverse-validation-RMSE-weighted composite) plus a realised-actual benchmark, cross-validated against three independent definitions of realised volatility — the weighted variant reported as an inspectable addition rather than an assumed improvement, since the four variants' relative ranking differs between the 16-year rolling mean (the unweighted macro composite, `Equal_Macro`, wins, narrowly ahead of `Equal_Weighted`) and the single most recent target year (the per-series-selected and weighted variants both decisively outperform the unweighted core/macro composites).
-
-### 4.3 Structural and generative resource modelling (Stage 2)
-
-- A **4-factor, 13-item confirmatory factor analysis** (COR-SEM) — Object (5 items), Condition (3 items), Personal (3 items), Energy (2 items) — fit via full-information maximum likelihood specifically to handle structurally missing items (e.g. car/house value for non-owners, ~35–37% structurally missing) without discarding those households, on a working sample as large as 339,201 rows for the first-order factors.
-- A **second-order Baseline Resource Stock factor**, with an explicitly documented and quantified identification anomaly (three of four first-order factors loading 0.99–1.00 on the second-order factor) reported alongside the model rather than omitted.
-- A **FES-conditioned Conditional Variational Autoencoder** (COR-CVAE), trained with a household-grouped (not row-level) train/validation split to avoid the same household's ~15 wave-rows leaking across folds, for 300 epochs on a 253,913-row complete-case subsample, producing a 4-dimensional latent space with a documented, non-monotonic (anneal-shaped) alignment-loss training curve and a working **counterfactual-simulation capability** — for each of 253,913 households, a paired prediction under realised vs. forecast FES conditioning, with the full distribution of individual-level shifts reported, not just the population average.
-
-### 4.4 Vulnerability identification and driver analysis (Stage 3)
-
-- Two independently-constructed, continuous (non-binary) vulnerability measures — a fuzzy c-means "Resource Depleted" membership score and a one-class SVM anomaly score — each validated against the UK's objective, government-standard 10%-fuel-to-income threshold, with the fuzzy measure achieving **AUC=0.744** against that objective label.
-- A **17-covariate, fully interpretable (odds-ratio) logistic driver model**, n=103,621 (extended this iteration with family-composition and employment-status covariates), re-estimated independently for each of the 12 UK regions (204 region-specific coefficient estimates in total) to test for, and quantify, geographic heterogeneity in driver effect sizes (a nearly 5-fold range in the financial-strain odds ratio across regions, from OR 3.02 in London to OR 14.68 in Northern Ireland).
-
-### 4.5 Geographic, demographic, and external validation (Stage 3/4)
-
-- Vulnerability prevalence estimated and reported across **6 independent stratification dimensions** (12 regions, 11 ethnicity groups, 2 disability-status categories, 5 tenure categories, 5 family-composition categories, 3 employment-status categories), five of which (all but region) were newly constructed for this analysis from raw UKHLS variables not previously incorporated into the project. The employment-status gradient is the steepest single-dimension gradient in the entire analysis (14.5% workless vs. 3.2% full-time/self-employed, a 4.5-fold range); the family-composition breakdown shows lone-parent households (13.2–15.1% depending on family size) at 2.5–4.1× the vulnerability rate of couple households with the same number of children (3.7–5.3%), a size-independent effect attributable specifically to single-earner status.
-- A **household-size (equivalisation) robustness check** on the primary, deliberately unequivalised vulnerability target: re-computing the same threshold on income equivalised via the Modified OECD scale (the same scale family used in JRF's own methodology) shows the binary classification is size-sensitive — flip rate rises monotonically from 0.0% (1-person households) to **42.5%** (5+-person households, n=23,142) — reported as a quantified, transparent limitation of the deliberate choice to match the UK's official unequivalised standard, not as evidence the choice was wrong.
-- A **citation-traceable external validation** against the Joseph Rowntree Foundation's *UK Poverty 2025* report across all 6 stratification dimensions plus one independent temporal comparison, yielding a documented correlation range from **ρ=0.14** (ethnicity — the weakest, and an explicitly flagged open question) to **ρ=1.00** (family type and work status, n=2 each) / **ρ=0.80** (tenure — the strongest agreement among dimensions with n>2), with every JRF benchmark value cited to a specific page/table.
-- A **mechanistically explained measurement divergence** for Northern Ireland, supported by a controlled within-region comparison (n=21,486, split 15,303 oil-heating vs. 6,183 non-oil-heating households) isolating heating-fuel type as the specific driver of a >7-fold regional oil-heating usage gap (71.2% vs. 1.5–9.8%).
-- **3 real-UK-boundary policy geography maps** (resource-stress hotspot classification, fuzzy-membership distribution mapping, and a counterfactual vulnerability vector-shift map), each producing region-level statistics not otherwise visible in the tabular breakdowns alone (e.g. Northern Ireland's uniquely polarized, low-near-boundary-share fuzzy distribution).
-
-### 4.6 Forward-prediction validation (Stage 5)
-
-- **261,759 household-wave transition pairs** constructed across all **14 consecutive wave-to-wave transitions** (2009–2024) via a documented household-linkage methodology (hrpid-based, since UKHLS's `hidp` is reissued on household-composition change), achieving a **72–85% per-transition linkage rate**, explicitly benchmarked against known UKHLS attrition/reference-person-turnover patterns.
-- A **walk-forward-validated forward-prediction model** — trained exclusively on the 12 earliest transitions (177,408 complete-case rows), tested exclusively on the 2 most recent, previously unseen transitions (21,161 complete-case rows) — achieving **AUC=0.760**, the headline predictive-validity result of the paper, with a plausible, significant coefficient on the forecast signal itself (OR 1.07) after correcting a data-construction defect that had earlier inflated this coefficient to an implausible OR≈52.
-- A genuinely **prospective application** to all households scored in the most recent available wave, producing individually-differentiated, next-interview-year-specific predicted probabilities, with an explicitly identified, policy-addressable high-concentration-risk subgroup.
-
-### 4.7 Reproducibility and transparency
-
-- A **fully scripted, end-to-end pipeline** producing 186 curated output tables/figures (110 curated CSV tables, 76 PNG figures, each figure with a matching vector PDF) plus 6 interactive HTML visualizations (192 total) — grown substantially over the course of this project as Stage 1's new rolling walk-forward tables/figures and Stage 2/3's new family-composition, employment-status, and equivalisation-robustness outputs were added — every one of which is traceable to a specific generating function in the project's source code.
-- **13 independently identified and documented methodological caveats** (spanning forecasting hindsight bias — since corrected to a validation-based default, though the underlying backtest/realised divergence it exposed remains documented — SEM fit-index reliability, and data-completeness limitations), compiled into a single, citable limitations inventory rather than scattered across code comments — see `reports/02_findings_report.md` Section 8 and `reports/04_journal_submission_materials.md` Section 7.
-
----
+- **Scale:** 339,201 household-waves (15 waves, interviews 2009–2025); primary analytical n 286,902; driver model n 221,877; 261,759 linked transitions.
+- **Forecasting:** 16 origins × 3 series × 4 models, with per-origin tuning; formal evaluation against two benchmarks.
+- **Transparency:** a pre-registered plan with a dated deviation log; 622 quotable numbers with source file and commit; a thesis bundle with a MANIFEST of source commits.
+- **Disclosure control:** no row-level data in git; small-cell suppression on every tracked table, with checks for secondary disclosure.
 
 ## 5. Highlights
 
-*(Elsevier-style: 3–5 bullet points, each ≤85 characters including spaces, for the submission system's "Highlights" field.)*
+*(Elsevier: 3–5 bullets, each ≤ 85 characters including spaces.)*
 
-- A month-resolution forecast signal predicts UK household fuel vulnerability ex-ante. *(85 chars)*
-- Forecast energy stress is a real but secondary driver next to financial strain. *(81 chars)*
-- COR resource-shock moderation is inconclusive: sign unstable across model refits. *(82 chars)*
-- A forward model predicts next-year fuel vulnerability with AUC 0.760, out-of-sample. *(85 chars)*
-- Northern Ireland fuel vulnerability is traced to oil heating, not income poverty. *(82 chars)*
+- Correcting survey routing restores off-gas households to UK fuel vulnerability. *(79)*
+- Financial difficulty, not forecast energy-price stress, dominates household risk. *(81)*
+- Household resources do not buffer forecast-realised energy-price stress. *(72)*
+- Current fuel burden predicts next-wave vulnerability better than household data. *(80)*
+- Heating oil accounts for two-thirds of Northern Ireland's excess fuel vulnerability. *(84)*
 
-*(Alternate fifth bullet, if external validation should be foregrounded instead of the Northern Ireland mechanism:* External validation against JRF UK Poverty 2025 finds strong tenure-level agreement. *(84 chars))*
+## 6. Suggested keywords
 
----
+Fuel poverty; energy vulnerability; household panel data; Understanding Society; energy-price forecasting; Conservation of Resources theory; early warning; income poverty; Northern Ireland; heating oil.
 
-## 6. Suggested Keywords
+## 7. Figure and table plan for the manuscript
 
-Fuel poverty; energy vulnerability; household panel data; Conservation of Resources theory; structural equation modelling; forecast-conditioned prediction; UK Household Longitudinal Study; anticipatory risk modelling; energy price shocks; poverty measurement validation.
+Thesis numbering, with suggested placement: **M** = main text, **S** = supplementary. All files are in `outputs_v2/thesis_assets_v2/` and are rendered in [`02_findings_report.md`](02_findings_report.md) or [`05_data_description.md`](05_data_description.md).
 
----
+| Item | Content | Placement |
+|---|---|---|
+| Figure 3-1 | Analysis pipeline | M |
+| Figure 3-2 | Interview timing | S |
+| Figure 3-3 | Missing spend by mode and wave | S |
+| Figure 3-4 | Distributions of the outcome and FES | S |
+| Figure 3-5 | Household-waves by region | S |
+| Figure 3-6 | Core forecasting series | S |
+| Figure 4-1 | Relative RMSE by year | M |
+| Figure 4-2 | Growth-only FES, forecast vs realised | M |
+| Figure 4-3 | National trend with S1 band | M |
+| Figure 4-4 | Trend by interview year, JRF window | S |
+| Figure 4-5 | Regional prevalence map | M |
+| Figure 4-6 | Region × year heatmap | S |
+| Figure 4-7 | Regional change map | S |
+| Figure 4-8 | Resources and financial difficulty by region | S |
+| Figure 4-9 | Social groups with CIs | M |
+| Figure 4-10 | Prepayment by status | S |
+| Figure 4-11 | Driver forest plot | M |
+| Figure 4-12 | H1 Delta slopes | M |
+| Figure 4-13 | Regions vs JRF | M |
+| Figure 4-14 | Other dimensions vs JRF | S |
+| Figure 4-15 | Northern Ireland and oil | M |
+| Figure 4-16 | ROC P0–P3 | M |
+| Figure 4-17 | Calibration | S |
+| Figure 4-18 | Equivalised-income sensitivity | S |
+| Figure 4-19 | FES terciles | S |
+| Figures A-1 to A-4 | Winning models; macro covariates; trend by year; v1 exploratory (labelled v1) | S |
+| Tables 3-2 to 3-7 | Wave n; sample flow; routing; measures; forecasting series; JRF metadata | 3-3, 3-4 M; others S |
+| Table 4-1 | Forecast accuracy and PI coverage | M |
+| Table 4-2 | Prevalence by region and social group | S |
+| Table 4-3 | Primary driver model | M |
+| Table 4-4 | Per-SD ranking | S |
+| Table 4-5 | H1 | M (verdicts and bound); S (slopes, logit) |
+| Table 4-6 | JRF comparison and agreement | M (agreement); S (categories) |
+| Table 4-7 | NI-oil AMEs | M |
+| Table 4-8 | Prediction P0–P3 | M |
+| Table 4-9 | Robustness summary | S |
+| Table 4-10 | Hypothesis verdicts | M |
+| Tables A-1 to A-14 | MASE; per-transition AUC; all driver specifications; model fit; relative RMSE by year; DM tests; calibration; prediction sample flow; CFA fit and loadings; equivalised income; regional window CIs; interview timing; regional counts | S |
 
-## 7. Notes for the Manuscript's Limitations Section
+## 8. Notes for the manuscript's limitations section
 
-Journal reviewers will expect the caveats already catalogued in `reports/02_findings_report.md` Section 8 to appear explicitly in the manuscript, not just in supplementary material. At minimum, the following should be stated plainly in the paper itself, not merely available on request:
+- **Associations only.** FES varies by interview year-month only; with year FE its coefficient is identified from within-year variation across months.
+- **Weak forecasts.** No series beats a no-change forecast significantly; PI coverage is 28–48%; the forecasts missed the 2022 shock.
+- **Resources.** The CFA failed its pre-registered criteria, and its complete-case sample was 99% owner-occupiers. The composites are formative indices.
+- **Missing spend.** The outcome is complete-case; missingness rises to 20% in wave o. The S1 lower bound is reported throughout.
+- **Unequivalised threshold.** Equivalising income alone would flip 45.8% of 5+ person households into vulnerability.
+- **JRF comparisons** differ in construct, and for family type and work status in unit. Ethnicity is inconclusive.
+- **Prediction** is validated on two crisis-era transitions, and all models under-predict risk there.
+- **Post-hoc analyses** are labelled: P3, `sens_no_qualification`, the H5 verdict wording.
+- **Corrections to v1 must be disclosed** if any v1 result was circulated:
+  - the outcome routing error;
+  - look-ahead and hindsight in the v1 FES;
+  - the mislabelled health variables;
+  - the disability variable (a consent flag);
+  - the uncorrected JRF work-status values;
+  - the "sign flips across refits" account of H1, which came from code changes, not refits.
 
-- Two structural-equation-model fit indices (CFI/TLI in the measurement model; SRMR/CFI/TLI in the second-order structural model) fall outside their mathematically valid ranges, a documented limitation of the fitting software under this dataset's mixed variable scales — loadings, not these particular fit statistics, should be cited as the primary evidence for measurement validity.
-- **The second-order structural model's sign is not identified**, and the H1 interaction term inherits this: it is statistically significant in every recent refit but its sign flips between refits (Section 2, H1). Any manuscript draft must report this as an open question, not as either a confirmed or rejected moderation effect, and should disclose that an earlier internal analysis reported a stable, non-significant null for the same test before this instability was discovered by deliberate replication.
-- **`fes_delta`'s significance in the Stage 3 driver model reversed between an earlier internal analysis and the current one** (non-significant, p=0.182 → significant, OR=0.94, p<0.0001), traced to a data-construction defect in the FES-Delta attachment step, since corrected. Any prior draft, preprint, or presentation built on the earlier figure should be corrected before further circulation; the corrected figure is the one reported throughout this document.
-- Model selection for the forecasting component now defaults to purely ex-ante (walk-forward validation) accuracy rather than realised (post-hoc) accuracy — an earlier iteration's hindsight-based default has been corrected — but the manuscript should still disclose that any figure drawn from the single-year diagnostic table (`outputs/tables/model_metrics_comparison.csv`) reflects a deliberate, explicitly-configured hindsight run kept for illustrating the backtest-vs-realised divergence, not the pipeline's current default behaviour.
-- Ethnicity is attributed via the household reference person only; disability status is observed for responding adults only, not full households.
-- The ethnicity/income-poverty divergence (Section 6 of `reports/03_policy_brief.md`) is reported as an open finding, not a fully explained one, and should not be over-interpreted as more than a directionally-supported divergence.
-- Family type and work status (Section 3.5/4.5) are validated against JRF for the first time in this iteration, each with only n=2 categories — report the ρ=1.00 result as a preliminary, positive signal, not with the same weight as tenure's or region's larger-n comparisons.
-- The primary vulnerability target is deliberately unequivalised (to match the UK's official fuel-poverty definition); a robustness check found this materially affects classification for larger households specifically (42.5% flip rate for 5+-person households under an equivalised alternative) — report this alongside the primary target rather than omitting it, particularly in any discussion of household-size-specific findings.
+  The full list is in `outputs_v2/reports/v1_to_v2_change_summary.md`.
