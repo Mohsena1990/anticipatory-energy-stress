@@ -71,7 +71,7 @@
 | 5 JRF, NI | Time-matched, weighted comparison with JRF *UK Poverty 2025*; PSU-bootstrap CIs and ranks | `scripts/jrf_comparison_v2.py`, `scripts/stage5_jrf_thesis.py` | `outputs_v2/jrf/`, `outputs_v2/stage5/` |
 | 6 Prediction | P0 benchmark, P1 household, P2 + FES on one common sample; held-out m→n, n→o | `scripts/stage6_prediction.py`, `scripts/stage6_p3_posthoc.py`, `scripts/stage6_draft.py` | `outputs_v2/stage6/` |
 | 7 Scope | Equivalised-income sensitivity; descriptive refreshes; appendix note | `scripts/stage7_scope.py` | `outputs_v2/stage7/` |
-| Reporting | Results inventory; thesis bundle; small-cell suppression | `scripts/build_results_inventory.py`, `scripts/build_thesis_assets.py`, `scripts/suppress_small_cells.py` | `outputs_v2/results_inventory.csv`, `outputs_v2/thesis_assets_v2/` |
+| Reporting | Results inventory; thesis bundle; small-cell suppression; README and reports (tables rendered from the CSVs) | `scripts/build_results_inventory.py`, `scripts/build_thesis_assets.py`, `scripts/suppress_small_cells.py`, `scripts/build_reports.py` | `outputs_v2/results_inventory.csv`, `outputs_v2/thesis_assets_v2/`, `README.md`, `reports/` |
 
 ---
 
@@ -108,6 +108,7 @@ python scripts/stage7_scope.py
 python scripts/suppress_small_cells.py      # apply; --check must pass before any output commit
 python scripts/build_results_inventory.py   # needs committed outputs
 python scripts/build_thesis_assets.py       # writes outputs_v2/thesis_assets_v2/ and the .zip
+python scripts/build_reports.py             # renders README.md and reports/01-06 from reports/templates/
 ```
 
 **Disclosure control.** Row-level UKHLS files never enter git (`.gitignore` plus a local pre-commit hook that runs `suppress_small_cells.py --check`). Every tracked table has counts of 1–9 shown as `<10`, rates on fewer than 10 cases suppressed, and category rates on fewer than 100 households masked.
@@ -1142,7 +1143,7 @@ anticipatory-energy-stress/
 │   ├── results_inventory.csv, logs/
 │   └── thesis_assets_v2/                  # local build (ignored)
 ├── outputs/                     # v1 outputs, read-only
-└── reports/                     # 01-06 reports (v2)
+└── reports/                     # 01-06 reports (v2), generated from reports/templates/ by scripts/build_reports.py
 ```
 
 The file-by-file description of every output is in [`reports/01_outputs_catalog.md`](reports/01_outputs_catalog.md).

@@ -1,6 +1,13 @@
 """
 household_stream.py
 ───────────────────
+LEGACY (v1). The submitted-draft-v1 household stream. The v2 rerun does not
+use it: v2 runs the per-stage scripts in scripts/ (see README.md and
+analysis_plan_rerun.md), and the COR-SEM / COR-CVAE / fuzzy / SVM / policy-map
+results below are superseded (CVAE, fuzzy and SVM survive only as a labelled
+v1 appendix figure). src/paths.py now points OUTPUTS_DIR at outputs_v2/, so
+the "outputs/" paths listed under Output refer to the v1 run.
+
 UKHLS (Understanding Society, UK Data Service Study 6614) household panel
 stream — Stage 2 (latent variable extraction), Stage 3 (vulnerability
 identification), Stage 4 (policy geography maps), and Stage 5 (forward
