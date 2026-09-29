@@ -322,3 +322,162 @@ The work stops after each stage for approval.
 ## 10. Analysis freeze
 
 Frozen 2026-09-26 after Stage 7, on the author's instruction. No new models unless the author asks. Every number the thesis quotes is in `outputs_v2/results_inventory.csv` (built by `scripts/build_results_inventory.py` from committed outputs; each row records its source file and commit). The v1 → v2 changes and their effect on each thesis claim are in `outputs_v2/reports/v1_to_v2_change_summary.md`.
+
+## Amendment A7 (2026-09-29): anticipatory burden projection — EXPLORATORY, POST HOC
+
+Status: written before any A7 code was run, but **after** the v2 results (Stages 2–6) and the
+2026-09-29 diagnostics were seen (FES forecasts ≈ damped no-change; vulnerability tracks price
+growth 9–12 months *earlier*; a month-level national signal cannot raise AUC much). Everything
+in A7 is labelled exploratory. It does not replace any pre-specified result. Outputs go to
+`outputs_v3/anticipation/`.
+
+**Idea.** Use the forecast to project each household's *next* burden, instead of adding a
+national index as a predictor. Spend at t+1 covers the 12 months before the t+1 interview, so it
+is partly determined by prices that are already known or priced in wholesale markets at t.
+
+**Information set at a wave-t interview in month T.** Retail CPI to T−2 (publication lag);
+NBP gas futures and Brent to T−1; average earnings (AWE, KAB9) to T−3; announced policy only
+after its announcement date. The t+1 interview is assumed at T+12, so spend windows are
+W_t = [T−12, T−1] and W_{t+1} = [T, T+11].
+
+1. **Price-level forecast (per series, per origin).** Target: log retail CPI level
+   (gas D7DU, electricity D7DT, liquid fuels D7DV; solid fuels D7DW is no-change) at horizons
+   h = 1…13 from L = T−2. Direct OLS per horizon, expanding window, fitted only on pairs whose
+   target month is ≤ L:
+   - gas and electricity: Δ_h log P = a_h + b_h·g1 + c_h·g2, with
+     g1 = log F(T−1) − mean log F(L−8…L−3) (futures vs wholesale already embedded in retail),
+     g2 = mean log F(L−8…L−3) − mean log F(L−20…L−15) − Δ12 log P(L) (wholesale change not yet passed through);
+   - liquid fuels: Δ_h log P = a_h + b_h·(log Brent(T−1) − log Brent(L−2));
+   - fewer than 24 training pairs → no-change forecast (counted).
+   - **Energy Price Guarantee**: from origins after its announcement, the gas and electricity
+     forecast is capped at the EPG level relative to CPI in April 2022 (typical-bill
+     approximation: £2,500 → gas ×1.36, electricity ×1.17; £3,000 → gas ×1.70, electricity ×1.33)
+     for the months and origins in which that EPG level was announced policy.
+   - Benchmark: no-change level (P(L) held flat). Evaluation: RMSE of the log window ratio
+     log(mean P(W_{t+1}) / mean P(W_t)) over monthly origins, Diebold–Mariano with HAC
+     (lag 12); also by horizon and for 2009–2020 vs 2021–2025 origins.
+2. **Fuel-mix exposure.** Household spend at t is split into gas, electricity, oil and other
+   (dual-fuel combined bills split by the wave's median gas share among separate-bill
+   households). Price multiplier M = Σ_f share_f · (mean P_f(W_{t+1}) / mean P_f(W_t)).
+3. **Income projection.** Net labour income × (1 + latest known AWE 12-month growth);
+   social-benefit + pension income × (1 + uprating), uprating = September CPI before the April
+   in W_{t+1} if published by T−1, else latest known CPI 12-month rate (statutory default;
+   the 2013–15 1% cap and 2016–19 freeze are not modelled); other income unchanged.
+   *Sensitivity S-support:* Energy Bills Support Scheme (−£400 spend, Oct 2022–Mar 2023, known
+   from June 2022 origins) and the pensioner cost-of-living payment (+£300 for HRP aged ≥ 66,
+   winters 2022/23 and 2023/24, after announcement). Means-tested payments are not modelled
+   (receipt not identifiable).
+   Projected burden b̂ = spend_t · M / projected annual income (A1 guards: NaN if income
+   < £1,200, capped at 1).
+4. **Uncertainty.** P_struct = P(b_{t+1} ≥ 10%) = mean_j Φ((log b̂ + e_j − log 0.1)/σ_hh), where e_j
+   are training residuals log b_{t+1} − log b̂_oracle (household noise, projection with realised
+   prices) and σ_hh = Σ_f share_f·σ_f(T), σ_f(T) = RMS of that series' out-of-sample window-ratio
+   errors known by T (≥ 12 errors, else SD of the naive errors).
+5. **Evaluation (A6 transitions and split).** Common sample with y, P0, P1 and projection inputs.
+   Logistic models with training-only standardisation:
+   - P0 (A6 benchmark), P1, P3 = P0 + P1;
+   - A_naive: log b̂ (no-change prices, income step) + flag_t;
+   - A_fut: log b̂ (futures forecast) + flag_t;
+   - A_full: A_fut + P1;
+   - A_oracle (realised prices; upper bound, not a valid predictor);
+   - P_struct used directly (no fitting).
+   Metrics as A6 (AUC, PR-AUC, calibration, top-k, 2,000 PSU bootstraps), on all validation
+   transitions and on the **incident** subset (not vulnerable at t). Calibration-in-the-large and
+   predicted vs actual prevalence by t+1 interview year. Crisis subset: wave-t interviews
+   Jan 2021–Jun 2022.
+
+**Decision rule (fixed now).** Anticipation *adds value* if both hold:
+(i) the futures model beats no-change on the window-ratio RMSE for gas and electricity
+(DM p < 0.05); and (ii) on the incident validation subset, AUC(A_fut) − AUC(A_naive) > 0 with a
+95% PSU-bootstrap CI excluding 0. Secondary: A_fut vs P0, A_full vs P3, calibration by year.
+
+## Amendment A8 (2026-09-29): conditional anticipation tests — EXPLORATORY, POST HOC
+
+Status: written after the A7 results were seen (criterion (i) failed: DM p = 0.16; criterion (ii)
+met) and before any A8 code was run. The only A8-relevant quantity inspected beforehand is the
+distribution of the ex-ante forecast (78 of 213 origins since 2009 meet the shock definition
+below). No outcome was inspected. Outputs go to `outputs_v3/anticipation_a8/`. All A8 tests are
+reported, significant or not.
+
+**Shock definition (ex ante).** Origin T is a *shock origin* if the step-1 forecast window ratio
+for gas or electricity is at least 10% in absolute value (|log ratio| ≥ 0.10). A transition is
+a shock transition if its wave-t interview month is a shock origin. Sensitivity thresholds: 0.05
+and 0.20 (reported, not tested).
+
+**Idea 6 — forward-chaining validation.** For every transition k from e→f to n→o, fit on all
+earlier transitions (a→b … the one before k) and predict k. Standardisation and resource
+composites use that fold's training transitions only. Predictions are stacked across folds.
+Model definitions as A7.
+
+**Idea 1 — conditional value of anticipation.** On the stacked forward-chained predictions:
+- H8.1: incident transitions (not vulnerable at t) at shock origins: AUC(A_fut) − AUC(A_naive) > 0.
+- H8.2a / H8.2b: step-1 window-ratio RMSE, forecast vs no-change, at shock origins only
+  (gas / electricity), Diebold–Mariano (HAC lag 12), one-sided (forecast better).
+- Reported without a test: the same contrasts at calm origins, and by fold.
+
+**Idea 2 — separate terms.** A_sep_fut: log b_t + log M_fut + log(projected/current income) +
+flag_t. A_sep_naive: the same with log M_naive. On the A6 split (train a→b … l→m, validate m→n,
+n→o):
+- H8.3: incident AUC(A_sep_fut) − AUC(A_sep_naive) > 0.
+- Reported: A_sep_fut vs A_fut, and calibration of both.
+
+**Idea 4 — decision metrics.** A6 split, incident validation transitions:
+- H8.4: sensitivity in the top 10% of predicted risk (ranked over all validation transitions),
+  A_fut − A_naive > 0.
+- Reported: A_fut − P0 on the same metric; newly vulnerable households found per 1,000
+  households screened; mean absolute error of predicted vs actual prevalence by t+1
+  interview year (A6 split and forward-chained).
+
+**Inference.** 2,000 PSU bootstraps for the AUC and sensitivity contrasts (one-sided
+p = share of replicates ≤ 0), DM p for H8.2. Holm correction over H8.1, H8.2a, H8.2b, H8.3
+and H8.4 at α = 0.05.
+
+**Decision rule.** *Anticipation is useful for vulnerability identification when a price shock is
+forecast* if H8.1, H8.2a and H8.2b all survive Holm. H8.3 and H8.4 are supporting evidence, not
+part of the headline rule.
+
+## Amendment A9 (2026-09-29): announced price caps — EXPLORATORY, POST HOC
+
+Status: written after the A8 results were seen (H8.2a/b failed Holm: gas p = 0.066,
+electricity p = 0.071 one-sided) and before any A9 code was run. Inspected beforehand: only
+the Ofgem cap levels themselves (input data), no forecast errors and no outcomes. Outputs go
+to `outputs_v3/anticipation_a9/`.
+
+**Data.** Ofgem, *Default tariff cap level* model v1.31 (August 2026), sheet *1b Historical
+level tables*: direct-debit ("other payment method") typical-consumption annual level incl.
+VAT, single-rate electricity and gas, every cap period (file in `data/raw/anticipation/`).
+Cap periods from January 2019 only (earlier columns are indicative, pre-cap).
+
+**Information rule (conservative, no announcement dates needed).** A cap period counts as
+known at origin T from T = (first month of the period − 1). Every cap since 2019 was announced
+at least about five weeks before it started, so this is never earlier than the real
+announcement.
+
+**Energy Price Guarantee.** Effective level = cap × min(1, EPG / published typical dual-fuel
+cap) for Oct–Dec 2022 (£3,549), Jan–Mar 2023 (£4,279) and Apr–Jun 2023 (£3,280), with the EPG
+level (£2,500 / £3,000) known per the A7 schedule. Months without a known cap keep the A7
+ceiling.
+
+**Forecasts (gas, electricity; L = T − 2).**
+- *F_cap:* months in a known cap period follow the cap, log P(m) = log P(L) + log(eff(m) / eff(L)).
+  Later months follow the A7 futures path from the last known cap month:
+  F_cap(m) = F_cap(m*) + F_fut(m) − F_fut(m*). If L < January 2019, F_cap = F_fut.
+- *F_capflat:* known cap months as F_cap, then flat. Isolates the value of the futures beyond
+  the announcements.
+- Benchmark: no-change, as A7.
+
+**Tests.** Holm correction over five tests at α = 0.05:
+- H9.1a (gas) / H9.1b (electricity): window-ratio RMSE, F_cap vs no-change, origins
+  T ≥ March 2019 (L within the cap regime), Diebold–Mariano HAC lag 12, one-sided.
+- H9.2a / H9.2b: F_cap vs F_capflat, same origins and test.
+- H9.3: forward-chained (A8 design), incident transitions with T ≥ March 2019:
+  AUC(A_cap) − AUC(A_naive) > 0, 2,000 PSU bootstraps. A_cap is A_fut with the F_cap
+  window ratios.
+
+**Reported, not tested.** F_cap vs no-change over all 2009+ origins (the A7 criterion (i)
+re-run); relative RMSE by horizon; A_cap vs A_fut; A_cap at shock origins; A6-split AUC
+and calibration.
+
+**Decision rule.** *Forecasting is useful for household vulnerability identification* if H9.1a,
+H9.1b and H9.3 all survive Holm. H9.2 says whether market (futures) information adds anything
+beyond the announced caps.

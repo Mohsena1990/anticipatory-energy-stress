@@ -1,0 +1,9 @@
+test,estimate,ci_low,ci_high,p_one_sided,p_holm,survives_holm
+"H8.1 forward-chained, shock origins, incident: AUC A_fut - A_naive",0.004805839855003713,0.0032193812554565633,0.006309649434652389,0.0005,0.0025,True
+"H8.2a step-1 gas, shock origins: forecast beats no-change (DM)",0.6488472311100957,,,0.06590818659575837,0.1977245597872751,False
+"H8.2b step-1 electricity, shock origins: forecast beats no-change (DM)",0.6959855850361811,,,0.07117396774144973,0.1977245597872751,False
+"H8.3 A6 split, incident: AUC A_sep_fut - A_sep_naive",0.005609583217121017,0.004486998800827024,0.006730728931684664,0.0005,0.0025,True
+"H8.4 A6 split: top-10% sensitivity among incident, A_fut - A_naive",0.000733675715333823,-0.007541620421753608,0.01161056853363354,0.4705,0.4705,False
+"(reported) A6 split, incident: AUC A_sep_fut - A_fut",-0.00964455887238691,-0.01329692297120379,-0.005868419081406301,1.0,,
+"(reported) A6 split: top-10% sensitivity among incident, A_fut - P0",0.003668378576669108,-0.007087384761958136,0.016886930983847283,0.244,,
+"DECISION: anticipation useful when a price shock is forecast (H8.1, H8.2a, H8.2b survive Holm)",0.0,,,,,

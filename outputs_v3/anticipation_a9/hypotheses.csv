@@ -1,0 +1,7 @@
+test,estimate,ci_low,ci_high,p_one_sided,p_holm,survives_holm
+"H9.1a gas, T >= 2019-03: F_cap vs no-change (DM)",0.6559755166690987,,,0.03247352841242863,0.1298941136497145,False
+"H9.2a gas, T >= 2019-03: F_cap vs F_capflat (DM)",0.9005428065792797,,,0.03403802471491594,0.1298941136497145,False
+"H9.1b electricity, T >= 2019-03: F_cap vs no-change (DM)",0.7468182108050304,,,0.0833406553020185,0.166681310604037,False
+"H9.2b electricity, T >= 2019-03: F_cap vs F_capflat (DM)",0.9508729029318526,,,0.15909580396707904,0.166681310604037,False
+"H9.3 forward-chained, T >= 2019-03, incident: AUC A_cap - A_naive",0.005641103685938398,0.0031418917305977346,0.008060097386166202,0.0005,0.0025,True
+"DECISION: forecasting useful (H9.1a, H9.1b, H9.3 survive Holm)",0.0,,,,,
