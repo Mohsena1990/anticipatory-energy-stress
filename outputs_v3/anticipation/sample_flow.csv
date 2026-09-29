@@ -1,0 +1,37 @@
+step,n
+linked transitions a->b,21886
+linked transitions b->c,24404
+linked transitions c->d,22961
+linked transitions d->e,22034
+linked transitions e->f,19771
+linked transitions f->g,20001
+linked transitions g->h,19288
+linked transitions h->i,17954
+linked transitions i->j,17083
+linked transitions j->k,16234
+linked transitions k->l,15021
+linked transitions l->m,14253
+linked transitions m->n,13725
+linked transitions n->o,17144
+  missing y,36602
+  missing fuel_to_income_ratio,35291
+  missing high_fuel_vulnerable,35291
+  missing finnow,1115
+  missing scghq1_dv,14901
+  missing finfut_risk,3997
+  missing dvage,730
+  missing heatch,773
+  missing workless_household,724
+  missing OBJECT,3237
+  missing CONDITION,306
+  missing PERSONAL,1402
+  missing ENERGY,<10
+  missing logb_forecast,36244
+  missing logb_naive,36244
+  missing logb_realised,36244
+  missing logb_forecast_support,36244
+common sample,190292
+  training,170420
+  validation,19872
+  validation incident (not vulnerable at t),18122
+  validation crisis (t interview Jan 2021-Jun 2022),10279
