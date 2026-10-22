@@ -1,0 +1,4 @@
+model,sample,lead_mean_months,lead_min,lead_max,definition,target
+P2 (as published),validation,6.016082164328657,1.0,12.0,months from the vintage's December origin to the t+1 interview month,t+1 interview month
+P2_frozen,validation,17.862174348697394,6.0,29.0,months from the vintage's December origin to the t+1 interview month,mean of months T..Dec of T's year
+P2_fixed12,validation,17.862174348697394,6.0,29.0,months from the vintage's December origin to the t+1 interview month,December of T's year (h=12)

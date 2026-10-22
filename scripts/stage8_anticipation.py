@@ -270,10 +270,29 @@ def build_pairs(price_file: Path | None = None) -> tuple[pd.DataFrame, list[dict
     return pairs, flow
 
 
-def main() -> None:
-    (OUT / "figures").mkdir(parents=True, exist_ok=True)
-    pairs, flow = build_pairs()
+SPECS_FLAG = ["high_fuel_vulnerable"]
+SPECS = {
+    "P0 (A6 benchmark)": P0,
+    "P1 (A6 social)": P1,
+    "P3 = P0 + P1": P0 + P1,
+    "A_naive": ["logb_naive"] + SPECS_FLAG,
+    "A_fut": ["logb_forecast"] + SPECS_FLAG,
+    "A_fut_support": ["logb_forecast_support"] + SPECS_FLAG,
+    "A_full = A_fut + P1": ["logb_forecast"] + SPECS_FLAG + P1,
+    "A_naive_full = A_naive + P1": ["logb_naive"] + SPECS_FLAG + P1,
+    "A_oracle (realised prices; bound)": ["logb_realised"] + SPECS_FLAG,
+}
+SHORT = {"P0 (A6 benchmark)": "P0", "P1 (A6 social)": "P1", "P3 = P0 + P1": "P3", "A_naive": "A_naive",
+         "A_fut": "A_fut", "A_naive_full = A_naive + P1": "A_naive_full", "A_full = A_fut + P1": "A_full",
+         "A_oracle (realised prices; bound)": "A_oracle"}
 
+
+def fit_stage8(pairs: pd.DataFrame | None = None, flow: list[dict] | None = None) -> dict:
+    """Steps 4-5 up to the fitted predictions: common sample, structural
+    probability, the A7 logistic models. Returns the frames (raw and
+    standardised), predictions, coefficients, calibration and sample flow."""
+    if pairs is None:
+        pairs, flow = build_pairs()
     tr_all = pairs[~pairs.transition.isin(VALIDATION)].copy()
     va_all = pairs[pairs.transition.isin(VALIDATION)].copy()
     build_composites(tr_all, va_all)
@@ -298,22 +317,11 @@ def main() -> None:
     va["p_struct"] = p_struct(va.logb_forecast.values, va.sigma_hh.values, resid)
     va["p_struct_naive"] = p_struct(va.logb_naive.values, va.sigma_hh.values, resid)
 
-    FLAG = ["high_fuel_vulnerable"]
-    specs = {
-        "P0 (A6 benchmark)": P0,
-        "P1 (A6 social)": P1,
-        "P3 = P0 + P1": P0 + P1,
-        "A_naive": ["logb_naive"] + FLAG,
-        "A_fut": ["logb_forecast"] + FLAG,
-        "A_fut_support": ["logb_forecast_support"] + FLAG,
-        "A_full = A_fut + P1": ["logb_forecast"] + FLAG + P1,
-        "A_naive_full = A_naive + P1": ["logb_naive"] + FLAG + P1,
-        "A_oracle (realised prices; bound)": ["logb_realised"] + FLAG,
-    }
-    cont = sorted({c for v in specs.values() for c in v})
+    tr_raw, va_raw = tr.copy(), va.copy()
+    cont = sorted({c for v in SPECS.values() for c in v})
     standardise(tr, va, cont)
     preds, coefs, cal = {}, [], []
-    for name, cols in specs.items():
+    for name, cols in SPECS.items():
         res, p = fit_predict(tr, va, cols)
         preds[name] = p
         ci = res.conf_int()
@@ -324,6 +332,30 @@ def main() -> None:
     for name in ("p_struct", "p_struct_naive"):
         preds[name] = va[name].values
         cal.append(dict(model=name, **calibration(va.y.values.astype(int), np.clip(va[name].values, 1e-6, 1 - 1e-6))))
+    return dict(tr=tr, va=va, tr_raw=tr_raw, va_raw=va_raw, preds=preds, coefs=coefs, cal=cal, flow=flow)
+
+
+def validation_predictions(fit: dict | None = None) -> pd.DataFrame:
+    """One row per validation transition of the Stage 8 common sample: outcome,
+    incident and crisis flags, wave-t PSU / interview month / transition, and
+    each A7 model's predicted probability (short names). Household-level:
+    keep in memory, never write to a tracked file."""
+    fit = fit or fit_stage8()
+    va = fit["va_raw"]
+    out = pd.DataFrame({"y": va.y.values.astype(int),
+                        "incident": (va.high_fuel_vulnerable.values == 0),
+                        "crisis": va.crisis.values.astype(bool),
+                        "psu": va.psu.values, "T": va["T"].values, "transition": va.transition.values},
+                       index=va.index)
+    for long, short in SHORT.items():
+        out[short] = fit["preds"][long]
+    return out
+
+
+def main() -> None:
+    (OUT / "figures").mkdir(parents=True, exist_ok=True)
+    fit = fit_stage8()
+    va, preds, coefs, cal, flow = fit["va"], fit["preds"], fit["coefs"], fit["cal"], fit["flow"]
 
     contrasts = [("A_fut", "A_naive"), ("A_fut", "P0 (A6 benchmark)"), ("A_naive", "P0 (A6 benchmark)"),
                  ("A_full = A_fut + P1", "P3 = P0 + P1"), ("A_full = A_fut + P1", "A_naive_full = A_naive + P1"),

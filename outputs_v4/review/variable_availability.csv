@@ -1,0 +1,10 @@
+concept,variable,file,label,waves_available,n_valid
+(i) household bill arrears,xphsdba,hhresp,Problems paying bills,abcdefghijklmno,337595
+(ii) accommodation adequately heated (any reason),hheat,hhresp,Adequate heating,abdfhijkln,216017
+(ii) home not kept warm: no money for this (pensioner deprivation module),pdepi2,hhresp,"home kept warm: no, no money for this ",dfhjln,41306
+(iii) damp-free home (pensioner deprivation module; not damp/condensation/rot),pdeph1,hhresp,damp-free home: yes ,dfhjl,34333
+"related, not used: cannot afford to keep up with bills (material deprivation)",matdepj,hhresp,Material deprivation: keep up with bills,dfhjln,85195
+(i) gas- or electricity-specific arrears,not found,"hhresp, indresp",no variable whose name or label matches arrear/behind/(gas|electric|fuel).*(bill|debt) other than xphsdba (all bills),,0
+"(ii) cannot keep home adequately warm, all households (can't afford)",not found,"hhresp, indresp",matdep*/cdep*/hhdep* contain no warmth item; the afford-to-keep-warm item exists only in the pensioner module (pdepi*); hheat has no affordability reason,,0
+"(iii) damp, condensation or rot (hsprb* family)",not found,"hhresp, indresp",no hsprb* variables; only label match for damp is pdeph* (pensioners: 'damp-free home'); no match for condensation or rot,,0
+(iv) inability to pay for heating / disconnection,not found,"hhresp, indresp",no variable whose name or label matches disconnect or afford.*(fuel|gas|elec|energ),,0

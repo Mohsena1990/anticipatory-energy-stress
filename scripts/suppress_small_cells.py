@@ -1,7 +1,8 @@
 """
 Statistical disclosure control for tracked UKHLS-derived aggregate tables
-in outputs_v2/ (analysis_plan_rerun.md, author decision 2026-09-26) and in
-outputs_v3/ (exploratory Stage 8, amendments A7-A9).
+in outputs_v2/ (analysis_plan_rerun.md, author decision 2026-09-26), in
+outputs_v3/ (exploratory Stage 8, amendments A7-A9) and in outputs_v4/
+(exploratory Stage 9 review analyses, amendment A10).
 
 Rules
   * frequency counts 1-9 -> "<10" (zeros kept)
@@ -12,8 +13,8 @@ Rules
 Usage
   python scripts/suppress_small_cells.py          apply in place
   python scripts/suppress_small_cells.py --check  exit 1 if anything is left, or if
-                                                 any tracked/staged outputs_v2 or
-                                                 outputs_v3 CSV is not a known aggregate table
+                                                 any tracked/staged outputs_v2, outputs_v3 or
+                                                 outputs_v4 CSV is not a known aggregate table
 
 Re-run after regenerating any table, before committing it.
 """
@@ -29,6 +30,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "outputs_v2"
 OUT_V3 = ROOT / "outputs_v3"
+OUT_V4 = ROOT / "outputs_v4"
 THRESHOLD = 10
 SUP = "<10"
 
@@ -173,6 +175,37 @@ EXEMPT_V3 = {
     "diagnostics/v2_forecast_by_horizon.csv",
 }
 
+# outputs_v4 (Stage 9 review analyses, A10, exploratory). Rates: proportions
+# (scale 1), percentages (100) or per 1,000 households (1000).
+SPEC_V4: dict[str, dict] = {
+    "review/sample_flow.csv": dict(counts=["n"]),
+    "review/dca_curves.csv": dict(counts=["n_treated", "n"],
+                                  rates={"tp_per_1000": ("n", 1000), "fp_per_1000": ("n", 1000)}),
+    "review/metrics_extra.csv": dict(counts=["n"], rates={"prevalence": ("n", 1)}),
+    "review/variable_availability.csv": dict(counts=["n_valid"]),
+    # prevalence among V=1 / V=0 households: the subgroup n is not in the table;
+    # checked against the item n (every subgroup has >= 1,000 households).
+    "review/construct_concurrent.csv": dict(counts=["n"], rates={"prev_H_if_V1": ("n", 100),
+                                                                 "prev_H_if_V0": ("n", 100)}),
+    "review/construct_concurrent_or.csv": dict(counts=["n"]),
+    "review/construct_predictive.csv": dict(counts=["n"], rates={"prevalence": ("n", 1)}),
+    "review/missing_by_hardship.csv": dict(counts=["n", "n_missing"], rates={"pct_missing": ("n", 100)}),
+    "review/ipw_prevalence.csv": dict(counts=["n"], rates={"prev_primary": ("n", 100), "prev_ipw": ("n", 100)}),
+    "review/ipw_ame.csv": dict(counts=["n"]),
+    "review/mi_diagnostics.csv": dict(counts=["n"], rates={"share_outcome_imputed": ("n", 1)}),
+    "review/p2_frozen.csv": dict(counts=["n"]),
+    "review/equiv_prediction.csv": dict(counts=["n"], rates={"prevalence": ("n", 1)}),
+    "results_inventory_v4.csv": dict(counts=["n"]),
+}
+# No UKHLS counts or rates at risk: contrasts, coefficients / odds ratios, AUCs,
+# lead times. mi_prevalence.csv has no n column: its cells are the same as
+# ipw_prevalence.csv (n checked there, every cell >= 100 households).
+EXEMPT_V4 = {
+    "review/dca_contrasts.csv", "review/delta_metrics.csv", "review/missingness_model.csv",
+    "review/ipw_driver.csv", "review/ipw_prediction.csv", "review/mi_prevalence.csv", "review/mi_driver.csv",
+    "review/p2_frozen_lead_time.csv",
+}
+
 
 def _num(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors="coerce")
@@ -249,6 +282,11 @@ def main() -> None:
     for rel, spec in SPEC_V3.items():
         if (OUT_V3 / rel).exists():
             problems += [f"outputs_v3/{p}" for p in apply(rel, spec, check, OUT_V3)]
+    tracked_v4 = {str(p.relative_to(OUT_V4)) for p in OUT_V4.rglob("*.csv")} if OUT_V4.exists() else set()
+    problems += [f"not in SPEC_V4/EXEMPT_V4: outputs_v4/{u}" for u in sorted(tracked_v4 - set(SPEC_V4) - EXEMPT_V4)]
+    for rel, spec in SPEC_V4.items():
+        if (OUT_V4 / rel).exists():
+            problems += [f"outputs_v4/{p}" for p in apply(rel, spec, check, OUT_V4)]
     # Guard: every CSV tracked or staged under outputs_v2 must be a known
     # aggregate table. Stops row-level files slipping in via `git add -f`.
     import subprocess
@@ -265,10 +303,15 @@ def main() -> None:
     for f in listed_v3:
         if f.endswith(".csv") and f[len("outputs_v3/"):] not in set(SPEC_V3) | EXEMPT_V3:
             problems.append(f"tracked/staged CSV not a known aggregate table: {f}")
+    listed_v4 = subprocess.run(["git", "ls-files", "--cached", "outputs_v4"], cwd=ROOT,
+                               capture_output=True, text=True).stdout.split()
+    for f in listed_v4:
+        if f.endswith(".csv") and f[len("outputs_v4/"):] not in set(SPEC_V4) | EXEMPT_V4:
+            problems.append(f"tracked/staged CSV not a known aggregate table: {f}")
     if check:
         print("\n".join(problems) if problems else "OK: no unsuppressed small cells")
         sys.exit(1 if problems else 0)
-    print(f"suppression applied to {len(SPEC)} + {len(SPEC_V3)} tables"
+    print(f"suppression applied to {len(SPEC)} + {len(SPEC_V3)} + {len(SPEC_V4)} tables"
           + (f"; NOT CONSIDERED: {unconsidered}" if unconsidered else ""))
 
 

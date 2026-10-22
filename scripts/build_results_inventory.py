@@ -3,7 +3,8 @@ Results inventory: every number the thesis will quote, with label, value,
 95% CI, N, unit, source file and the commit that last changed that file.
 
 Reads committed outputs only; fails if a source file is untracked or has
-uncommitted changes. Output: outputs_v2/results_inventory.csv
+uncommitted changes. Output: outputs_v2/results_inventory.csv; with --v4, the
+A10 review tables -> outputs_v4/results_inventory_v4.csv
 """
 from __future__ import annotations
 
@@ -255,5 +256,104 @@ def main() -> None:
     print(inv.groupby("section").size().to_string())
 
 
+def main_v4() -> None:
+    """A10 review analyses (EXPLORATORY, post hoc): every number in the committed
+    outputs_v4/review tables -> outputs_v4/results_inventory_v4.csv."""
+    global O
+    O = ROOT / "outputs_v4"
+    note = "A10 EXPLORATORY / POST HOC"
+    f = "review/sample_flow.csv"
+    for r in rd(f).itertuples():
+        add("A10.1 Sample flow", r.step.strip(), r.n, f, unit="transitions or household-waves", note=note)
+    f = "review/dca_curves.csv"
+    for r in rd(f).itertuples():
+        add("A10.2 DCA curves", f"{r.subset}: {r.model} net benefit at p_t={r.p_t:.2f}", r.net_benefit, f, n=r.n,
+            unit="net benefit per household", note=note)
+    f = "review/dca_contrasts.csv"
+    for r in rd(f).itertuples():
+        add("A10.2 DCA contrasts", f"{r.subset}: {r.contrast} at p_t={r.p_t:.2f}", r.delta_nb_per_1000, f,
+            r.ci_low, r.ci_high, unit="net benefit per 1,000", note=f"{note}; share boot > 0 = {r.share_boot_gt0:.3f}")
+    f = "review/metrics_extra.csv"
+    for r in rd(f).itertuples():
+        for m, lo, hi in [("brier", "brier_ci_low", "brier_ci_high"), ("scaled_brier", None, None),
+                          ("auc", "auc_ci_low", "auc_ci_high"), ("prauc", "prauc_ci_low", "prauc_ci_high"),
+                          ("cal_slope", "cal_slope_ci_low", "cal_slope_ci_high"), ("citl", "citl_ci_low", "citl_ci_high")]:
+            v = getattr(r, m)
+            if pd.notna(v):
+                add("A10.3 Metrics", f"{r.subset}: {r.model} {m}", v, f, getattr(r, lo) if lo else None,
+                    getattr(r, hi) if hi else None, n=r.n, note=note)
+    f = "review/delta_metrics.csv"
+    for r in rd(f).itertuples():
+        add("A10.3 Paired deltas", f"{r.subset}: {r.contrast} {r.metric}", r.delta, f, r.ci_low, r.ci_high,
+            note=f"{note}; share boot > 0 = {r.share_boot_gt0:.3f}")
+    f = "review/construct_concurrent.csv"
+    for r in rd(f).itertuples():
+        for m in ("prev_H_if_V1", "prev_H_if_V0", "ratio"):
+            add("A10.4 Concurrent validity", f"{r.item}: {m}", getattr(r, m), f, n=r.n,
+                unit="ratio" if m == "ratio" else "%", note=f"{note}; waves {r.waves}")
+    f = "review/construct_concurrent_or.csv"
+    for r in rd(f).itertuples():
+        add("A10.4 Concurrent validity", f"{r.item}: OR of V ({'adjusted' if r.adjusted == 'yes' else 'unadjusted'})",
+            getattr(r, "_3"), f, r.ci_low, r.ci_high, n=r.n, unit="OR", note=note)
+    f = "review/construct_predictive.csv"
+    for r in rd(f).itertuples():
+        add("A10.4 Predictive validity", f"{r.item}, {r.subset}: AUC of {r.predictor}", r.auc, f, r.auc_ci_low,
+            r.auc_ci_high, n=r.n, note=f"{note}; prevalence {r.prevalence:.4f}")
+    f = "review/missing_by_hardship.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 Missing spend", f"{r.dimension} = {r.group}: % missing", r.pct_missing, f, n=r.n, unit="%",
+            note=note)
+    f = "review/missingness_model.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 Missingness model", f"OR {r.term}", getattr(r, "_2"), f, r.ci_low, r.ci_high, unit="OR",
+            note=f"{note}; p = {r.p:.3g}")
+    f = "review/ipw_prevalence.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 IPW prevalence", f"{r.dimension} = {r.group}: IPW", r.prev_ipw, f, n=r.n, unit="%",
+            note=f"{note}; primary {r.prev_primary}")
+    f = "review/ipw_driver.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 IPW driver model", f"OR {r.term} (IPW)", r.or_ipw, f, r.ci_low_ipw, r.ci_high_ipw, unit="OR",
+            note=f"{note}; primary OR {r.or_primary:.4f}")
+    f = "review/ipw_ame.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 IPW AME", f"{r.contrast} (model b, IPW)", r.ame_ipw_pp, f, r.ci_low_ipw, r.ci_high_ipw, n=r.n,
+            unit="pp", note=f"{note}; primary {r.ame_primary_pp:.3f}")
+    f = "review/ipw_prediction.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 IPW prediction", f"{r.subset}: {r.model} AUC (IPW)", r.auc_ipw, f,
+            note=f"{note}; primary {r.auc_primary:.4f}")
+    f = "review/mi_prevalence.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 MI prevalence", f"{r.dimension} = {r.group}: MI", r.prev_mi, f, r.ci_low, r.ci_high, unit="%",
+            note=f"{note}; primary {r.prev_primary}")
+    f = "review/mi_driver.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 MI driver model", f"OR {r.term} (MI)", r.or_mi, f, r.ci_low_mi, r.ci_high_mi, unit="OR",
+            note=f"{note}; primary OR {r.or_primary:.4f}")
+    f = "review/mi_diagnostics.csv"
+    for r in rd(f).itertuples():
+        add("A10.5 MI diagnostics", f"{r.table} {r.dimension} {r.group_or_term}: FMI", r.fmi, f, n=r.n,
+            note=f"{note}; share imputed {r.share_outcome_imputed}")
+    f = "review/p2_frozen.csv"
+    for r in rd(f).itertuples():
+        add("A10.6 Frozen P2", f"{r.model}: AUC", r.auc, f, r.auc_ci_low, r.auc_ci_high, n=r.n, note=note)
+        if r.model != "P1":
+            add("A10.6 Frozen P2", f"{r.model} - P1: delta AUC", r.delta_vs_P1, f, r.delta_ci_low, r.delta_ci_high,
+                n=r.n, note=note)
+    f = "review/p2_frozen_lead_time.csv"
+    for r in rd(f).itertuples():
+        add("A10.6 Frozen P2", f"{r.model}: mean lead time", r.lead_mean_months, f, unit="months",
+            note=f"{note}; range {r.lead_min:.0f}-{r.lead_max:.0f}")
+    f = "review/equiv_prediction.csv"
+    for r in rd(f).itertuples():
+        add("A10.7 Equivalisation", f"{r.outcome}, {r.subset}: {r.model} AUC", r.auc, f, r.auc_ci_low,
+            r.auc_ci_high, n=r.n, note=note)
+    inv = pd.DataFrame(ROWS)
+    inv.insert(0, "id", [f"V{i:05d}" for i in range(1, len(inv) + 1)])
+    inv.to_csv(O / "results_inventory_v4.csv", index=False)
+    print(len(inv), "entries;", inv.section.nunique(), "sections")
+
+
 if __name__ == "__main__":
-    main()
+    main_v4() if "--v4" in sys.argv else main()
