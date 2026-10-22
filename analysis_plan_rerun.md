@@ -481,3 +481,158 @@ and calibration.
 **Decision rule.** *Forecasting is useful for household vulnerability identification* if H9.1a,
 H9.1b and H9.3 all survive Holm. H9.2 says whether market (futures) information adds anything
 beyond the announced caps.
+
+## Amendment A10 (2026-10-22): review analyses — EXPLORATORY, POST HOC
+
+Status: written on 2026-10-22 in response to the Risk Analysis reviewers, after all v2 (Stages 1–7)
+and v3 (A7–A9) results were seen, and before any A10 code was run. Everything in A10 is labelled
+exploratory and post hoc. It does not replace any pre-specified result. Outputs go to
+`outputs_v4/review/` (figures in `outputs_v4/review/figures/`); `outputs_v2/` and `outputs_v3/`
+are not modified. Code: `scripts/stage9_review.py`. Items marked **[proposed]** are
+implementation choices fixed here, before any A10 result exists.
+
+**Common design.** Transitions, split, common sample and models are those of Stage 8 (A7):
+`P0`, `P1`, `P3` (= P0 + P1), `A_naive`, `A_fut`, `A_naive_full`, `A_full`, `A_oracle`, built by
+`validation_predictions()` factored out of `scripts/stage8_anticipation.py`. Its AUC and PR-AUC must
+reproduce `outputs_v3/anticipation/metrics.csv` to 4 decimals before any A10 analysis is run.
+Subsets: `all` validation transitions and `incident` (not vulnerable at t). Inference: 2,000
+bootstrap replicates resampling wave-t PSUs, seed 20261022, paired resampling for every
+difference. Aggregate tables only; disclosure control by `scripts/suppress_small_cells.py`
+(extended to `outputs_v4/`).
+
+**1. Sample flow.** `sample_flow.csv` reproduces the Stage 8 flow and adds every A10 exclusion.
+
+**2. Decision curve analysis.**
+- Treat household *i* if p̂_i ≥ p_t, p_t = 0.01, 0.02, …, 0.40.
+- Net benefit NB = TP/N − (FP/N) · p_t/(1 − p_t). Comparators: treat all,
+  NB = π − (1 − π) p_t/(1 − p_t); treat none, NB = 0.
+- Models: the eight above plus two income policies:
+  - `INC_logit`: logistic regression of the outcome on log(1 + net monthly household income
+    `fihhmnnet1_dv`) and log OECD-equivalised income at t, same training transitions,
+    training-only standardisation. **[proposed]** Both terms use log(1 + max(x, 0)); equivalised
+    income = `fihhmnnet1_dv` / `ieqmoecd_dv`.
+  - `INC_rule`: treat every household in the lowest quintile of equivalised net income at t,
+    cut-off = 20th percentile among training transitions. A fixed rule: one operating point
+    (sensitivity, PPV; NB evaluated at each p_t). **[proposed]** In §3 its AUC and PR-AUC are those
+    of the 0/1 indicator; Brier and calibration are not defined for it and are left blank.
+- Outputs: `dca_curves.csv` (`subset, model, p_t, net_benefit, tp_per_1000, fp_per_1000,
+  n_treated, n`); `dca_contrasts.csv` (`subset, contrast, p_t, delta_nb_per_1000, ci_low,
+  ci_high, share_boot_gt0`) at p_t ∈ {0.05, 0.10, 0.15, 0.20, 0.25, 0.30} for
+  `A_full − A_naive_full`, `A_full − P3`, `A_full − INC_logit`, `A_full − INC_rule`,
+  `P0 − INC_logit`, `A_full − treat_all`; `figures/dca.{pdf,png}` (panels all, incident; NB per
+  1,000 households vs p_t).
+
+**3. Brier score and paired metric differences.** For every §2 model and both subsets: Brier
+score; scaled Brier 1 − Brier/Brier_null (null = training prevalence); AUC and PR-AUC with 95%
+CIs; calibration slope and calibration-in-the-large on the subset (Stage 6 definitions).
+**[proposed]** Brier CIs from the PSU bootstrap; calibration CIs model-based (as Stage 6/8).
+Outputs `metrics_extra.csv` and `delta_metrics.csv` (`subset, contrast, metric (auc|prauc|brier),
+delta, ci_low, ci_high, share_boot_gt0`) for `A_naive − P0`, `A_fut − A_naive`,
+`A_naive_full − P3`, `A_full − A_naive_full`, `A_full − P3`, `A_oracle − A_naive`.
+
+**4. Construct validation against non-monetary hardship.**
+- 4a. Search every wave's `hhresp` and `indresp` by variable name and by variable/value label for:
+  (i) bill arrears `xphsdba` (1 up to date, 2 behind on some, 3 behind on all) and any gas- or
+  electricity-specific arrears item; (ii) the material-deprivation item on keeping the home
+  adequately warm ("warm"/"heat"; e.g. `matdep*`, `cdep*`, `hhdep*`); (iii) damp, condensation or
+  rot ("damp"/"condensation"/"rot"; e.g. `hsprb*`); (iv) inability to pay for heating or
+  disconnection. Output `variable_availability.csv` (`concept, variable, file, label,
+  waves_available, n_valid`). Items not found are reported, not guessed.
+- Hardship outcomes H: arrears = behind on some or all bills; warm = cannot keep the home
+  adequately warm because it cannot afford to; damp = damp, condensation or rot reported.
+  **[proposed]** Household-level items are taken from `hhresp`; an individual-level item is
+  aggregated to the household as "any respondent reports it", keyed on `hidp`.
+- 4b. Concurrent validity, all household-waves with valid H and V: weighted prevalence of H for
+  V = 1 and V = 0 (per-wave `hh_xw`; **[proposed]** pooled as the mean of per-wave weighted rates,
+  the repository convention) → `construct_concurrent.csv` (`item, waves, n, prev_H_if_V1,
+  prev_H_if_V0, ratio`). Logit of H on V, unadjusted and adjusted for income quintile at t
+  (**[proposed]** within-wave quintiles of equivalised net income), household size, age of the
+  household reference person (`dvage` of `hrpid` from `indresp`) and interview-year fixed
+  effects, PSU-clustered SEs → `construct_concurrent_or.csv` (`item, adjusted, or, ci_low,
+  ci_high, n`).
+- 4c. Predictive validity, validation transitions with H observed at t+1: AUC (95% CI) of each
+  model's p̂, of the raw projected burden b̂ (constant-price = `A_naive` projection; forecast-price
+  = `A_fut` projection) and of the current burden b_t; for all transitions and for H = 0 at t →
+  `construct_predictive.csv` (`item, subset, predictor, n, prevalence, auc, auc_ci_low,
+  auc_ci_high`). **[proposed]** Bootstrap on the Stage 8 validation common sample with H at
+  t+1 observed.
+- **Decision rule.** The flag has construct validity if, for at least two hardship items, V is
+  associated with H at P < 0.05 after adjustment, **and** the projected burden predicts H at t+1
+  with AUC > 0.5 (95% CI excluding 0.5). **[proposed]** "Projected burden" = the forecast-price
+  b̂, subset `all`; the rule needs both parts for the same two (or more) items.
+
+**5. Missing data in fuel spending.**
+- **[proposed]** Eligible population = household-waves in scope for the A1 primary outcome except
+  for spend nonresponse (`fuel_outcome_exclusion` ∈ {in_scope, item_nonresponse}); missing =
+  `item_nonresponse`.
+- 5a. Nonresponse rates by `finnow` (1–5), `xphsdba`, V at the previous wave for linked
+  households (vulnerable / not vulnerable / not observed; linked by `hrpid`), income quintile,
+  tenure and wave → `missing_by_hardship.csv` (`dimension, group, n, n_missing, pct_missing`).
+  Logistic missingness model with these covariates plus region, household size, age, employment
+  status and interview mode (`hholdmodedv`), PSU-clustered SEs → `missingness_model.csv`
+  (`term, or, ci_low, ci_high, p`). **[proposed]** Categorical covariates enter as dummies with an
+  explicit "missing" level, so no eligible household-wave is dropped; continuous covariates
+  (household size, age) are median-imputed with a missing indicator.
+- 5b. IPW: w = survey weight × 1/p_observed (p from the 5a model), stabilised by the marginal
+  observed rate, truncated at the 1st and 99th percentiles. Primary vs IPW:
+  weighted prevalence by wave, region (pooled) and region in the Apr 2021–Mar 2023 window →
+  `ipw_prevalence.csv`; Stage 3 primary driver model → `ipw_driver.csv` (`finnow`,
+  `fes_delta_growth3`, `jbstat_security`, `bill_security`, `lone_parent`, `large_family`); NI and
+  oil AMEs from model (b) → `ipw_ame.csv`; IPW-weighted validation AUC for `P0, P1, P3,
+  A_naive_full, A_full` → `ipw_prediction.csv`. **[proposed]** The driver, AME and prediction
+  analyses are unweighted in their primary versions, so their IPW versions use the stabilised,
+  truncated 1/p_observed alone (no survey weight), to isolate the missing-data correction; the
+  prevalence estimates use survey × 1/p_observed. Validation AUC weights are those of the t+1
+  household-wave. Weighted logits are GLM-binomial with PSU-clustered sandwich SEs. Prevalence
+  is also reported by interview year (needed for the 2023 rule).
+- 5c. MI by chained equations, M = 20, seed 20261022: missing fuel amounts imputed on the log
+  scale separately per fuel component where the routing makes it applicable. Predictors: log
+  income, household size, tenure, region, fuel types used, prepayment, number of rooms, central
+  heating, interview year and month, `finnow`, and the same household's (log) fuel spending at the
+  previous and next waves where available. Recompute the ratio and V (A1 guards) in each dataset;
+  Rubin's rules for prevalence by wave, region and interview year (`mi_prevalence.csv`) and the
+  driver-model ORs for the 5b terms (`mi_driver.csv`); report the share of the outcome imputed
+  and the fraction of missing information (FMI) per pooled estimate (`mi_diagnostics.csv`).
+  **[proposed]** Each component is a Bayesian normal linear model on log(amount) (parameters drawn
+  from their posterior per imputation), cycled 10 times across components, each conditioning on
+  the current values of the other components (0 plus an applicability indicator where not
+  applicable); imputations are clipped to the observed component range. Adjacent-wave spending
+  enters as observed values with missing indicators (not itself re-imputed across rows).
+  Within-imputation variance of a pooled prevalence is a PSU-clustered linearisation of the
+  mean of per-wave weighted rates.
+- **Decision rule.** Conclusions are robust to missing data if: (i) the regional ranking
+  (Northern Ireland first) and the rise in 2023 hold under both IPW and MI; (ii) the driver ORs
+  stay on the same side of 1 with overlapping CIs; (iii) under IPW the ordering of AUCs in the
+  nested sequence is unchanged. **[proposed]** "Regional ranking" = NI has the highest pooled
+  regional prevalence and the highest in the Apr 2021–Mar 2023 window; "rise in 2023" =
+  weighted prevalence for interview year 2023 exceeds 2022; nested sequence = the AUC ordering of
+  `P0, P1, P3, A_naive_full, A_full` on the `all` subset; ORs compared with the primary model CIs.
+
+**6. Frozen-information sensitivity for the national index (P2).**
+- `P2_frozen`: replace `fes_magnitude_growth3` at the t+1 interview month with the mean of the
+  growth-only index over the months that the latest December vintage published before the
+  wave-t interview month T covers from T onward (T to December of that vintage's target year).
+  Lead time recorded.
+- `P2_fixed12`: the latest vintage before T and its forecast for the furthest month it covers,
+  so every household gets the signal from the same vintage-relative position.
+- Fitted on the Stage 6 common sample with training-only standardisation → `p2_frozen.csv`
+  (`model, auc, auc_ci_low, auc_ci_high, delta_vs_P1, delta_ci_low, delta_ci_high, n`) for
+  `P1, P2 (as published), P2_frozen, P2_fixed12`. **[proposed]** Vintages run from as_of 2009
+  (target 2010), so wave-t interviews in 2009 have no frozen signal; all four models are refitted
+  on the Stage 6 common sample restricted to transitions with both frozen signals (validation set
+  unaffected), and the loss is reported in `sample_flow.csv`. The lead time (months from the
+  vintage's December origin to the t+1 interview) is summarised in `p2_frozen_lead_time.csv`.
+
+**7. Equivalisation sensitivity for prediction.** `V_eq` = spending ≥ 10% of OECD-equivalised
+net income (income only, as `outputs_v2/stage7`). Refit `P0, P1, P3, A_naive_full, A_full` with
+`V_eq` at t+1 as the outcome (P0 uses the `V_eq` burden and flag at t) → `equiv_prediction.csv`
+(`outcome, subset, model, prevalence, auc, auc_ci_low, auc_ci_high`, plus contrasts
+`A_full − A_naive_full` and `A_full − P3` as `model` rows). **[proposed]** In the A models the
+projected burden and the flag at t are equivalised the same way (b̂ × `ieqmoecd_dv`, capped at
+1); `incident` = `V_eq` = 0 at t; sample = Stage 8 common sample with `V_eq` observed at t and
+t+1.
+
+**Reporting.** `outputs_v4/reports/review_results.md` (3–6 bullets per section, each decision
+rule met or not, anything not found or not run with the reason); every new number in
+`outputs_v4/results_inventory_v4.csv`. Branch `stage9-review-A10`, not merged into `main` before
+author review.
