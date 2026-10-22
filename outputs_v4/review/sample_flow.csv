@@ -1,0 +1,73 @@
+step,n
+linked transitions a->b,21886
+linked transitions b->c,24404
+linked transitions c->d,22961
+linked transitions d->e,22034
+linked transitions e->f,19771
+linked transitions f->g,20001
+linked transitions g->h,19288
+linked transitions h->i,17954
+linked transitions i->j,17083
+linked transitions j->k,16234
+linked transitions k->l,15021
+linked transitions l->m,14253
+linked transitions m->n,13725
+linked transitions n->o,17144
+  missing y,36602
+  missing fuel_to_income_ratio,35291
+  missing high_fuel_vulnerable,35291
+  missing finnow,1115
+  missing scghq1_dv,14901
+  missing finfut_risk,3997
+  missing dvage,730
+  missing heatch,773
+  missing workless_household,724
+  missing OBJECT,3237
+  missing CONDITION,306
+  missing PERSONAL,1402
+  missing ENERGY,<10
+  missing logb_forecast,36244
+  missing logb_naive,36244
+  missing logb_realised,36244
+  missing logb_forecast_support,36244
+common sample,190292
+  training,170420
+  validation,19872
+  validation incident (not vulnerable at t),18122
+  validation crisis (t interview Jan 2021-Jun 2022),10279
+"  A10: training transitions with ieqmoecd_dv missing, filled by household-size median",69
+"  A10: validation transitions with ieqmoecd_dv missing, filled by household-size median",15
+"  A10: INC_rule cut-off = training 20th percentile of equivalised monthly net income (GBP, 986)",170420
+"  A10 4c: validation transitions with arrears at t+1, all",19869
+"  A10 4c: validation transitions with arrears at t+1, new_hardship (H=0 at t)",18683
+"  A10 4c: validation transitions with heat_inadequate at t+1, all",9026
+"  A10 4c: validation transitions with heat_inadequate at t+1, new_hardship (H=0 at t)",0
+"  A10 4c: validation transitions with warm_afford at t+1, all",3397
+"  A10 4c: validation transitions with warm_afford at t+1, new_hardship (H=0 at t)",0
+"  A10 4c: validation transitions with damp_pensioner at t+1, all",0
+"  A10 4c: validation transitions with damp_pensioner at t+1, new_hardship (H=0 at t)",0
+  A10 6 check: P1 AUC on Stage 6 sample 0.7391 (published 0.7391),19960
+  A10 6 check: P2 AUC on Stage 6 sample 0.7385 (published 0.7385),19960
+A10 6: Stage 6 common sample (P0/P1/P2),190855
+  minus transitions with no vintage before T (wave-t interview in 2009),7676
+  A10 6 sample,183179
+    training,163219
+    validation,19960
+A10 7: Stage 8 common sample without V_eq at t or t+1,151
+  A10 7 sample: training,170298
+  A10 7 sample: validation,19843
+A10 5: household-waves eligible for the spend items (in scope or item nonresponse),325966
+  of which spend item nonresponse (missing),39064
+  A10 5b: validation transitions without an IPW weight at t+1,0
+  A10 5c: xpduely applicable,149989
+    xpduely missing (imputed),16684
+  A10 5c: xpgasy applicable,125950
+    xpgasy missing (imputed),15619
+  A10 5c: xpelecy applicable,175977
+    xpelecy missing (imputed),20723
+  A10 5c: xpoily applicable,27287
+    xpoily missing (imputed),1296
+  A10 5c: xpsfly applicable,29291
+    xpsfly missing (imputed),1257
+  A10 5c check: recomputed V equals primary V on observed rows (per million; rest = round-off at 10%: 999972),286902
+"  A10 5c: eligible household-waves with V imputed (missing spend, income guard met)",38288
